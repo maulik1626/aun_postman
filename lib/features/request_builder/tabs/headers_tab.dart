@@ -17,6 +17,7 @@ class HeadersTab extends ConsumerWidget {
     );
 
     return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 24),
       child: KeyValueEditor(
         key: ValueKey(loadedUid),
         rows: headers

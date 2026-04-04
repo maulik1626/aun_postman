@@ -17,6 +17,9 @@ class ParamsTab extends ConsumerWidget {
     );
 
     return SingleChildScrollView(
+      // Extra bottom padding so Add Row button always scrolls clear of the
+      // tab bar (padding.bottom) and keyboard (handled by the parent Padding).
+      padding: const EdgeInsets.only(bottom: 24),
       child: KeyValueEditor(
         key: ValueKey(loadedUid),
         rows: params

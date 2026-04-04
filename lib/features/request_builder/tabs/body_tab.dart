@@ -128,7 +128,7 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         // Type selector — scrollable pill chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           child: Row(
             children: BodyType.values.map((type) {
               final selected = currentType == type;
@@ -188,87 +188,116 @@ class _BodyTabState extends ConsumerState<BodyTab> {
       case BodyType.rawXml:
       case BodyType.rawText:
       case BodyType.rawHtml:
-        return Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Format toolbar — only for JSON
-              if (type == BodyType.rawJson)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      CupertinoButton(
+        return Column(
+          children: [
+            // Toolbar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                border: Border(
+                  bottom: BorderSide(
+                    color: CupertinoColors.separator.resolveFrom(context),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    type == BodyType.rawJson
+                        ? 'JSON'
+                        : type == BodyType.rawXml
+                            ? 'XML'
+                            : type == BodyType.rawHtml
+                                ? 'HTML'
+                                : 'TEXT',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.6,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
+                  const Spacer(),
+                  if (type == BodyType.rawJson)
+                    GestureDetector(
+                      onTap: () => _formatJson(context, type),
+                      child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
-                        minSize: 0,
-                        color: CupertinoColors.tertiarySystemFill
-                            .resolveFrom(context),
-                        borderRadius: BorderRadius.circular(8),
-                        onPressed: () => _formatJson(context, type),
+                        decoration: BoxDecoration(
+                          color: CupertinoTheme.of(context)
+                              .primaryColor
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(CupertinoIcons.textformat,
-                                size: 14,
+                                size: 13,
                                 color: CupertinoTheme.of(context).primaryColor),
                             const SizedBox(width: 4),
                             Text(
-                              'Format',
+                              'Pretty Print',
                               style: TextStyle(
                                 fontSize: 12,
+                                fontWeight: FontWeight.w500,
                                 color: CupertinoTheme.of(context).primaryColor,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: CupertinoTextField(
-                  controller: _rawController,
-                  maxLines: null,
-                  expands: true,
-                  textAlignVertical: TextAlignVertical.top,
-                  style: const TextStyle(
-                    fontFamily: 'JetBrainsMono',
-                    fontSize: 13,
-                  ),
-                  placeholder: type == BodyType.rawJson
-                      ? '{\n  "key": "value"\n}'
-                      : 'Enter body content',
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.tertiarySystemBackground
-                        .resolveFrom(context),
-                    border: Border.all(
-                      color: CupertinoColors.separator.resolveFrom(context),
-                      width: 0.5,
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  onChanged: (value) {
-                    final updated = switch (type) {
-                      BodyType.rawJson => RawJsonBody(content: value),
-                      BodyType.rawXml => RawXmlBody(content: value),
-                      BodyType.rawHtml => RawHtmlBody(content: value),
-                      _ => RawTextBody(content: value),
-                    };
-                    ref.read(requestBuilderProvider.notifier).setBody(updated);
-                  },
-                ),
+                ],
               ),
+            ),
+            // Editor — fills remaining space; keyboard handled by parent Padding
+            Expanded(
+              child: CupertinoTextField(
+                controller: _rawController,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                style: const TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+                placeholder: type == BodyType.rawJson
+                    ? '{\n  "key": "value"\n}'
+                    : 'Enter body content',
+                placeholderStyle: TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 13,
+                  color: CupertinoColors.placeholderText.resolveFrom(context),
+                ),
+                decoration: BoxDecoration(
+                  color: CupertinoColors.tertiarySystemBackground
+                      .resolveFrom(context),
+                ),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                onChanged: (value) {
+                  final updated = switch (type) {
+                    BodyType.rawJson => RawJsonBody(content: value),
+                    BodyType.rawXml => RawXmlBody(content: value),
+                    BodyType.rawHtml => RawHtmlBody(content: value),
+                    _ => RawTextBody(content: value),
+                  };
+                  ref.read(requestBuilderProvider.notifier).setBody(updated);
+                },
+              ),
+            ),
           ],
-          ),
         );
 
       case BodyType.formData:
         final fields =
             body is FormDataBody ? body.fields : const <FormDataField>[];
         return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
           child: KeyValueEditor(
             rows: fields
                 .map((f) =>
@@ -298,6 +327,7 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         final fields =
             body is UrlEncodedBody ? body.fields : const <KeyValuePair>[];
         return SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
           child: KeyValueEditor(
             rows: fields
                 .map((f) =>

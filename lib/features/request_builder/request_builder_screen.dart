@@ -378,21 +378,30 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen> {
             ),
           ),
 
-          // Tab content + response/error bars fill remaining viewport
+          // Tab content + response/error bars fill remaining viewport.
+          // Padding(bottom: viewInsets.bottom) shrinks the IndexedStack when
+          // the keyboard is visible, so inner SingleChildScrollViews can
+          // scroll content above the keyboard without the outer scroll view
+          // needing to move (it uses NeverScrollableScrollPhysics).
           SliverFillRemaining(
             hasScrollBody: false,
             child: Column(
               children: [
                 Expanded(
-                  child: IndexedStack(
-                    index: _selectedTab,
-                    children: const [
-                      ParamsTab(),
-                      HeadersTab(),
-                      BodyTab(),
-                      AuthTab(),
-                      TestsTab(),
-                    ],
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                    ),
+                    child: IndexedStack(
+                      index: _selectedTab,
+                      children: const [
+                        ParamsTab(),
+                        HeadersTab(),
+                        BodyTab(),
+                        AuthTab(),
+                        TestsTab(),
+                      ],
+                    ),
                   ),
                 ),
                 if (executionState.hasValue &&
