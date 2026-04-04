@@ -8,7 +8,12 @@ import 'package:aun_postman/app/widgets/app_gradient_button.dart';
 import 'package:aun_postman/features/request_builder/widgets/key_value_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:flutter_highlight/themes/atom-one-dark.dart';
+import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:highlight/languages/json.dart' as hl_json;
+import 'package:highlight/languages/xml.dart' as hl_xml;
 
 class BodyTab extends ConsumerStatefulWidget {
   const BodyTab({super.key});
@@ -18,15 +23,23 @@ class BodyTab extends ConsumerStatefulWidget {
 }
 
 class _BodyTabState extends ConsumerState<BodyTab> {
-  late TextEditingController _rawController;
+  late CodeController _codeController;
 
   @override
   void initState() {
     super.initState();
     final body = ref.read(requestBuilderProvider).body;
-    _rawController = TextEditingController(text: _rawContent(body));
+    _codeController = CodeController(
+      text: _rawContent(body),
+      language: _languageFor(_currentType(body)),
+    );
   }
 
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
 
   String _rawContent(RequestBody body) => switch (body) {
         RawJsonBody(:final content) => content,
@@ -47,51 +60,65 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         BinaryBody() => BodyType.binary,
       };
 
-  void _formatJson(BuildContext context, BodyType type) {
-    if (type != BodyType.rawJson) return;
+  // Returns the highlight mode for the given body type.
+  // JSON and XML/HTML use real parsers; Text uses null (no highlighting).
+  dynamic _languageFor(BodyType type) => switch (type) {
+        BodyType.rawJson => hl_json.json,
+        BodyType.rawXml => hl_xml.xml,
+        BodyType.rawHtml => hl_xml.xml, // HTML treated as XML for highlighting
+        _ => null,
+      };
+
+  void _formatJson(BuildContext context) {
     try {
-      final decoded = jsonDecode(_rawController.text);
-      final formatted =
-          const JsonEncoder.withIndent('  ').convert(decoded);
-      _rawController.text = formatted;
+      final decoded = jsonDecode(_codeController.text);
+      final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
+      _codeController.text = formatted;
       ref
           .read(requestBuilderProvider.notifier)
           .setBody(RawJsonBody(content: formatted));
     } catch (_) {
-      // Show inline error toast — invalid JSON
-      final overlay = Overlay.of(context);
-      late OverlayEntry entry;
-      entry = OverlayEntry(
-        builder: (_) => Positioned(
-          bottom: 60,
-          left: 24,
-          right: 24,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: CupertinoColors.destructiveRed,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Invalid JSON — cannot format',
-              style: TextStyle(color: CupertinoColors.white, fontSize: 13),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-      overlay.insert(entry);
-      Future.delayed(const Duration(seconds: 2), entry.remove);
+      _showToast(context, 'Invalid JSON — cannot format');
     }
   }
 
+  void _showToast(BuildContext context, String message) {
+    final overlay = Overlay.of(context);
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => Positioned(
+        bottom: 60,
+        left: 24,
+        right: 24,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: CupertinoColors.destructiveRed,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            message,
+            style: const TextStyle(color: CupertinoColors.white, fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 2), entry.remove);
+  }
+
   void _onTypeChanged(BodyType type) {
+    // Preserve current text when switching between raw types
+    final currentText = _codeController.text;
+    _codeController.language = _languageFor(type);
+
     RequestBody newBody = switch (type) {
       BodyType.none => const NoBody(),
-      BodyType.rawJson => RawJsonBody(content: _rawController.text),
-      BodyType.rawXml => RawXmlBody(content: _rawController.text),
-      BodyType.rawText => RawTextBody(content: _rawController.text),
-      BodyType.rawHtml => RawHtmlBody(content: _rawController.text),
+      BodyType.rawJson => RawJsonBody(content: currentText),
+      BodyType.rawXml => RawXmlBody(content: currentText),
+      BodyType.rawText => RawTextBody(content: currentText),
+      BodyType.rawHtml => RawHtmlBody(content: currentText),
       BodyType.formData => const FormDataBody(),
       BodyType.urlEncoded => const UrlEncodedBody(),
       BodyType.binary => const BinaryBody(filePath: ''),
@@ -100,27 +127,24 @@ class _BodyTabState extends ConsumerState<BodyTab> {
   }
 
   @override
-  void dispose() {
-    _rawController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // When a request is loaded from a collection, sync the raw text controller
-    // to the newly loaded body content (loadedRequestUid changes on load).
+    // Sync controller when a saved request is loaded from a collection.
     ref.listen(
       requestBuilderProvider.select((s) => s.loadedRequestUid),
       (_, __) {
-        final newContent = _rawContent(ref.read(requestBuilderProvider).body);
-        if (_rawController.text != newContent) {
-          _rawController.text = newContent;
+        final body = ref.read(requestBuilderProvider).body;
+        final newContent = _rawContent(body);
+        final newType = _currentType(body);
+        if (_codeController.text != newContent) {
+          _codeController.text = newContent;
         }
+        _codeController.language = _languageFor(newType);
       },
     );
 
     final body = ref.watch(requestBuilderProvider.select((s) => s.body));
     final currentType = _currentType(body);
+    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,13 +190,13 @@ class _BodyTabState extends ConsumerState<BodyTab> {
           height: 0.5,
           color: CupertinoColors.separator.resolveFrom(context),
         ),
-        Expanded(child: _buildEditor(context, body, currentType)),
+        Expanded(child: _buildEditor(context, body, currentType, isDark)),
       ],
     );
   }
 
   Widget _buildEditor(
-      BuildContext context, RequestBody body, BodyType type) {
+      BuildContext context, RequestBody body, BodyType type, bool isDark) {
     switch (type) {
       case BodyType.none:
         return Center(
@@ -188,16 +212,25 @@ class _BodyTabState extends ConsumerState<BodyTab> {
       case BodyType.rawXml:
       case BodyType.rawText:
       case BodyType.rawHtml:
+        final typeLabel = switch (type) {
+          BodyType.rawJson => 'JSON',
+          BodyType.rawXml => 'XML',
+          BodyType.rawHtml => 'HTML',
+          _ => 'TEXT',
+        };
         return Column(
           children: [
             // Toolbar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                color:
+                    CupertinoColors.tertiarySystemFill.resolveFrom(context),
                 border: Border(
                   bottom: BorderSide(
-                    color: CupertinoColors.separator.resolveFrom(context),
+                    color:
+                        CupertinoColors.separator.resolveFrom(context),
                     width: 0.5,
                   ),
                 ),
@@ -205,24 +238,19 @@ class _BodyTabState extends ConsumerState<BodyTab> {
               child: Row(
                 children: [
                   Text(
-                    type == BodyType.rawJson
-                        ? 'JSON'
-                        : type == BodyType.rawXml
-                            ? 'XML'
-                            : type == BodyType.rawHtml
-                                ? 'HTML'
-                                : 'TEXT',
+                    typeLabel,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.6,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                      color: CupertinoColors.secondaryLabel
+                          .resolveFrom(context),
                     ),
                   ),
                   const Spacer(),
                   if (type == BodyType.rawJson)
                     GestureDetector(
-                      onTap: () => _formatJson(context, type),
+                      onTap: () => _formatJson(context),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
@@ -237,14 +265,16 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                           children: [
                             Icon(CupertinoIcons.textformat,
                                 size: 13,
-                                color: CupertinoTheme.of(context).primaryColor),
+                                color:
+                                    CupertinoTheme.of(context).primaryColor),
                             const SizedBox(width: 4),
                             Text(
                               'Pretty Print',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: CupertinoTheme.of(context).primaryColor,
+                                color:
+                                    CupertinoTheme.of(context).primaryColor,
                               ),
                             ),
                           ],
@@ -254,40 +284,40 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                 ],
               ),
             ),
-            // Editor — fills remaining space; keyboard handled by parent Padding
+            // Syntax-highlighted code editor
             Expanded(
-              child: CupertinoTextField(
-                controller: _rawController,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: const TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 13,
-                  height: 1.5,
+              child: CodeTheme(
+                data: CodeThemeData(
+                  styles: isDark ? atomOneDarkTheme : atomOneLightTheme,
                 ),
-                placeholder: type == BodyType.rawJson
-                    ? '{\n  "key": "value"\n}'
-                    : 'Enter body content',
-                placeholderStyle: TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 13,
-                  color: CupertinoColors.placeholderText.resolveFrom(context),
+                child: SingleChildScrollView(
+                  child: CodeField(
+                    controller: _codeController,
+                    minLines: null,
+                    expands: false,
+                    wrap: false,
+                    background: isDark
+                        ? const Color(0xFF1E1E1E)
+                        : CupertinoColors.systemBackground
+                            .resolveFrom(context),
+                    textStyle: const TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                    onChanged: (value) {
+                      final updated = switch (type) {
+                        BodyType.rawJson => RawJsonBody(content: value),
+                        BodyType.rawXml => RawXmlBody(content: value),
+                        BodyType.rawHtml => RawHtmlBody(content: value),
+                        _ => RawTextBody(content: value),
+                      };
+                      ref
+                          .read(requestBuilderProvider.notifier)
+                          .setBody(updated);
+                    },
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: CupertinoColors.tertiarySystemBackground
-                      .resolveFrom(context),
-                ),
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                onChanged: (value) {
-                  final updated = switch (type) {
-                    BodyType.rawJson => RawJsonBody(content: value),
-                    BodyType.rawXml => RawXmlBody(content: value),
-                    BodyType.rawHtml => RawHtmlBody(content: value),
-                    _ => RawTextBody(content: value),
-                  };
-                  ref.read(requestBuilderProvider.notifier).setBody(updated);
-                },
               ),
             ),
           ],
@@ -362,8 +392,9 @@ class _BodyTabState extends ConsumerState<BodyTab> {
               Icon(
                 CupertinoIcons.doc,
                 size: 48,
-                color:
-                    CupertinoTheme.of(context).primaryColor.withOpacity(0.5),
+                color: CupertinoTheme.of(context)
+                    .primaryColor
+                    .withValues(alpha: 0.5),
               ),
               const SizedBox(height: 12),
               Text(
