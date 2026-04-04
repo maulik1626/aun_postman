@@ -1,16 +1,22 @@
+import 'dart:io';
+
+import 'package:aun_postman/app/widgets/app_gradient_button.dart';
 import 'package:aun_postman/core/utils/curl_parser.dart';
 import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
 import 'package:aun_postman/core/utils/postman_v2_importer.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/domain/models/environment.dart';
+import 'package:aun_postman/domain/models/environment_variable.dart';
+import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_postman/features/environments/providers/environments_provider.dart';
+import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:share_plus/share_plus.dart';
-import 'dart:io';
-
 import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:uuid/uuid.dart';
 
 class ImportExportScreen extends ConsumerStatefulWidget {
   const ImportExportScreen({super.key});
@@ -20,8 +26,10 @@ class ImportExportScreen extends ConsumerStatefulWidget {
 }
 
 class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
+  static const _uuid = Uuid();
   bool _isLoading = false;
   String? _statusMessage;
+  String? _lastImportedEnvUid; // uid of auto-created env, for navigation
 
   @override
   Widget build(BuildContext context) {
@@ -53,21 +61,58 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                         .withOpacity(0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        CupertinoIcons.checkmark_circle,
-                        color: CupertinoTheme.of(context).primaryColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _statusMessage!,
-                          style: TextStyle(
+                      Row(
+                        children: [
+                          Icon(
+                            CupertinoIcons.checkmark_circle,
                             color: CupertinoTheme.of(context).primaryColor,
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _statusMessage!,
+                              style: TextStyle(
+                                color: CupertinoTheme.of(context).primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
+                      if (_lastImportedEnvUid != null) ...[
+                        const SizedBox(height: 8),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 0,
+                          onPressed: () {
+                            Navigator.pop(context);
+                            context.push(
+                                '${AppRoutes.environments}/$_lastImportedEnvUid');
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                CupertinoIcons.arrow_right_circle,
+                                size: 16,
+                                color: CupertinoTheme.of(context).primaryColor,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'View & fill variables',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color:
+                                      CupertinoTheme.of(context).primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -78,8 +123,15 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
               _OptionCard(
                 icon: CupertinoIcons.doc_text,
                 title: 'Postman Collection v2.1',
-                subtitle: 'Import a Postman JSON collection file',
+                subtitle: 'Import requests + auto-create variable environment',
                 onTap: _importPostmanFile,
+              ),
+              const SizedBox(height: 8),
+              _OptionCard(
+                icon: CupertinoIcons.globe,
+                title: 'Postman Environment',
+                subtitle: 'Import a .postman_environment.json file',
+                onTap: _importPostmanEnvironment,
               ),
               const SizedBox(height: 8),
               _OptionCard(
@@ -149,17 +201,78 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
       final content = await File(result.files.single.path!).readAsString();
       final collection = PostmanV2Importer.import(content);
-      await ref
-          .read(collectionsProvider.notifier)
-          .importCollection(collection);
+      await ref.read(collectionsProvider.notifier).importCollection(collection);
 
-      setState(
-          () => _statusMessage = 'Imported "${collection.name}" successfully');
+      // Auto-create an environment from every {{variable}} found in the collection.
+      final varNames = PostmanV2Importer.extractVariableNames(content);
+      String? createdEnvUid;
+      if (varNames.isNotEmpty) {
+        final environment = _buildEnvironmentFromVarNames(
+          '${collection.name} Variables',
+          varNames,
+        );
+        createdEnvUid = environment.uid;
+        await ref
+            .read(environmentsProvider.notifier)
+            .importEnvironment(environment);
+      }
+
+      setState(() {
+        _lastImportedEnvUid = createdEnvUid;
+        _statusMessage = createdEnvUid != null
+            ? 'Imported "${collection.name}" · created environment with ${varNames.length} variables'
+            : 'Imported "${collection.name}" successfully';
+      });
     } catch (e) {
       _showError(e.toString());
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _importPostmanEnvironment() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.single.path == null) return;
+
+      final content = await File(result.files.single.path!).readAsString();
+      final env = PostmanV2Importer.importEnvironment(content);
+      await ref.read(environmentsProvider.notifier).importEnvironment(env);
+
+      setState(() {
+        _lastImportedEnvUid = env.uid;
+        _statusMessage =
+            'Imported environment "${env.name}" with ${env.variables.length} variables';
+      });
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  /// Creates an [Environment] with empty placeholder values for each variable name.
+  Environment _buildEnvironmentFromVarNames(String name, List<String> varNames) {
+    final now = DateTime.now();
+    return Environment(
+      uid: _uuid.v4(),
+      name: name,
+      variables: varNames
+          .map((k) => EnvironmentVariable(
+                uid: _uuid.v4(),
+                key: k,
+                value: '',
+              ))
+          .toList(),
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 
   Future<void> _importCurl() async {

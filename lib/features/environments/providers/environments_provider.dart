@@ -32,6 +32,7 @@ class Environments extends _$Environments {
           env.copyWith(updatedAt: DateTime.now()),
         );
     ref.invalidateSelf();
+    ref.invalidate(activeEnvironmentProvider);
   }
 
   Future<void> delete(String uid) async {
@@ -50,5 +51,11 @@ class Environments extends _$Environments {
     await ref.read(environmentRepositoryProvider).setActive(uid);
     ref.invalidateSelf();
     ref.invalidate(activeEnvironmentProvider);
+  }
+
+  /// Saves a fully-constructed [Environment] directly (used by import flows).
+  Future<void> importEnvironment(Environment env) async {
+    await ref.read(environmentRepositoryProvider).save(env);
+    ref.invalidateSelf();
   }
 }

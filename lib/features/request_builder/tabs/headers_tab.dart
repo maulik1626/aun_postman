@@ -12,9 +12,13 @@ class HeadersTab extends ConsumerWidget {
     final headers = ref.watch(
       requestBuilderProvider.select((s) => s.headers),
     );
+    final loadedUid = ref.watch(
+      requestBuilderProvider.select((s) => s.loadedRequestUid),
+    );
 
     return SingleChildScrollView(
       child: KeyValueEditor(
+        key: ValueKey(loadedUid),
         rows: headers
             .map((h) => (key: h.key, value: h.value, isEnabled: h.isEnabled))
             .toList(),

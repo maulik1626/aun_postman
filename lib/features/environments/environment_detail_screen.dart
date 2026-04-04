@@ -14,10 +14,16 @@ class EnvironmentDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final envs = ref.watch(environmentsProvider);
-    final env = envs.firstWhere(
-      (e) => e.uid == uid,
-      orElse: () => throw StateError('Environment not found'),
-    );
+    final env = envs.where((e) => e.uid == uid).firstOrNull;
+
+    if (env == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).maybePop();
+      });
+      return const CupertinoPageScaffold(
+        child: Center(child: CupertinoActivityIndicator()),
+      );
+    }
 
     return CupertinoPageScaffold(
       child: CustomScrollView(
@@ -246,174 +252,179 @@ class EnvironmentDetailScreen extends ConsumerWidget {
     final result = await showCupertinoModalPopup<(String, String, bool)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => Padding(
-          padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom),
-          child: Container(
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: EdgeInsets.only(
-            top: 20,
-            bottom: MediaQuery.of(ctx).padding.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Handle
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.separator.resolveFrom(ctx),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  initialKey.isEmpty ? 'New Variable' : 'Edit Variable',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              // Fields
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    CupertinoTextField(
-                      controller: keyController,
-                      placeholder: 'Key',
-                      style: const TextStyle(
-                          fontFamily: 'JetBrainsMono', fontSize: 14),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 13),
+        builder: (ctx, setState) {
+          final keyboardHeight = MediaQuery.of(ctx).viewInsets.bottom;
+          final safeBottom = MediaQuery.of(ctx).padding.bottom;
+          return Container(
+            decoration: BoxDecoration(
+              color:
+                  CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.only(
+              top: 20,
+              bottom: keyboardHeight > 0
+                  ? keyboardHeight + 16
+                  : safeBottom + 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
                       decoration: BoxDecoration(
-                        color: CupertinoColors.tertiarySystemBackground
-                            .resolveFrom(ctx),
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12)),
+                        color: CupertinoColors.separator.resolveFrom(ctx),
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      autofocus: true,
                     ),
-                    Container(
-                      height: 0.5,
-                      color: CupertinoColors.separator.resolveFrom(ctx),
-                    ),
-                    CupertinoTextField(
-                      controller: valueController,
-                      placeholder: 'Value',
-                      style: const TextStyle(
-                          fontFamily: 'JetBrainsMono', fontSize: 14),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 13),
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.tertiarySystemBackground
-                            .resolveFrom(ctx),
-                        borderRadius: const BorderRadius.vertical(
-                            bottom: Radius.circular(12)),
-                      ),
-                      obscureText: isSecret,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Secret toggle
-              GestureDetector(
-                onTap: () => setState(() => isSecret = !isSecret),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.secondarySystemGroupedBackground
-                        .resolveFrom(ctx),
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSecret
-                            ? CupertinoIcons.eye_slash
-                            : CupertinoIcons.eye,
-                        size: 20,
-                        color: CupertinoTheme.of(ctx).primaryColor,
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      initialKey.isEmpty ? 'New Variable' : 'Edit Variable',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Secret value',
-                          style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Fields
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        CupertinoTextField(
+                          controller: keyController,
+                          placeholder: 'Key',
+                          style: const TextStyle(
+                              fontFamily: 'JetBrainsMono', fontSize: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.tertiarySystemBackground
+                                .resolveFrom(ctx),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(12)),
+                          ),
+                          autofocus: true,
                         ),
-                      ),
-                      CupertinoSwitch(
-                        value: isSecret,
-                        activeTrackColor:
-                            CupertinoTheme.of(ctx).primaryColor,
-                        onChanged: (v) =>
-                            setState(() => isSecret = v),
-                      ),
-                    ],
+                        Container(
+                          height: 0.5,
+                          color: CupertinoColors.separator.resolveFrom(ctx),
+                        ),
+                        CupertinoTextField(
+                          controller: valueController,
+                          placeholder: 'Value',
+                          style: const TextStyle(
+                              fontFamily: 'JetBrainsMono', fontSize: 14),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 13),
+                          decoration: BoxDecoration(
+                            color: CupertinoColors.tertiarySystemBackground
+                                .resolveFrom(ctx),
+                            borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(12)),
+                          ),
+                          obscureText: isSecret,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Buttons
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CupertinoButton(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        color: CupertinoColors.tertiarySystemFill
-                            .resolveFrom(ctx),
+                  const SizedBox(height: 12),
+                  // Secret toggle
+                  GestureDetector(
+                    onTap: () => setState(() => isSecret = !isSecret),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color:
+                            CupertinoColors.secondarySystemGroupedBackground
+                                .resolveFrom(ctx),
                         borderRadius: BorderRadius.circular(12),
-                        onPressed: () => Navigator.pop(ctx),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: CupertinoColors.label.resolveFrom(ctx),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSecret
+                                ? CupertinoIcons.eye_slash
+                                : CupertinoIcons.eye,
+                            size: 20,
+                            color: CupertinoTheme.of(ctx).primaryColor,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Secret value',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                          CupertinoSwitch(
+                            value: isSecret,
+                            activeTrackColor:
+                                CupertinoTheme.of(ctx).primaryColor,
+                            onChanged: (v) =>
+                                setState(() => isSecret = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Buttons
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppGradientButton(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            borderRadius: BorderRadius.circular(12),
+                            onPressed: () => Navigator.pop(
+                              ctx,
+                              (
+                                keyController.text.trim(),
+                                valueController.text,
+                                isSecret,
+                              ),
+                            ),
+                            child: const Text('Save'),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppGradientButton(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        borderRadius: BorderRadius.circular(12),
-                        onPressed: () => Navigator.pop(
-                          ctx,
-                          (
-                            keyController.text.trim(),
-                            valueController.text,
-                            isSecret,
+                        CupertinoButton(
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          onPressed: () => Navigator.pop(ctx),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: CupertinoColors.secondaryLabel
+                                  .resolveFrom(ctx),
+                            ),
                           ),
                         ),
-                        child: const Text('Save'),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        ),
+            ),
+          );
+        },
       ),
     );
 

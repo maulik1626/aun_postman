@@ -12,9 +12,13 @@ class ParamsTab extends ConsumerWidget {
     final params = ref.watch(
       requestBuilderProvider.select((s) => s.params),
     );
+    final loadedUid = ref.watch(
+      requestBuilderProvider.select((s) => s.loadedRequestUid),
+    );
 
     return SingleChildScrollView(
       child: KeyValueEditor(
+        key: ValueKey(loadedUid),
         rows: params
             .map((p) => (key: p.key, value: p.value, isEnabled: p.isEnabled))
             .toList(),

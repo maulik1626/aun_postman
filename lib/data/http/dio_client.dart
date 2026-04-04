@@ -109,6 +109,26 @@ class DioClient {
     RequestBody body,
     Map<String, String> headers,
   ) async {
+    // Auto-inject Content-Type when the user hasn't set one
+    final hasContentType =
+        headers.keys.any((k) => k.toLowerCase() == 'content-type');
+    if (!hasContentType) {
+      switch (body) {
+        case RawJsonBody():
+          headers['Content-Type'] = 'application/json; charset=utf-8';
+        case RawXmlBody():
+          headers['Content-Type'] = 'application/xml; charset=utf-8';
+        case RawHtmlBody():
+          headers['Content-Type'] = 'text/html; charset=utf-8';
+        case RawTextBody():
+          headers['Content-Type'] = 'text/plain; charset=utf-8';
+        case UrlEncodedBody():
+          headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        default:
+          break;
+      }
+    }
+
     return switch (body) {
       NoBody() => null,
       RawJsonBody(:final content) => content,

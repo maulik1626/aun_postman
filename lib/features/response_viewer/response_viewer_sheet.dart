@@ -211,17 +211,22 @@ class _PrettyTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (prettyBody, language) = _prettify(body);
-    return SingleChildScrollView(
-      controller: scrollController,
-      padding: const EdgeInsets.all(12),
-      child: HighlightView(
-        prettyBody,
-        language: language,
-        theme: isDark ? atomOneDarkTheme : atomOneLightTheme,
-        textStyle: const TextStyle(
-          fontFamily: 'JetBrainsMono',
-          fontSize: 12,
-          height: 1.5,
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        controller: scrollController,
+        padding: const EdgeInsets.all(12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: HighlightView(
+            prettyBody,
+            language: language,
+            theme: isDark ? atomOneDarkTheme : atomOneLightTheme,
+            textStyle: const TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
         ),
       ),
     );

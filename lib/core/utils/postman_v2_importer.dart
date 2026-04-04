@@ -5,6 +5,8 @@ import 'package:aun_postman/domain/enums/auth_type.dart';
 import 'package:aun_postman/domain/enums/http_method.dart';
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/collection.dart';
+import 'package:aun_postman/domain/models/environment.dart';
+import 'package:aun_postman/domain/models/environment_variable.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
@@ -258,6 +260,58 @@ class PostmanV2Importer {
         );
       default:
         return const NoAuth();
+    }
+  }
+
+  /// Scans a raw Postman collection JSON string and returns every unique
+  /// `{{variable}}` name referenced anywhere (URLs, headers, bodies, auth).
+  /// Dynamic built-in vars that start with `$` are excluded.
+  static List<String> extractVariableNames(String jsonString) {
+    final pattern = RegExp(r'\{\{([^}]+)\}\}');
+    return pattern
+        .allMatches(jsonString)
+        .map((m) => m.group(1)!.trim())
+        .where((v) => v.isNotEmpty && !v.startsWith(r'$'))
+        .toSet()
+        .toList()
+      ..sort();
+  }
+
+  /// Parses a Postman environment export JSON string into an [Environment].
+  /// Supports both v2.0 (`values` array) and v2.1 formats.
+  static Environment importEnvironment(String jsonString) {
+    try {
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+      final name = (json['name'] as String?)?.trim().isNotEmpty == true
+          ? json['name'] as String
+          : 'Imported Environment';
+      final values = json['values'] as List<dynamic>? ?? [];
+      final now = DateTime.now();
+
+      final variables = values
+          .cast<Map<String, dynamic>>()
+          .where((v) => ((v['key'] as String?) ?? '').isNotEmpty)
+          .map((v) {
+            final isSecret = (v['type'] as String?) == 'secret';
+            return EnvironmentVariable(
+              uid: _uuid.v4(),
+              key: (v['key'] as String).trim(),
+              value: (v['value'] as String?) ?? '',
+              isEnabled: v['enabled'] as bool? ?? true,
+              isSecret: isSecret,
+            );
+          })
+          .toList();
+
+      return Environment(
+        uid: _uuid.v4(),
+        name: name,
+        variables: variables,
+        createdAt: now,
+        updatedAt: now,
+      );
+    } catch (e) {
+      throw ImportException('Invalid Postman environment: $e');
     }
   }
 }

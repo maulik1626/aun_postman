@@ -229,37 +229,38 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                 ),
               Expanded(
                 child: CupertinoTextField(
-            controller: _rawController,
-            maxLines: null,
-            expands: true,
-            style: const TextStyle(
-              fontFamily: 'JetBrainsMono',
-              fontSize: 13,
-            ),
-            placeholder: type == BodyType.rawJson
-                ? '{\n  "key": "value"\n}'
-                : 'Enter body content',
-            decoration: BoxDecoration(
-              color: CupertinoColors.tertiarySystemBackground
-                  .resolveFrom(context),
-              border: Border.all(
-                color: CupertinoColors.separator.resolveFrom(context),
-                width: 0.5,
+                  controller: _rawController,
+                  maxLines: null,
+                  expands: true,
+                  textAlignVertical: TextAlignVertical.top,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 13,
+                  ),
+                  placeholder: type == BodyType.rawJson
+                      ? '{\n  "key": "value"\n}'
+                      : 'Enter body content',
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.tertiarySystemBackground
+                        .resolveFrom(context),
+                    border: Border.all(
+                      color: CupertinoColors.separator.resolveFrom(context),
+                      width: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  onChanged: (value) {
+                    final updated = switch (type) {
+                      BodyType.rawJson => RawJsonBody(content: value),
+                      BodyType.rawXml => RawXmlBody(content: value),
+                      BodyType.rawHtml => RawHtmlBody(content: value),
+                      _ => RawTextBody(content: value),
+                    };
+                    ref.read(requestBuilderProvider.notifier).setBody(updated);
+                  },
+                ),
               ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            padding: const EdgeInsets.all(10),
-            onChanged: (value) {
-              final updated = switch (type) {
-                BodyType.rawJson => RawJsonBody(content: value),
-                BodyType.rawXml => RawXmlBody(content: value),
-                BodyType.rawHtml => RawHtmlBody(content: value),
-                _ => RawTextBody(content: value),
-              };
-              ref.read(requestBuilderProvider.notifier).setBody(updated);
-            },
-          ),
-        ),
           ],
           ),
         );
