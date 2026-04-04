@@ -1,0 +1,444 @@
+import 'package:aun_postman/app/theme/app_theme_provider.dart';
+import 'package:aun_postman/domain/enums/theme_preference.dart';
+import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_postman/features/environments/providers/environments_provider.dart';
+import 'package:aun_postman/features/history/providers/history_provider.dart';
+import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show showLicensePage;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final brightness = ref.watch(appThemeNotifierProvider);
+    final settings = ref.watch(appSettingsProvider);
+
+    return CupertinoPageScaffold(
+      child: CustomScrollView(
+        slivers: [
+          const CupertinoSliverNavigationBar(
+            largeTitle: Text('Settings'),
+          ),
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SectionHeader(title: 'Appearance'),
+                _SettingsGroup(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showThemePicker(context, ref, brightness),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.paintbrush,
+                              color: CupertinoTheme.of(context).primaryColor,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Theme',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Text(
+                              _currentPreference(brightness).label,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                _SectionHeader(title: 'Requests'),
+                _SettingsGroup(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _showTimeoutPicker(context, ref, settings.timeoutSeconds),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(CupertinoIcons.timer,
+                                color: CupertinoColors.systemOrange
+                                    .resolveFrom(context),
+                                size: 22),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                                child: Text('Timeout',
+                                    style: TextStyle(fontSize: 16))),
+                            Text(
+                              '${settings.timeoutSeconds}s',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(CupertinoIcons.chevron_right,
+                                size: 14,
+                                color: CupertinoColors.tertiaryLabel
+                                    .resolveFrom(context)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        children: [
+                          Icon(CupertinoIcons.arrow_right_arrow_left,
+                              color: CupertinoColors.systemBlue
+                                  .resolveFrom(context),
+                              size: 22),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                              child: Text('Follow Redirects',
+                                  style: TextStyle(fontSize: 16))),
+                          CupertinoSwitch(
+                            value: settings.followRedirects,
+                            onChanged: (v) => ref
+                                .read(appSettingsProvider.notifier)
+                                .setFollowRedirects(v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                _SectionHeader(title: 'Danger Zone'),
+                _SettingsGroup(
+                  children: [
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 13),
+                      onPressed: () => _confirmClearAll(context, ref),
+                      child: Row(
+                        children: [
+                          const Icon(CupertinoIcons.trash,
+                              color: CupertinoColors.destructiveRed, size: 22),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Clear All Data',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: CupertinoColors.destructiveRed,
+                              ),
+                            ),
+                          ),
+                          Icon(CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                _SectionHeader(title: 'About'),
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    final info = snapshot.data;
+                    return _SettingsGroup(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 13),
+                          child: Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.info_circle,
+                                color: CupertinoColors.systemBlue
+                                    .resolveFrom(context),
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Version',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              Text(
+                                info != null
+                                    ? '${info.version} (${info.buildNumber})'
+                                    : '—',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: CupertinoColors.secondaryLabel
+                                      .resolveFrom(context),
+                                  fontFamily: 'JetBrainsMono',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          height: 0.5,
+                          margin: const EdgeInsets.only(left: 50),
+                          color:
+                              CupertinoColors.separator.resolveFrom(context),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 13),
+                          child: Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.app_badge,
+                                color: CupertinoColors.systemIndigo
+                                    .resolveFrom(context),
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'App Name',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                              Text(
+                                info?.appName ?? 'Postman',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  color: CupertinoColors.secondaryLabel
+                                      .resolveFrom(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                _SectionHeader(title: 'Legal'),
+                _SettingsGroup(
+                  children: [
+                    GestureDetector(
+                      onTap: () => showLicensePage(context: context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.shield,
+                              color: CupertinoColors.systemGreen
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Open Source Licenses',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTimeoutPicker(
+      BuildContext context, WidgetRef ref, int current) {
+    const options = [10, 30, 60, 120, 300];
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Request Timeout'),
+        actions: options.map((s) {
+          return CupertinoActionSheetAction(
+            onPressed: () {
+              ref
+                  .read(appSettingsProvider.notifier)
+                  .setTimeoutSeconds(s);
+              Navigator.pop(ctx);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('${s}s'),
+                if (s == current) ...[
+                  const SizedBox(width: 8),
+                  Icon(CupertinoIcons.checkmark,
+                      size: 16,
+                      color: CupertinoTheme.of(ctx).primaryColor),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmClearAll(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Clear All Data'),
+        content: const Text(
+            'This will permanently delete all collections, environments, and history. This cannot be undone.'),
+        actions: [
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Everything'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(collectionsProvider.notifier).clearAll();
+    await ref.read(environmentsProvider.notifier).clearAll();
+    await ref.read(historyProvider.notifier).clearAll();
+  }
+
+  ThemePreference _currentPreference(Brightness? brightness) {
+    if (brightness == null) return ThemePreference.system;
+    if (brightness == Brightness.light) return ThemePreference.light;
+    return ThemePreference.dark;
+  }
+
+  void _showThemePicker(
+    BuildContext context,
+    WidgetRef ref,
+    Brightness? current,
+  ) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: const Text('Appearance'),
+        message: const Text('Choose how the app looks'),
+        actions: ThemePreference.values.map((pref) {
+          final isCurrent = _currentPreference(current) == pref;
+          return CupertinoActionSheetAction(
+            onPressed: () {
+              ref.read(appThemeNotifierProvider.notifier).setTheme(pref);
+              Navigator.pop(ctx);
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  pref.label,
+                  style: TextStyle(
+                    fontWeight:
+                        isCurrent ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+                if (isCurrent) ...[
+                  const SizedBox(width: 8),
+                  Icon(
+                    CupertinoIcons.checkmark,
+                    size: 16,
+                    color: CupertinoTheme.of(ctx).primaryColor,
+                  ),
+                ],
+              ],
+            ),
+          );
+        }).toList(),
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 6),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsGroup extends StatelessWidget {
+  const _SettingsGroup({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: CupertinoColors.secondarySystemGroupedBackground
+            .resolveFrom(context),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+}
