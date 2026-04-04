@@ -67,7 +67,7 @@ class EnvironmentsScreen extends ConsumerWidget {
                 ),
               ),
             )
-          else
+          else ...[
             SliverList.separated(
               itemCount: envs.length,
               separatorBuilder: (_, __) => Container(
@@ -148,6 +148,10 @@ class EnvironmentsScreen extends ConsumerWidget {
                 );
               },
             ),
+            SliverToBoxAdapter(
+              child: SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+            ),
+          ],
         ],
       ),
     );

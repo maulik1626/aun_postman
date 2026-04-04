@@ -264,7 +264,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             ],
 
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + 8)),
         ],
       ),
     );

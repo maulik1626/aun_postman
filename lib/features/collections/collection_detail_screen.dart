@@ -230,7 +230,7 @@ class _CollectionDetailScreenState
               ),
             ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + 8)),
         ],
       ),
     );

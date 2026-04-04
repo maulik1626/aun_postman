@@ -183,6 +183,10 @@ class CollectionsScreen extends ConsumerWidget {
                 );
               },
             ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+                height: MediaQuery.of(context).padding.bottom),
+          ),
         ],
       ),
     );
