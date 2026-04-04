@@ -197,18 +197,22 @@ class EnvironmentDetailScreen extends ConsumerWidget {
     dynamic env,
   ) async {
     final result = await _showVariableDialog(context);
-    if (result != null) {
-      final newVar = EnvironmentVariable(
-        uid: _uuid.v4(),
-        key: result.$1,
-        value: result.$2,
-        isSecret: result.$3,
-      );
-      final updated = env.copyWith(
-        variables: [...env.variables, newVar],
-      );
-      ref.read(environmentsProvider.notifier).update(updated);
-    }
+    if (result == null) return;
+    // Re-read fresh env after async gap — dialog may have taken time
+    final freshEnv = ref.read(environmentsProvider)
+        .where((e) => e.uid == uid)
+        .firstOrNull;
+    if (freshEnv == null) return;
+    final newVar = EnvironmentVariable(
+      uid: _uuid.v4(),
+      key: result.$1,
+      value: result.$2,
+      isSecret: result.$3,
+    );
+    final updated = freshEnv.copyWith(
+      variables: [...freshEnv.variables, newVar],
+    );
+    ref.read(environmentsProvider.notifier).update(updated);
   }
 
   Future<void> _editVariable(
@@ -223,21 +227,25 @@ class EnvironmentDetailScreen extends ConsumerWidget {
       initialValue: variable.value,
       initialSecret: variable.isSecret,
     );
-    if (result != null) {
-      final updated = env.copyWith(
-        variables: env.variables.map((v) {
-          if (v.uid == variable.uid) {
-            return v.copyWith(
-              key: result.$1,
-              value: result.$2,
-              isSecret: result.$3,
-            );
-          }
-          return v;
-        }).toList(),
-      );
-      ref.read(environmentsProvider.notifier).update(updated);
-    }
+    if (result == null) return;
+    // Re-read fresh env after async gap
+    final freshEnv = ref.read(environmentsProvider)
+        .where((e) => e.uid == uid)
+        .firstOrNull;
+    if (freshEnv == null) return;
+    final updated = freshEnv.copyWith(
+      variables: freshEnv.variables.map((v) {
+        if (v.uid == variable.uid) {
+          return v.copyWith(
+            key: result.$1,
+            value: result.$2,
+            isSecret: result.$3,
+          );
+        }
+        return v;
+      }).toList(),
+    );
+    ref.read(environmentsProvider.notifier).update(updated);
   }
 
   Future<(String, String, bool)?> _showVariableDialog(
@@ -253,22 +261,22 @@ class EnvironmentDetailScreen extends ConsumerWidget {
     final result = await showCupertinoModalPopup<(String, String, bool)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => Padding(
-          // Outer padding lifts the sheet above the keyboard reliably
+        builder: (ctx, setState) => Container(
+          // Merging keyboard inset into the Container's own padding keeps
+          // the entire sheet opaque — a transparent Padding would let taps
+          // fall through to the barrier and silently dismiss the modal.
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
           padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom),
-          child: Container(
-            decoration: BoxDecoration(
-              color:
-                  CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            padding: EdgeInsets.only(
-              top: 20,
-              bottom: MediaQuery.of(ctx).padding.bottom + 16,
-            ),
-            child: SingleChildScrollView(
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom +
+                MediaQuery.of(ctx).padding.bottom +
+                16,
+          ),
+          child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -436,9 +444,9 @@ class EnvironmentDetailScreen extends ConsumerWidget {
               ),
             ),
           ),
-        ),
       ),
     );
+
 
     keyController.dispose();
     valueController.dispose();

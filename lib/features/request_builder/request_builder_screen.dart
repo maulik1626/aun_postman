@@ -497,21 +497,15 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen> {
     if (response == null) return;
     showCupertinoModalPopup(
       context: context,
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 1.0,
-        expand: false,
-        builder: (ctx, scrollController) => Container(
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.of(ctx).size.height * 0.75,
+        child: Container(
           decoration: BoxDecoration(
             color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
             borderRadius:
                 const BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: ResponseViewerSheet(
-            response: response,
-            scrollController: scrollController,
-          ),
+          child: ResponseViewerSheet(response: response),
         ),
       ),
     );

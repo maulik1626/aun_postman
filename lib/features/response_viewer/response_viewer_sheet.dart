@@ -17,11 +17,9 @@ class ResponseViewerSheet extends StatefulWidget {
   const ResponseViewerSheet({
     super.key,
     required this.response,
-    required this.scrollController,
   });
 
   final HttpResponse response;
-  final ScrollController scrollController;
 
   @override
   State<ResponseViewerSheet> createState() => _ResponseViewerSheetState();
@@ -29,6 +27,19 @@ class ResponseViewerSheet extends StatefulWidget {
 
 class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   int _selectedTab = 0;
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _shareResponse(
       BuildContext context, HttpResponse response) async {
@@ -160,19 +171,19 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
               _PrettyTab(
                 body: response.body,
                 isDark: isDark,
-                scrollController: widget.scrollController,
+                scrollController: _scrollController,
               ),
               _RawTab(
                 body: response.body,
-                scrollController: widget.scrollController,
+                scrollController: _scrollController,
               ),
               _HeadersTab(
                 headers: response.headers,
-                scrollController: widget.scrollController,
+                scrollController: _scrollController,
               ),
               _CookiesTab(
                 cookies: response.cookies,
-                scrollController: widget.scrollController,
+                scrollController: _scrollController,
               ),
             ],
           ),
