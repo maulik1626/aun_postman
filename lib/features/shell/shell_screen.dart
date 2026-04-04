@@ -7,10 +7,23 @@ class ShellScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // CupertinoTabBar height is 50pt (kMinInteractiveDimensionCupertino + 6).
+    // Since we overlay it via Stack, child screens don't know about it.
+    // Extend MediaQuery.padding.bottom so every CustomScrollView inside
+    // automatically adds the correct bottom inset — same as CupertinoTabScaffold does.
+    const tabBarHeight = 50.0;
+    final mq = MediaQuery.of(context);
+    final adjustedMq = mq.copyWith(
+      padding: mq.padding.copyWith(bottom: mq.padding.bottom + tabBarHeight),
+    );
+
     return Stack(
       children: [
-        // Content fills the full screen — scrolls under the floating tab bar
-        Positioned.fill(child: shell),
+        // Content fills the full screen — padding.bottom now accounts for
+        // the floating tab bar so nothing is obscured.
+        Positioned.fill(
+          child: MediaQuery(data: adjustedMq, child: shell),
+        ),
         Positioned(
           left: 0,
           right: 0,
