@@ -1,5 +1,4 @@
 import 'package:aun_postman/app/theme/app_colors.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
 import 'package:aun_postman/domain/enums/http_method.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
@@ -106,271 +105,310 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen> {
         .toSet() ?? {});
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: GestureDetector(
-          onTap: _showRenameDialog,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                state.name,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+      child: CustomScrollView(
+        // Toolbar slivers must stay fixed — tab content scrolls internally.
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          CupertinoSliverNavigationBar(
+            largeTitle: GestureDetector(
+              onTap: _showRenameDialog,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(state.name),
+                  const SizedBox(width: 6),
+                  const Icon(
+                    CupertinoIcons.pencil,
+                    size: 16,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Icon(
-                CupertinoIcons.pencil,
-                size: 14,
-                color: CupertinoColors.secondaryLabel,
-              ),
-            ],
+            ),
+            trailing: state.isDirty && state.collectionUid != null
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minSize: 44,
+                    onPressed: () => ref
+                        .read(requestBuilderProvider.notifier)
+                        .saveToCollection(state.collectionUid!),
+                    child: Text(
+                      'Save',
+                      style: TextStyle(
+                        color: CupertinoTheme.of(context).primaryColor,
+                      ),
+                    ),
+                  )
+                : null,
           ),
-        ),
-        trailing: state.isDirty && state.collectionUid != null
-            ? CupertinoButton(
-                padding: EdgeInsets.zero,
-                minSize: 44,
-                onPressed: () => ref
-                    .read(requestBuilderProvider.notifier)
-                    .saveToCollection(state.collectionUid!),
-                child: Text(
-                  'Save',
-                  style: TextStyle(
-                    color: CupertinoTheme.of(context).primaryColor,
-                  ),
-                ),
-              )
-            : null,
-      ),
-      child: Column(
-        children: [
+
           // URL Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                _MethodSelector(
-                  method: state.method,
-                  onChanged: (m) =>
-                      ref.read(requestBuilderProvider.notifier).setMethod(m),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: CupertinoTextField(
-                    controller: _urlController,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 13,
-                    ),
-                    placeholder: 'https://api.example.com/endpoint',
-                    placeholderStyle: const TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 13,
-                    ),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.tertiarySystemBackground
-                          .resolveFrom(context),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    suffix: _urlController.text.isNotEmpty
-                        ? CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minSize: 24,
-                            onPressed: () {
-                              _urlController.clear();
-                              ref
-                                  .read(requestBuilderProvider.notifier)
-                                  .setUrl('');
-                            },
-                            child: const Icon(
-                                CupertinoIcons.clear_circled, size: 16),
-                          )
-                        : null,
-                    onChanged: (v) {
-                      ref.read(requestBuilderProvider.notifier).setUrl(v);
-                      setState(() {});
-                    },
-                    keyboardType: TextInputType.url,
-                    autocorrect: false,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Row(
+                children: [
+                  _MethodSelector(
+                    method: state.method,
+                    onChanged: (m) =>
+                        ref.read(requestBuilderProvider.notifier).setMethod(m),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CupertinoTextField(
+                      controller: _urlController,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 13,
+                      ),
+                      placeholder: 'https://api.example.com/endpoint',
+                      placeholderStyle: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 13,
+                      ),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.tertiarySystemBackground
+                            .resolveFrom(context),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      suffix: _urlController.text.isNotEmpty
+                          ? CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              minSize: 24,
+                              onPressed: () {
+                                _urlController.clear();
+                                ref
+                                    .read(requestBuilderProvider.notifier)
+                                    .setUrl('');
+                              },
+                              child: const Icon(
+                                  CupertinoIcons.clear_circled, size: 16),
+                            )
+                          : null,
+                      onChanged: (v) {
+                        ref.read(requestBuilderProvider.notifier).setUrl(v);
+                        setState(() {});
+                      },
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
           // Environment pill + undefined var warning
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              children: [
-                // Environment picker pill
-                GestureDetector(
-                  onTap: () => _showEnvPicker(context, ref, envs, activeEnv?.uid),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: activeEnv != null
-                          ? CupertinoTheme.of(context)
-                              .primaryColor
-                              .withValues(alpha: 0.1)
-                          : CupertinoColors.tertiarySystemFill
-                              .resolveFrom(context),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () =>
+                        _showEnvPicker(context, ref, envs, activeEnv?.uid),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
                         color: activeEnv != null
                             ? CupertinoTheme.of(context)
                                 .primaryColor
-                                .withValues(alpha: 0.3)
-                            : CupertinoColors.separator.resolveFrom(context),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          activeEnv != null
-                              ? CupertinoIcons.checkmark_circle_fill
-                              : CupertinoIcons.circle,
-                          size: 12,
+                                .withValues(alpha: 0.1)
+                            : CupertinoColors.tertiarySystemFill
+                                .resolveFrom(context),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
                           color: activeEnv != null
-                              ? CupertinoTheme.of(context).primaryColor
-                              : CupertinoColors.secondaryLabel
+                              ? CupertinoTheme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.3)
+                              : CupertinoColors.separator
                                   .resolveFrom(context),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          activeEnv?.name ?? 'No Environment',
-                          style: TextStyle(
-                            fontSize: 12,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            activeEnv != null
+                                ? CupertinoIcons.checkmark_circle_fill
+                                : CupertinoIcons.circle,
+                            size: 12,
                             color: activeEnv != null
                                 ? CupertinoTheme.of(context).primaryColor
                                 : CupertinoColors.secondaryLabel
                                     .resolveFrom(context),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(CupertinoIcons.chevron_down,
-                            size: 10,
-                            color: activeEnv != null
-                                ? CupertinoTheme.of(context).primaryColor
-                                : CupertinoColors.secondaryLabel
-                                    .resolveFrom(context)),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Undefined variable warning
-                if (undefinedVars.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: CupertinoColors.systemOrange
-                            .withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                              CupertinoIcons.exclamationmark_triangle,
-                              size: 12,
-                              color: CupertinoColors.systemOrange),
                           const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Undefined: ${undefinedVars.join(', ')}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: CupertinoColors.systemOrange,
-                              ),
+                          Text(
+                            activeEnv?.name ?? 'No Environment',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: activeEnv != null
+                                  ? CupertinoTheme.of(context).primaryColor
+                                  : CupertinoColors.secondaryLabel
+                                      .resolveFrom(context),
                             ),
                           ),
+                          const SizedBox(width: 4),
+                          Icon(CupertinoIcons.chevron_down,
+                              size: 10,
+                              color: activeEnv != null
+                                  ? CupertinoTheme.of(context).primaryColor
+                                  : CupertinoColors.secondaryLabel
+                                      .resolveFrom(context)),
                         ],
                       ),
                     ),
                   ),
+                  if (undefinedVars.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemOrange
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                                CupertinoIcons.exclamationmark_triangle,
+                                size: 12,
+                                color: CupertinoColors.systemOrange),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Undefined: ${undefinedVars.join(', ')}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: CupertinoColors.systemOrange,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
           // Send / Cancel button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: SizedBox(
-              width: double.infinity,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: isLoading
-                  ? CupertinoButton(
-                      onPressed: () => ref
+                  ? GestureDetector(
+                      onTap: () => ref
                           .read(requestExecutionProvider.notifier)
                           .cancel(),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(CupertinoIcons.stop_circle, size: 16),
-                          SizedBox(width: 6),
-                          Text('Cancel'),
-                        ],
+                      child: Container(
+                        width: double.infinity,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.tertiarySystemFill
+                              .resolveFrom(context),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.stop_circle, size: 16),
+                            SizedBox(width: 6),
+                            Text('Cancel'),
+                          ],
+                        ),
                       ),
                     )
-                  : AppGradientButton(
-                      onPressed: _sendRequest,
-                      child: const Text('Send'),
+                  : GestureDetector(
+                      onTap: _sendRequest,
+                      child: Container(
+                        width: double.infinity,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: AppColors.ctaGradient,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'Send',
+                          style: TextStyle(
+                            color: CupertinoColors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
             ),
           ),
 
           // Tab bar (segmented control)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: CupertinoSlidingSegmentedControl<int>(
-              groupValue: _selectedTab,
-              onValueChanged: (v) => setState(() => _selectedTab = v ?? 0),
-              children: {
-                0: const Text('Params'),
-                1: const Text('Headers'),
-                2: const Text('Body'),
-                3: const Text('Auth'),
-                4: Text(state.assertions.isEmpty
-                    ? 'Tests'
-                    : 'Tests (${state.assertions.length})'),
-              },
+          SliverToBoxAdapter(
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: CupertinoSlidingSegmentedControl<int>(
+                groupValue: _selectedTab,
+                onValueChanged: (v) =>
+                    setState(() => _selectedTab = v ?? 0),
+                children: {
+                  0: const Text('Params'),
+                  1: const Text('Headers'),
+                  2: const Text('Body'),
+                  3: const Text('Auth'),
+                  4: Text(state.assertions.isEmpty
+                      ? 'Tests'
+                      : 'Tests (${state.assertions.length})'),
+                },
+              ),
             ),
           ),
 
-          // Tab content
-          Expanded(
-            child: IndexedStack(
-              index: _selectedTab,
-              children: const [
-                ParamsTab(),
-                HeadersTab(),
-                BodyTab(),
-                AuthTab(),
-                TestsTab(),
+          // Tab content + response/error bars fill remaining viewport
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: IndexedStack(
+                    index: _selectedTab,
+                    children: const [
+                      ParamsTab(),
+                      HeadersTab(),
+                      BodyTab(),
+                      AuthTab(),
+                      TestsTab(),
+                    ],
+                  ),
+                ),
+                if (executionState.hasValue &&
+                    executionState.value != null)
+                  _ResponseSummaryBar(
+                    onTap: _showResponseSheet,
+                    statusCode: executionState.value!.statusCode,
+                    durationMs: executionState.value!.durationMs,
+                    sizeBytes: executionState.value!.sizeBytes,
+                  ),
+                if (executionState.hasError)
+                  _ErrorBar(
+                      message: executionState.error.toString()),
               ],
             ),
           ),
-
-          // Response panel trigger
-          if (executionState.hasValue && executionState.value != null)
-            _ResponseSummaryBar(
-              onTap: _showResponseSheet,
-              statusCode: executionState.value!.statusCode,
-              durationMs: executionState.value!.durationMs,
-              sizeBytes: executionState.value!.sizeBytes,
-            ),
-
-          if (executionState.hasError)
-            _ErrorBar(message: executionState.error.toString()),
         ],
       ),
     );
