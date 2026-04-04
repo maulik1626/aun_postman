@@ -78,30 +78,30 @@ class _CollectionDetailScreenState
     );
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(collection.name),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minSize: 44,
-              onPressed: () =>
-                  _showCreateFolderDialog(context, collection, parentUid: null),
-              child: const Icon(CupertinoIcons.folder_badge_plus, size: 22),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minSize: 44,
-              onPressed: () =>
-                  context.push('/collections/${widget.uid}/request/new'),
-              child: const Icon(CupertinoIcons.add),
-            ),
-          ],
-        ),
-      ),
       child: CustomScrollView(
         slivers: [
+          CupertinoSliverNavigationBar(
+            largeTitle: Text(collection.name),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minSize: 44,
+                  onPressed: () => _showCreateFolderDialog(context, collection,
+                      parentUid: null),
+                  child: const Icon(CupertinoIcons.folder_badge_plus, size: 22),
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minSize: 44,
+                  onPressed: () =>
+                      context.push('/collections/${widget.uid}/request/new'),
+                  child: const Icon(CupertinoIcons.add),
+                ),
+              ],
+            ),
+          ),
           // Root-level requests
           if (collection.requests.isNotEmpty) ...[
             SliverToBoxAdapter(child: _sectionHeader(context, 'REQUESTS')),

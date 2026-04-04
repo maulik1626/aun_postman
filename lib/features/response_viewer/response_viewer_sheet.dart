@@ -48,9 +48,18 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/response.$ext');
       await file.writeAsString(response.body);
+      // sharePositionOrigin is required on iOS for the share sheet anchor.
+      // Use the centre of the screen as the origin.
+      final size = MediaQuery.of(context).size;
+      final origin = Rect.fromCenter(
+        center: Offset(size.width / 2, size.height / 2),
+        width: 1,
+        height: 1,
+      );
       await Share.shareXFiles(
         [XFile(file.path, mimeType: ext == 'json' ? 'application/json' : 'text/plain')],
         subject: 'Response ${response.statusCode}',
+        sharePositionOrigin: origin,
       );
     } catch (e) {
       if (context.mounted) _showToast(context, 'Share failed: $e');
