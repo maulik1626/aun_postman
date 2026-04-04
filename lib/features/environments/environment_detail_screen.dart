@@ -1,3 +1,4 @@
+import 'package:aun_postman/app/theme/app_colors.dart';
 import 'package:aun_postman/domain/models/environment_variable.dart';
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
 import 'package:aun_postman/features/environments/providers/environments_provider.dart';
@@ -252,10 +253,11 @@ class EnvironmentDetailScreen extends ConsumerWidget {
     final result = await showCupertinoModalPopup<(String, String, bool)>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) {
-          final keyboardHeight = MediaQuery.of(ctx).viewInsets.bottom;
-          final safeBottom = MediaQuery.of(ctx).padding.bottom;
-          return Container(
+        builder: (ctx, setState) => Padding(
+          // Outer padding lifts the sheet above the keyboard reliably
+          padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
             decoration: BoxDecoration(
               color:
                   CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
@@ -264,9 +266,7 @@ class EnvironmentDetailScreen extends ConsumerWidget {
             ),
             padding: EdgeInsets.only(
               top: 20,
-              bottom: keyboardHeight > 0
-                  ? keyboardHeight + 16
-                  : safeBottom + 16,
+              bottom: MediaQuery.of(ctx).padding.bottom + 16,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -386,21 +386,33 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: AppGradientButton(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 14),
-                            borderRadius: BorderRadius.circular(12),
-                            onPressed: () => Navigator.pop(
-                              ctx,
-                              (
-                                keyController.text.trim(),
-                                valueController.text,
-                                isSecret,
+                        // Full-width Save — built without CupertinoButton to
+                        // avoid its internal Align shrink-wrapping the gradient.
+                        GestureDetector(
+                          onTap: () => Navigator.pop(
+                            ctx,
+                            (
+                              keyController.text.trim(),
+                              valueController.text,
+                              isSecret,
+                            ),
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: AppColors.ctaGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'Save',
+                              style: TextStyle(
+                                color: CupertinoColors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                            child: const Text('Save'),
                           ),
                         ),
                         CupertinoButton(
@@ -423,8 +435,8 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
 
