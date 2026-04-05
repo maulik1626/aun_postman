@@ -49,19 +49,116 @@ double _lineNumberGutterWidth(int lineCount) {
   return (digits * 8.5 + 12).clamp(30.0, 56.0);
 }
 
+/// Converts highlight [Node] tree to a flat list of [TextSpan]s using [theme].
+List<TextSpan> _buildHighlightSpans(
+  List<Node> nodes,
+  Map<String, TextStyle> theme,
+) {
+  final spans = <TextSpan>[];
+  var currentSpans = spans;
+  final stack = <List<TextSpan>>[];
+
+  void traverse(Node node) {
+    if (node.value != null) {
+      currentSpans.add(
+        node.className == null
+            ? TextSpan(text: node.value)
+            : TextSpan(
+                text: node.value,
+                style: theme[node.className!],
+              ),
+      );
+    } else if (node.children != null) {
+      final tmp = <TextSpan>[];
+      currentSpans.add(
+        TextSpan(
+          children: tmp,
+          style: theme[node.className!],
+        ),
+      );
+      stack.add(currentSpans);
+      currentSpans = tmp;
+
+      for (final n in node.children!) {
+        traverse(n);
+        if (n == node.children!.last) {
+          currentSpans = stack.isEmpty ? spans : stack.removeLast();
+        }
+      }
+    }
+  }
+
+  for (final node in nodes) {
+    traverse(node);
+  }
+  return spans;
+}
+
+/// Flattens a [TextSpan] tree and splits it into per-logical-line span lists.
+///
+/// Leaf styles are resolved against [baseStyle] so each returned span is
+/// self-contained (no implicit inheritance needed from a parent TextSpan).
+List<List<TextSpan>> _splitSpansByNewline(
+  List<TextSpan> spans,
+  TextStyle baseStyle,
+) {
+  final lines = <List<TextSpan>>[[]];
+
+  void visit(TextSpan span, TextStyle inherited) {
+    final effective =
+        span.style == null ? inherited : inherited.merge(span.style!);
+    final children = span.children;
+    if (children != null && children.isNotEmpty) {
+      for (final child in children) {
+        if (child is TextSpan) visit(child, effective);
+      }
+    } else if (span.text != null) {
+      final parts = span.text!.split('\n');
+      for (var i = 0; i < parts.length; i++) {
+        if (i > 0) lines.add([]);
+        if (parts[i].isNotEmpty) {
+          lines.last.add(TextSpan(text: parts[i], style: effective));
+        }
+      }
+    }
+  }
+
+  for (final span in spans) {
+    visit(span, baseStyle);
+  }
+  return lines;
+}
+
 /// Pretty / raw body: monospace line index column + bordered content.
+///
+/// When [softWrap] is true and [lineWidgets] is provided, each logical line is
+/// rendered as its own Row so that wrapped lines keep their line number
+/// aligned. When [softWrap] is false, [child] is used with a horizontal
+/// scroll view (the gutter stays aligned because nothing wraps).
 class _LineNumberedBody extends StatelessWidget {
   const _LineNumberedBody({
     required this.sourceText,
     required this.scrollController,
-    required this.child,
     required this.softWrap,
+    this.child,
+    this.lineWidgets,
+    this.softWrapLineContentBackground,
   });
 
   final String sourceText;
   final ScrollController scrollController;
-  final Widget child;
   final bool softWrap;
+
+  /// Used when [softWrap] is false (or as fallback).
+  final Widget? child;
+
+  /// One widget per logical line of [sourceText]; used when [softWrap] is true.
+  final List<Widget>? lineWidgets;
+
+  /// When [softWrap] and [lineWidgets] are used, fills only the content column
+  /// (not the line-number gutter) — matches non-soft-wrap pretty view where
+  /// the gutter sits on the sheet and the code block has its own background.
+  final Color? softWrapLineContentBackground;
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +173,62 @@ class _LineNumberedBody extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
+    // Soft-wrap per-row mode: each logical line gets its own Row so that
+    // wrapped lines expand the row height and keep the number aligned.
+    if (softWrap && lineWidgets != null) {
+      const outerPad = 12.0;
+      const gap = 8.0;
+      final widgets = lineWidgets!;
+      return SingleChildScrollView(
+        controller: scrollController,
+        padding: const EdgeInsets.all(outerPad),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: List.generate(widgets.length, (i) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectionContainer.disabled(
+                  child: SizedBox(
+                    width: gutterW,
+                    child: Text(
+                      '${i + 1}',
+                      textAlign: TextAlign.right,
+                      style: numStyle,
+                    ),
+                  ),
+                ),
+                SizedBox(width: gap),
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(color: sep, width: 1),
+                      ),
+                    ),
+                    child: softWrapLineContentBackground != null
+                        ? ColoredBox(
+                            color: softWrapLineContentBackground!,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 10),
+                              child: widgets[i],
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: widgets[i],
+                          ),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ),
+      );
+    }
+
+    // Non-soft-wrap: single content widget with horizontal scroll; the gutter
+    // stays aligned because no line ever wraps visually.
     return LayoutBuilder(
       builder: (context, constraints) {
         const outerPad = 12.0;
@@ -83,17 +236,14 @@ class _LineNumberedBody extends StatelessWidget {
         final innerMaxW = constraints.maxWidth - outerPad * 2;
         final contentW = (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
 
-        Widget content = child;
-        if (!softWrap) {
-          final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
-          content = SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: innerMinW),
-              child: child,
-            ),
-          );
-        }
+        final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
+        final content = SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: innerMinW),
+            child: child!,
+          ),
+        );
 
         return SingleChildScrollView(
           controller: scrollController,
@@ -133,6 +283,9 @@ class _LineNumberedBody extends StatelessWidget {
 }
 
 /// Like [HighlightView] but exposes [softWrap] for JSON body viewing.
+///
+/// Uses [Text.rich] (not [RichText]) so a parent [SelectableRegion] can make
+/// the content selectable.
 class _SoftWrapHighlightView extends StatelessWidget {
   const _SoftWrapHighlightView({
     required this.source,
@@ -153,48 +306,6 @@ class _SoftWrapHighlightView extends StatelessWidget {
   final TextStyle? textStyle;
   final bool softWrap;
 
-  List<TextSpan> _convert(List<Node> nodes) {
-    final spans = <TextSpan>[];
-    var currentSpans = spans;
-    final stack = <List<TextSpan>>[];
-
-    void traverse(Node node) {
-      if (node.value != null) {
-        currentSpans.add(
-          node.className == null
-              ? TextSpan(text: node.value)
-              : TextSpan(
-                  text: node.value,
-                  style: theme[node.className!],
-                ),
-        );
-      } else if (node.children != null) {
-        final tmp = <TextSpan>[];
-        currentSpans.add(
-          TextSpan(
-            children: tmp,
-            style: theme[node.className!],
-          ),
-        );
-        stack.add(currentSpans);
-        currentSpans = tmp;
-
-        for (final n in node.children!) {
-          traverse(n);
-          if (n == node.children!.last) {
-            currentSpans = stack.isEmpty ? spans : stack.removeLast();
-          }
-        }
-      }
-    }
-
-    for (final node in nodes) {
-      traverse(node);
-    }
-
-    return spans;
-  }
-
   @override
   Widget build(BuildContext context) {
     var merged = TextStyle(
@@ -208,19 +319,20 @@ class _SoftWrapHighlightView extends StatelessWidget {
     final normalized = source.replaceAll('\t', ' ' * _tabSize);
     final parsed = highlight.parse(normalized, language: language);
     final nodes = parsed.nodes;
-    final children = nodes == null ? <TextSpan>[] : _convert(nodes);
+    var children = nodes == null ? <TextSpan>[] : _buildHighlightSpans(nodes, theme);
+    if (children.isEmpty) {
+      children = [TextSpan(text: normalized, style: merged)];
+    }
 
     return Container(
       color: theme[_rootKey]?.backgroundColor ?? _defaultBackgroundColor,
-      child: RichText(
+      child: Text.rich(
+        TextSpan(
+          style: merged,
+          children: children,
+        ),
         softWrap: softWrap,
         overflow: softWrap ? TextOverflow.clip : TextOverflow.visible,
-        text: TextSpan(
-          style: merged,
-          children: children.isEmpty
-              ? [TextSpan(text: normalized, style: merged)]
-              : children,
-        ),
       ),
     );
   }
@@ -655,28 +767,77 @@ class _PrettyTab extends StatelessWidget {
   final bool softWrap;
   final bool unwrapJson;
 
+  static const _mono = TextStyle(
+    fontFamily: 'JetBrainsMono',
+    fontSize: 12,
+    height: 1.5,
+  );
+
   @override
   Widget build(BuildContext context) {
     final (prettyBody, language) =
         prettifyResponseBody(body, unwrapJson: unwrapJson);
     final theme = isDark ? atomOneDarkTheme : atomOneLightTheme;
-    const mono = TextStyle(
-      fontFamily: 'JetBrainsMono',
-      fontSize: 12,
-      height: 1.5,
-    );
 
     if (searchQuery.trim().isEmpty) {
+      if (softWrap) {
+        final normalized =
+            prettyBody.replaceAll('\t', ' ' * _SoftWrapHighlightView._tabSize);
+        final parsed = highlight.parse(normalized, language: language);
+        final nodes = parsed.nodes;
+        var rootSpans =
+            nodes == null ? <TextSpan>[] : _buildHighlightSpans(nodes, theme);
+
+        final baseStyle = TextStyle(
+          fontFamily: 'monospace',
+          color: theme[_SoftWrapHighlightView._rootKey]?.color ??
+              _SoftWrapHighlightView._defaultFontColor,
+        ).merge(_mono);
+
+        if (rootSpans.isEmpty) {
+          rootSpans = [TextSpan(text: normalized, style: baseStyle)];
+        }
+
+        final perLineSpans = _splitSpansByNewline(rootSpans, baseStyle);
+
+        final lineWidgets = perLineSpans.map((spans) {
+          return Text.rich(
+            TextSpan(
+              children: spans.isEmpty
+                  ? [TextSpan(text: '', style: baseStyle)]
+                  : spans,
+            ),
+            softWrap: true,
+          );
+        }).toList();
+
+        return SelectableRegion(
+          selectionControls: cupertinoTextSelectionControls,
+          child: _LineNumberedBody(
+            sourceText: normalized,
+            scrollController: scrollController,
+            softWrap: true,
+            lineWidgets: lineWidgets,
+            softWrapLineContentBackground:
+                theme[_SoftWrapHighlightView._rootKey]?.backgroundColor ??
+                    _SoftWrapHighlightView._defaultBackgroundColor,
+          ),
+        );
+      }
+
       return _LineNumberedBody(
         sourceText: prettyBody,
         scrollController: scrollController,
-        softWrap: softWrap,
-        child: _SoftWrapHighlightView(
-          source: prettyBody,
-          language: language,
-          theme: theme,
-          softWrap: softWrap,
-          textStyle: mono,
+        softWrap: false,
+        child: SelectableRegion(
+          selectionControls: cupertinoTextSelectionControls,
+          child: _SoftWrapHighlightView(
+            source: prettyBody,
+            language: language,
+            theme: theme,
+            softWrap: false,
+            textStyle: _mono,
+          ),
         ),
       );
     }
@@ -699,23 +860,25 @@ class _RawTab extends StatelessWidget {
   final ScrollController scrollController;
   final String searchQuery;
 
+  static const _textStyle = TextStyle(
+    fontFamily: 'JetBrainsMono',
+    fontSize: 12,
+    height: 1.5,
+  );
+
   @override
   Widget build(BuildContext context) {
     if (searchQuery.trim().isEmpty) {
-      return _LineNumberedBody(
-        sourceText: body,
-        scrollController: scrollController,
-        softWrap: true,
-        child: SelectableRegion(
-          selectionControls: cupertinoTextSelectionControls,
-          child: Text(
-            body,
-            style: const TextStyle(
-              fontFamily: 'JetBrainsMono',
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
+      final lines = body.split('\n');
+      final lineWidgets =
+          lines.map((l) => Text(l, style: _textStyle)).toList();
+      return SelectableRegion(
+        selectionControls: cupertinoTextSelectionControls,
+        child: _LineNumberedBody(
+          sourceText: body,
+          scrollController: scrollController,
+          softWrap: true,
+          lineWidgets: lineWidgets,
         ),
       );
     }
@@ -747,10 +910,64 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
     height: 1.5,
   );
 
+  /// Builds search-highlight spans for a single [line] of text.
+  static List<InlineSpan> _spansForLine(
+    String line,
+    String q,
+    Color highlightBg,
+  ) {
+    if (q.isEmpty) return [TextSpan(text: line, style: _base)];
+    final spans = <InlineSpan>[];
+    final lower = line.toLowerCase();
+    final nq = q.toLowerCase();
+    var start = 0;
+    var i = lower.indexOf(nq);
+    while (i >= 0) {
+      if (i > start) {
+        spans.add(TextSpan(text: line.substring(start, i), style: _base));
+      }
+      spans.add(
+        TextSpan(
+          text: line.substring(i, i + q.length),
+          style: _base.copyWith(
+            backgroundColor: highlightBg.withValues(alpha: 0.45),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+      start = i + q.length;
+      i = lower.indexOf(nq, start);
+    }
+    if (start < line.length) {
+      spans.add(TextSpan(text: line.substring(start), style: _base));
+    }
+    return spans;
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
     final highlightBg = CupertinoColors.systemYellow.resolveFrom(context);
+
+    if (softWrap) {
+      final lines = text.split('\n');
+      final lineWidgets = lines.map((line) {
+        return Text.rich(
+          TextSpan(children: _spansForLine(line, q, highlightBg)),
+          softWrap: true,
+        );
+      }).toList();
+
+      return SelectableRegion(
+        selectionControls: cupertinoTextSelectionControls,
+        child: _LineNumberedBody(
+          sourceText: text,
+          scrollController: scrollController,
+          softWrap: true,
+          lineWidgets: lineWidgets,
+        ),
+      );
+    }
 
     final spans = <InlineSpan>[];
     if (q.isEmpty) {
@@ -764,17 +981,16 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
         if (i > start) {
           spans.add(TextSpan(text: text.substring(start, i), style: _base));
         }
-        final len = q.length;
         spans.add(
           TextSpan(
-            text: text.substring(i, i + len),
+            text: text.substring(i, i + q.length),
             style: _base.copyWith(
               backgroundColor: highlightBg.withValues(alpha: 0.45),
               fontWeight: FontWeight.w700,
             ),
           ),
         );
-        start = i + len;
+        start = i + q.length;
         i = lower.indexOf(nq, start);
       }
       if (start < text.length) {
@@ -782,18 +998,16 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
       }
     }
 
-    final rich = Text.rich(
-      TextSpan(children: spans),
-      softWrap: softWrap,
-    );
-
     return _LineNumberedBody(
       sourceText: text,
       scrollController: scrollController,
-      softWrap: softWrap,
+      softWrap: false,
       child: SelectableRegion(
         selectionControls: cupertinoTextSelectionControls,
-        child: rich,
+        child: Text.rich(
+          TextSpan(children: spans),
+          softWrap: false,
+        ),
       ),
     );
   }
