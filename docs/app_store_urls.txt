@@ -1,0 +1,11 @@
+# Paste into App Store Connect (English U.S.) as needed.
+# Source of truth in code: lib/core/constants/legal_urls.dart
+
+Support URL:
+https://lustrous-travesseiro-967732.netlify.app/support.html
+
+Privacy Policy URL:
+https://lustrous-travesseiro-967732.netlify.app/privacy-policy.html
+
+Terms of Service (reference):
+https://lustrous-travesseiro-967732.netlify.app/terms-of-service.html
