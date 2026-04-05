@@ -12,6 +12,7 @@ import 'package:aun_postman/features/environments/providers/environments_provide
 import 'package:aun_postman/features/history/providers/history_provider.dart';
 import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -814,13 +815,29 @@ class SettingsScreen extends ConsumerWidget {
   ) async {
     final uri = Uri.tryParse(url);
     if (uri == null) return;
-    final ok =
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
+    try {
+      final ok =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        await Clipboard.setData(ClipboardData(text: url));
+        if (!context.mounted) return;
+        UserNotification.show(
+          context: context,
+          title: label,
+          body: 'Could not open Safari. The URL was copied — paste it in a browser.',
+        );
+      }
+    } on PlatformException catch (e) {
+      // Common after hot restart when a native plugin was added: rebuild the app.
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!context.mounted) return;
+      final isChannel = e.code == 'channel-error';
       UserNotification.show(
         context: context,
         title: label,
-        body: 'Could not open the link in Safari.',
+        body: isChannel
+            ? 'URL copied. Fully stop the app, run flutter run (or Build from Xcode) once — hot restart does not load new plugins. Then paste the link if needed.'
+            : 'URL copied. Paste it in Safari.',
       );
     }
   }
