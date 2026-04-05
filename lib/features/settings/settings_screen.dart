@@ -4,6 +4,8 @@ import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/app/widgets/scaled_cupertino_switch.dart';
 import 'package:aun_postman/app/theme/app_theme_provider.dart';
 import 'package:aun_postman/app/widgets/cupertino_licenses_page.dart';
+import 'package:aun_postman/core/constants/legal_urls.dart';
+import 'package:aun_postman/core/notifications/user_notification.dart';
 import 'package:aun_postman/domain/enums/theme_preference.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
 import 'package:aun_postman/features/environments/providers/environments_provider.dart';
@@ -13,6 +15,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -534,6 +537,117 @@ class SettingsScreen extends ConsumerWidget {
                 _SettingsGroup(
                   children: [
                     GestureDetector(
+                      onTap: () => _launchLegalUrl(
+                          context, LegalUrls.support, 'Support'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.question_circle,
+                              color: CupertinoColors.systemBlue
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Support',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      height: 0.5,
+                      margin: const EdgeInsets.only(left: 50),
+                      color:
+                          CupertinoColors.separator.resolveFrom(context),
+                    ),
+                    GestureDetector(
+                      onTap: () => _launchLegalUrl(
+                          context, LegalUrls.privacyPolicy, 'Privacy Policy'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.lock_shield,
+                              color: CupertinoColors.systemTeal
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Privacy Policy',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      height: 0.5,
+                      margin: const EdgeInsets.only(left: 50),
+                      color:
+                          CupertinoColors.separator.resolveFrom(context),
+                    ),
+                    GestureDetector(
+                      onTap: () => _launchLegalUrl(
+                          context, LegalUrls.termsOfService, 'Terms of Service'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.doc_text,
+                              color: CupertinoColors.systemIndigo
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Terms of Service',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                      height: 0.5,
+                      margin: const EdgeInsets.only(left: 50),
+                      color:
+                          CupertinoColors.separator.resolveFrom(context),
+                    ),
+                    GestureDetector(
                       onTap: () => showCupertinoLicensePage(context),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -691,6 +805,24 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _launchLegalUrl(
+    BuildContext context,
+    String url,
+    String label,
+  ) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    final ok =
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      UserNotification.show(
+        context: context,
+        title: label,
+        body: 'Could not open the link in Safari.',
+      );
+    }
   }
 }
 
