@@ -93,21 +93,28 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
         : MediaQuery.of(context).padding.bottom;
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('WebSocket'),
-        trailing: wsState.messages.isNotEmpty
-            ? CupertinoButton(
-                padding: EdgeInsets.zero,
-                minSize: 44,
-                onPressed: () =>
-                    ref.read(webSocketNotifierProvider.notifier).clearMessages(),
-                child: const Icon(CupertinoIcons.trash),
-              )
-            : null,
-      ),
-      child: Column(
-        children: [
-          // ── Connection bar ─────────────────────────────────────────────────
+      child: CustomScrollView(
+        // Outer scroll disabled — inner list scrolls independently.
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          CupertinoSliverNavigationBar(
+            largeTitle: const Text('WebSocket'),
+            trailing: wsState.messages.isNotEmpty
+                ? CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minSize: 44,
+                    onPressed: () => ref
+                        .read(webSocketNotifierProvider.notifier)
+                        .clearMessages(),
+                    child: const Icon(CupertinoIcons.trash),
+                  )
+                : null,
+          ),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              children: [
+          // ── Connection bar ──────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             decoration: BoxDecoration(
@@ -515,6 +522,9 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
                     ),
                   ),
                 ),
+              ],
+            ),
+          ),
               ],
             ),
           ),
