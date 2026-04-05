@@ -59,7 +59,7 @@ dependencies:
 # 2.6+ uses package:objective_c (native assets); Simulator can fail to load
 # objective_c.framework. 2.5.x uses the classic iOS plugin without it.
 dependency_overrides:
-  path_provider_foundation: 2.5.1
+  path_provider_foundation: 2.6.0
 
 dev_dependencies:
   flutter_test:
