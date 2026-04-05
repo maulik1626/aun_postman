@@ -1,4 +1,6 @@
 import 'package:aun_postman/app/router/app_routes.dart';
+import 'package:aun_postman/domain/models/history_entry.dart';
+import 'package:aun_postman/features/collections/collection_auth_screen.dart';
 import 'package:aun_postman/features/collections/collection_detail_screen.dart';
 import 'package:aun_postman/features/collections/collections_screen.dart';
 import 'package:aun_postman/features/environments/environment_detail_screen.dart';
@@ -6,6 +8,8 @@ import 'package:aun_postman/features/environments/environments_screen.dart';
 import 'package:aun_postman/features/history/history_screen.dart';
 import 'package:aun_postman/features/import_export/import_export_screen.dart';
 import 'package:aun_postman/features/request_builder/request_builder_screen.dart';
+import 'package:aun_postman/features/settings/default_headers_settings_screen.dart';
+import 'package:aun_postman/features/settings/proxy_settings_screen.dart';
 import 'package:aun_postman/features/settings/settings_screen.dart';
 import 'package:aun_postman/features/shell/shell_screen.dart';
 import 'package:aun_postman/features/websocket/websocket_screen.dart';
@@ -45,7 +49,8 @@ GoRouter appRouter(AppRouterRef ref) {
                         pageBuilder: (context, state) => CupertinoPage(
                           child: RequestBuilderScreen(
                             collectionUid: state.pathParameters['uid']!,
-                            folderUid: state.extra as String?,
+                            folderUid:
+                                state.extra is String ? state.extra as String : null,
                           ),
                         ),
                       ),
@@ -55,6 +60,18 @@ GoRouter appRouter(AppRouterRef ref) {
                           child: RequestBuilderScreen(
                             collectionUid: state.pathParameters['uid']!,
                             requestUid: state.pathParameters['reqUid'],
+                            openedFromHistory: switch (state.extra) {
+                              final HistoryEntry e => e,
+                              _ => null,
+                            },
+                          ),
+                        ),
+                      ),
+                      GoRoute(
+                        path: 'auth',
+                        pageBuilder: (context, state) => CupertinoPage(
+                          child: CollectionAuthScreen(
+                            collectionUid: state.pathParameters['uid']!,
                           ),
                         ),
                       ),
@@ -111,6 +128,20 @@ GoRouter appRouter(AppRouterRef ref) {
         pageBuilder: (context, state) => const CupertinoPage(
           child: SettingsScreen(),
         ),
+        routes: [
+          GoRoute(
+            path: 'default-headers',
+            pageBuilder: (context, state) => const CupertinoPage(
+              child: DefaultHeadersSettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'proxy',
+            pageBuilder: (context, state) => const CupertinoPage(
+              child: ProxySettingsScreen(),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.importExport,

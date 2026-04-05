@@ -16,31 +16,28 @@ class ParamsTab extends ConsumerWidget {
       requestBuilderProvider.select((s) => s.loadedRequestUid),
     );
 
-    return SingleChildScrollView(
-      // Extra bottom padding so Add Row button always scrolls clear of the
-      // tab bar (padding.bottom) and keyboard (handled by the parent Padding).
-      padding: const EdgeInsets.only(bottom: 24),
-      child: KeyValueEditor(
-        key: ValueKey(loadedUid),
-        rows: params
-            .map((p) => (key: p.key, value: p.value, isEnabled: p.isEnabled))
-            .toList(),
-        keyPlaceholder: 'Parameter',
-        valuePlaceholder: 'Value',
-        onChanged: (rows) {
-          ref.read(requestBuilderProvider.notifier).setParams(
-                rows
-                    .map(
-                      (r) => RequestParam(
-                        key: r.key,
-                        value: r.value,
-                        isEnabled: r.isEnabled,
-                      ),
-                    )
-                    .toList(),
-              );
-        },
-      ),
+    // Scrolling lives inside [KeyValueEditor] ([CustomScrollView]) so we are
+    // not nested under a second [SingleChildScrollView] in the tab slot.
+    return KeyValueEditor(
+      key: ValueKey(loadedUid),
+      rows: params
+          .map((p) => (key: p.key, value: p.value, isEnabled: p.isEnabled))
+          .toList(),
+      keyPlaceholder: 'Parameter',
+      valuePlaceholder: 'Value',
+      onChanged: (rows) {
+        ref.read(requestBuilderProvider.notifier).setParams(
+              rows
+                  .map(
+                    (r) => RequestParam(
+                      key: r.key,
+                      value: r.value,
+                      isEnabled: r.isEnabled,
+                    ),
+                  )
+                  .toList(),
+            );
+      },
     );
   }
 }

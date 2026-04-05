@@ -13,6 +13,10 @@ _$WebSocketMessageImpl _$$WebSocketMessageImplFromJson(
   content: json['content'] as String,
   direction: $enumDecode(_$WsMessageDirectionEnumMap, json['direction']),
   timestamp: DateTime.parse(json['timestamp'] as String),
+  payloadKind:
+      $enumDecodeNullable(_$WsPayloadKindEnumMap, json['payloadKind']) ??
+      WsPayloadKind.text,
+  byteLength: (json['byteLength'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$$WebSocketMessageImplToJson(
@@ -22,9 +26,16 @@ Map<String, dynamic> _$$WebSocketMessageImplToJson(
   'content': instance.content,
   'direction': _$WsMessageDirectionEnumMap[instance.direction]!,
   'timestamp': instance.timestamp.toIso8601String(),
+  'payloadKind': _$WsPayloadKindEnumMap[instance.payloadKind]!,
+  'byteLength': instance.byteLength,
 };
 
 const _$WsMessageDirectionEnumMap = {
   WsMessageDirection.sent: 'sent',
   WsMessageDirection.received: 'received',
+};
+
+const _$WsPayloadKindEnumMap = {
+  WsPayloadKind.text: 'text',
+  WsPayloadKind.binary: 'binary',
 };

@@ -1,19 +1,20 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
+import 'package:aun_postman/core/notifications/user_notification.dart';
 import 'package:aun_postman/domain/enums/body_type.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
 import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/features/request_builder/widgets/form_data_fields_editor.dart';
 import 'package:aun_postman/features/request_builder/widgets/key_value_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:flutter_highlight/flutter_highlight.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:highlight/languages/json.dart' as hl_json;
-import 'package:highlight/languages/xml.dart' as hl_xml;
 
 class BodyTab extends ConsumerStatefulWidget {
   const BodyTab({super.key});
@@ -23,21 +24,23 @@ class BodyTab extends ConsumerStatefulWidget {
 }
 
 class _BodyTabState extends ConsumerState<BodyTab> {
-  late CodeController _codeController;
+  /// Chips + separator need ~52px; below this + editor minimum, use a scroll fallback.
+  static const double _kTypeStripApproxHeight = 52;
+  static const double _kMinEditorComfortHeight = 72;
+
+  late TextEditingController _bodyController;
+  bool _syntaxHighlight = false;
 
   @override
   void initState() {
     super.initState();
     final body = ref.read(requestBuilderProvider).body;
-    _codeController = CodeController(
-      text: _rawContent(body),
-      language: _languageFor(_currentType(body)),
-    );
+    _bodyController = TextEditingController(text: _rawContent(body));
   }
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _bodyController.dispose();
     super.dispose();
   }
 
@@ -60,58 +63,27 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         BinaryBody() => BodyType.binary,
       };
 
-  // Returns the highlight mode for the given body type.
-  // JSON and XML/HTML use real parsers; Text uses null (no highlighting).
-  dynamic _languageFor(BodyType type) => switch (type) {
-        BodyType.rawJson => hl_json.json,
-        BodyType.rawXml => hl_xml.xml,
-        BodyType.rawHtml => hl_xml.xml, // HTML treated as XML for highlighting
-        _ => null,
-      };
-
   void _formatJson(BuildContext context) {
     try {
-      final decoded = jsonDecode(_codeController.text);
+      final decoded = jsonDecode(_bodyController.text);
       final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
-      _codeController.text = formatted;
+      _bodyController.text = formatted;
       ref
           .read(requestBuilderProvider.notifier)
           .setBody(RawJsonBody(content: formatted));
     } catch (_) {
-      _showToast(context, 'Invalid JSON — cannot format');
+      UserNotification.show(
+        context: context,
+        title: 'Body',
+        body: 'Invalid JSON — cannot format',
+      );
     }
   }
 
-  void _showToast(BuildContext context, String message) {
-    final overlay = Overlay.of(context);
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (_) => Positioned(
-        bottom: 60,
-        left: 24,
-        right: 24,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: CupertinoColors.destructiveRed,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            message,
-            style: const TextStyle(color: CupertinoColors.white, fontSize: 13),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ),
-    );
-    overlay.insert(entry);
-    Future.delayed(const Duration(seconds: 2), entry.remove);
-  }
-
   void _onTypeChanged(BodyType type) {
+    setState(() => _syntaxHighlight = false);
     // Preserve current text when switching between raw types
-    final currentText = _codeController.text;
-    _codeController.language = _languageFor(type);
+    final currentText = _bodyController.text;
 
     RequestBody newBody = switch (type) {
       BodyType.none => const NoBody(),
@@ -134,69 +106,119 @@ class _BodyTabState extends ConsumerState<BodyTab> {
       (_, __) {
         final body = ref.read(requestBuilderProvider).body;
         final newContent = _rawContent(body);
-        final newType = _currentType(body);
-        if (_codeController.text != newContent) {
-          _codeController.text = newContent;
+        if (_bodyController.text != newContent) {
+          _bodyController.text = newContent;
         }
-        _codeController.language = _languageFor(newType);
       },
     );
 
     final body = ref.watch(requestBuilderProvider.select((s) => s.body));
     final currentType = _currentType(body);
-    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Type selector — scrollable pill chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Row(
-            children: BodyType.values.map((type) {
-              final selected = currentType == type;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: GestureDetector(
-                  onTap: () => _onTypeChanged(type),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? CupertinoTheme.of(context).primaryColor
-                          : CupertinoColors.tertiarySystemFill
-                              .resolveFrom(context),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      type.label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: selected
-                            ? CupertinoColors.white
-                            : CupertinoColors.label.resolveFrom(context),
-                      ),
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight;
+        final squeezed = maxH.isFinite &&
+            maxH < _kTypeStripApproxHeight + _kMinEditorComfortHeight;
+
+        final strip = _buildTypeStrip(context, currentType);
+        final divider = _buildBodyDivider(context);
+
+        if (squeezed) {
+          final screenH = MediaQuery.sizeOf(context).height;
+          final rawMinH = math.max(200.0, screenH * 0.32);
+          return SingleChildScrollView(
+            primary: false,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                strip,
+                divider,
+                _buildEditor(
+                  context,
+                  body,
+                  currentType,
+                  squeezed: true,
+                  rawFieldMinHeight: rawMinH,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            strip,
+            divider,
+            Expanded(
+              child: _buildEditor(
+                context,
+                body,
+                currentType,
+                squeezed: false,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTypeStrip(BuildContext context, BodyType currentType) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Row(
+        children: BodyType.values.map((type) {
+          final selected = currentType == type;
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () => _onTypeChanged(type),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? CupertinoTheme.of(context).primaryColor
+                      : CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  type.label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: selected
+                        ? CupertinoColors.white
+                        : CupertinoColors.label.resolveFrom(context),
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ),
-        Container(
-          height: 0.5,
-          color: CupertinoColors.separator.resolveFrom(context),
-        ),
-        Expanded(child: _buildEditor(context, body, currentType, isDark)),
-      ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBodyDivider(BuildContext context) {
+    return Container(
+      height: 0.5,
+      color: CupertinoColors.separator.resolveFrom(context),
     );
   }
 
   Widget _buildEditor(
-      BuildContext context, RequestBody body, BodyType type, bool isDark) {
+    BuildContext context,
+    RequestBody body,
+    BodyType type, {
+    required bool squeezed,
+    double rawFieldMinHeight = 220,
+  }) {
     switch (type) {
       case BodyType.none:
         return Center(
@@ -218,6 +240,79 @@ class _BodyTabState extends ConsumerState<BodyTab> {
           BodyType.rawHtml => 'HTML',
           _ => 'TEXT',
         };
+        final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
+        final editorBg = isDark
+            ? const Color(0xFF1E1E1E)
+            : CupertinoColors.systemBackground.resolveFrom(context);
+        final editorFg = isDark
+            ? const Color(0xFFABB2BF)
+            : CupertinoColors.label.resolveFrom(context);
+        final highlightLang = switch (type) {
+          BodyType.rawJson => 'json',
+          BodyType.rawXml => 'xml',
+          BodyType.rawHtml => 'html',
+          _ => 'plaintext',
+        };
+
+        final Widget editorChrome;
+        if (_syntaxHighlight) {
+          editorChrome = ColoredBox(
+            color: editorBg,
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: HighlightView(
+                    _bodyController.text,
+                    language: highlightLang,
+                    theme: isDark ? atomOneDarkTheme : atomOneLightTheme,
+                    textStyle: TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 13,
+                      height: 1.6,
+                      color: editorFg,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        } else {
+          final textField = CupertinoTextField(
+            controller: _bodyController,
+            expands: !squeezed,
+            maxLines: null,
+            minLines: null,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            style: TextStyle(
+              fontFamily: 'JetBrainsMono',
+              fontSize: 13,
+              height: 1.6,
+              color: editorFg,
+            ),
+            decoration: const BoxDecoration(),
+            cursorColor: editorFg,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: TextInputType.multiline,
+            textAlignVertical: TextAlignVertical.top,
+            onChanged: (value) {
+              final updated = switch (type) {
+                BodyType.rawJson => RawJsonBody(content: value),
+                BodyType.rawXml => RawXmlBody(content: value),
+                BodyType.rawHtml => RawHtmlBody(content: value),
+                _ => RawTextBody(content: value),
+              };
+              ref.read(requestBuilderProvider.notifier).setBody(updated);
+            },
+          );
+          editorChrome = ColoredBox(
+            color: editorBg,
+            child: textField,
+          );
+        }
+
         return Column(
           children: [
             // Toolbar
@@ -248,7 +343,46 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                     ),
                   ),
                   const Spacer(),
-                  if (type == BodyType.rawJson)
+                  GestureDetector(
+                    onTap: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      setState(() => _syntaxHighlight = !_syntaxHighlight);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _syntaxHighlight
+                            ? CupertinoTheme.of(context)
+                                .primaryColor
+                                .withValues(alpha: 0.22)
+                            : CupertinoColors.tertiarySystemFill
+                                .resolveFrom(context),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            CupertinoIcons.color_filter,
+                            size: 13,
+                            color: CupertinoTheme.of(context).primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _syntaxHighlight ? 'Edit' : 'Highlight',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (type == BodyType.rawJson) ...[
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _formatJson(context),
                       child: Container(
@@ -281,107 +415,74 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                         ),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-            // Syntax-highlighted code editor
-            Expanded(
-              child: CodeTheme(
-                data: CodeThemeData(
-                  styles: isDark ? atomOneDarkTheme : atomOneLightTheme,
-                ),
-                child: SingleChildScrollView(
-                  child: CodeField(
-                    controller: _codeController,
-                    minLines: null,
-                    expands: false,
-                    wrap: false,
-                    background: isDark
-                        ? const Color(0xFF1E1E1E)
-                        : CupertinoColors.systemBackground
-                            .resolveFrom(context),
-                    textStyle: const TextStyle(
-                      fontFamily: 'JetBrainsMono',
-                      fontSize: 13,
-                      height: 1.6,
-                    ),
-                    onChanged: (value) {
-                      final updated = switch (type) {
-                        BodyType.rawJson => RawJsonBody(content: value),
-                        BodyType.rawXml => RawXmlBody(content: value),
-                        BodyType.rawHtml => RawHtmlBody(content: value),
-                        _ => RawTextBody(content: value),
-                      };
-                      ref
-                          .read(requestBuilderProvider.notifier)
-                          .setBody(updated);
-                    },
-                  ),
-                ),
-              ),
-            ),
+            if (squeezed)
+              SizedBox(height: rawFieldMinHeight, child: editorChrome)
+            else
+              Expanded(child: editorChrome),
           ],
         );
 
       case BodyType.formData:
         final fields =
             body is FormDataBody ? body.fields : const <FormDataField>[];
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: KeyValueEditor(
-            rows: fields
-                .map((f) =>
-                    (key: f.key, value: f.value, isEnabled: f.isEnabled))
-                .toList(),
-            keyPlaceholder: 'Field name',
-            valuePlaceholder: 'Value',
-            onChanged: (rows) {
-              ref.read(requestBuilderProvider.notifier).setBody(
-                    FormDataBody(
-                      fields: rows
-                          .map(
-                            (r) => FormDataField(
-                              key: r.key,
-                              value: r.value,
-                              isEnabled: r.isEnabled,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  );
-            },
-          ),
+        final loadedUid =
+            ref.watch(requestBuilderProvider.select((s) => s.loadedRequestUid));
+        final formEditor = FormDataFieldsEditor(
+          key: ValueKey('${loadedUid ?? 'new'}-formdata'),
+          shrinkWrap: squeezed,
+          fields: fields,
+          onChanged: (next) {
+            ref
+                .read(requestBuilderProvider.notifier)
+                .setBody(FormDataBody(fields: next));
+          },
         );
+        if (squeezed) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: formEditor,
+          );
+        }
+        return formEditor;
 
       case BodyType.urlEncoded:
         final fields =
             body is UrlEncodedBody ? body.fields : const <KeyValuePair>[];
-        return SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: KeyValueEditor(
-            rows: fields
-                .map((f) =>
-                    (key: f.key, value: f.value, isEnabled: f.isEnabled))
-                .toList(),
-            keyPlaceholder: 'Field name',
-            valuePlaceholder: 'Value',
-            onChanged: (rows) {
-              ref.read(requestBuilderProvider.notifier).setBody(
-                    UrlEncodedBody(
-                      fields: rows
-                          .map(
-                            (r) => KeyValuePair(
-                              key: r.key,
-                              value: r.value,
-                              isEnabled: r.isEnabled,
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  );
-            },
-          ),
+        final urlEditor = KeyValueEditor(
+          shrinkWrap: squeezed,
+          rows: fields
+              .map((f) =>
+                  (key: f.key, value: f.value, isEnabled: f.isEnabled))
+              .toList(),
+          keyPlaceholder: 'Field name',
+          valuePlaceholder: 'Value',
+          onChanged: (rows) {
+            ref.read(requestBuilderProvider.notifier).setBody(
+                  UrlEncodedBody(
+                    fields: rows
+                        .map(
+                          (r) => KeyValuePair(
+                            key: r.key,
+                            value: r.value,
+                            isEnabled: r.isEnabled,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                );
+          },
         );
+        if (squeezed) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: urlEditor,
+          );
+        }
+        return urlEditor;
 
       case BodyType.binary:
         final filePath = body is BinaryBody ? body.filePath : '';

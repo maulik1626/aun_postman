@@ -2,6 +2,8 @@ import 'package:aun_postman/domain/enums/http_method.dart';
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_postman/domain/models/http_request_assertions_json.dart';
+import 'package:aun_postman/domain/models/test_assertion.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'http_request.freezed.dart';
@@ -21,6 +23,9 @@ class HttpRequest with _$HttpRequest {
     String? collectionUid,
     String? folderUid,
     @Default(0) int sortOrder,
+    @Default([])
+    @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+    List<TestAssertion> assertions,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _HttpRequest;

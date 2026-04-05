@@ -27,6 +27,9 @@ class KeyValueEditor extends StatefulWidget {
     required this.onChanged,
     this.keyPlaceholder = 'Key',
     this.valuePlaceholder = 'Value',
+    /// When true, builds a tight [Column] only — use inside a parent
+    /// [ScrollView] (e.g. Body tab squeezed layout with unbounded height).
+    this.shrinkWrap = false,
   });
 
   final List<({String key, String value, bool isEnabled})> rows;
@@ -34,6 +37,7 @@ class KeyValueEditor extends StatefulWidget {
       onChanged;
   final String keyPlaceholder;
   final String valuePlaceholder;
+  final bool shrinkWrap;
 
   @override
   State<KeyValueEditor> createState() => _KeyValueEditorState();
@@ -41,10 +45,14 @@ class KeyValueEditor extends StatefulWidget {
 
 class _KeyValueEditorState extends State<KeyValueEditor> {
   late List<KeyValueRow> _rows;
+  ScrollController? _scrollController;
 
   @override
   void initState() {
     super.initState();
+    if (!widget.shrinkWrap) {
+      _scrollController = ScrollController();
+    }
     _rows = widget.rows
         .map((r) =>
             KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled))
@@ -54,6 +62,7 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
 
   @override
   void dispose() {
+    _scrollController?.dispose();
     for (final row in _rows) {
       row.dispose();
     }
@@ -72,6 +81,17 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
 
   void _addRow() {
     setState(() => _rows.add(KeyValueRow()));
+    if (widget.shrinkWrap) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = _scrollController;
+      if (c == null || !c.hasClients) return;
+      c.animateTo(
+        c.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _removeRow(int index) {
@@ -83,185 +103,231 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
     _notify();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Column header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
-            border: Border(
-              bottom: BorderSide(
-                color: CupertinoColors.separator.resolveFrom(context),
-                width: 0.5,
+  Widget _buildColumnHeader(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+        border: Border(
+          bottom: BorderSide(
+            color: CupertinoColors.separator.resolveFrom(context),
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 28), // checkbox width
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              widget.keyPlaceholder.toUpperCase(),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.6,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
               ),
             ),
           ),
+          Container(
+            width: 0.5,
+            height: 14,
+            color: CupertinoColors.separator.resolveFrom(context),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Text(
+                widget.valuePlaceholder.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 26), // delete button width
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddRowButton(BuildContext context) {
+    return CupertinoButton(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      onPressed: _addRow,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            CupertinoIcons.add_circled,
+            size: 16,
+            color: CupertinoTheme.of(context).primaryColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Add Row',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: CupertinoTheme.of(context).primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, int index) {
+    final row = _rows[index];
+    return ValueListenableBuilder<bool>(
+      valueListenable: row.isEnabled,
+      builder: (context, enabled, _) => Opacity(
+        opacity: enabled ? 1.0 : 0.45,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+          decoration: BoxDecoration(
+            color:
+                CupertinoColors.tertiarySystemBackground.resolveFrom(context),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
           child: Row(
             children: [
-              const SizedBox(width: 28), // checkbox width
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
+              CupertinoCheckbox(
+                value: enabled,
+                activeColor: CupertinoTheme.of(context).primaryColor,
+                onChanged: (v) {
+                  row.isEnabled.value = v ?? true;
+                  _notify();
+                },
+              ),
+              const SizedBox(width: 4),
               Expanded(
-                child: Text(
-                  widget.keyPlaceholder.toUpperCase(),
+                child: CupertinoTextField(
+                  controller: row.keyController,
+                  placeholder: widget.keyPlaceholder,
+                  decoration: null,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  scrollPadding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.6,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 13,
+                    color: CupertinoColors.label.resolveFrom(context),
                   ),
+                  placeholderStyle: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 13,
+                    color: CupertinoColors.placeholderText.resolveFrom(context),
+                  ),
+                  onChanged: (_) => _notify(),
                 ),
               ),
               Container(
                 width: 0.5,
-                height: 14,
+                height: 28,
                 color: CupertinoColors.separator.resolveFrom(context),
               ),
               Expanded(
+                child: CupertinoTextField(
+                  controller: row.valueController,
+                  placeholder: widget.valuePlaceholder,
+                  decoration: null,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  scrollPadding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 13,
+                    color: CupertinoColors.label.resolveFrom(context),
+                  ),
+                  placeholderStyle: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 13,
+                    color: CupertinoColors.placeholderText.resolveFrom(context),
+                  ),
+                  onChanged: (_) => _notify(),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => _removeRow(index),
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text(
-                    widget.valuePlaceholder.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.6,
-                      color:
-                          CupertinoColors.secondaryLabel.resolveFrom(context),
-                    ),
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    CupertinoIcons.minus_circle_fill,
+                    size: 20,
+                    color: CupertinoColors.destructiveRed,
                   ),
                 ),
               ),
-              const SizedBox(width: 26), // delete button width
             ],
           ),
         ),
-        // Rows
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _rows.length,
-          separatorBuilder: (_, __) => Container(
-            height: 0.5,
-            margin: const EdgeInsets.only(left: 16),
-            color: CupertinoColors.separator.resolveFrom(context),
-          ),
-          itemBuilder: (context, index) {
-            final row = _rows[index];
-            return ValueListenableBuilder<bool>(
-              valueListenable: row.isEnabled,
-              builder: (context, enabled, _) => Opacity(
-                opacity: enabled ? 1.0 : 0.45,
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.tertiarySystemBackground
-                        .resolveFrom(context),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 2),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 4),
-                      CupertinoCheckbox(
-                        value: enabled,
-                        activeColor: CupertinoTheme.of(context).primaryColor,
-                        onChanged: (v) {
-                          row.isEnabled.value = v ?? true;
-                          _notify();
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: CupertinoTextField(
-                          controller: row.keyController,
-                          placeholder: widget.keyPlaceholder,
-                          decoration: null,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 8),
-                          style: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: 13,
-                            color: CupertinoColors.label.resolveFrom(context),
-                          ),
-                          placeholderStyle: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: 13,
-                            color: CupertinoColors.placeholderText
-                                .resolveFrom(context),
-                          ),
-                          onChanged: (_) => _notify(),
-                        ),
-                      ),
-                      Container(
-                        width: 0.5,
-                        height: 28,
-                        color:
-                            CupertinoColors.separator.resolveFrom(context),
-                      ),
-                      Expanded(
-                        child: CupertinoTextField(
-                          controller: row.valueController,
-                          placeholder: widget.valuePlaceholder,
-                          decoration: null,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
-                          style: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: 13,
-                            color: CupertinoColors.label.resolveFrom(context),
-                          ),
-                          placeholderStyle: TextStyle(
-                            fontFamily: 'JetBrainsMono',
-                            fontSize: 13,
-                            color: CupertinoColors.placeholderText
-                                .resolveFrom(context),
-                          ),
-                          onChanged: (_) => _notify(),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _removeRow(index),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Icon(
-                            CupertinoIcons.minus_circle_fill,
-                            size: 20,
-                            color: CupertinoColors.destructiveRed,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.shrinkWrap) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildColumnHeader(context),
+          const SizedBox(height: 10),
+          for (var index = 0; index < _rows.length; index++) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _buildRow(context, index),
+          ],
+          _buildAddRowButton(context),
+        ],
+      );
+    }
+
+    // Fixed column labels; only rows + Add Row scroll. Bottom padding uses
+    // [MediaQuery.padding.bottom] (shell adds tab bar height) so the tail of
+    // the list clears the floating bottom nav.
+    final bottomClearance =
+        MediaQuery.paddingOf(context).bottom + 16;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildColumnHeader(context),
+        Expanded(
+          child: CustomScrollView(
+            controller: _scrollController,
+            primary: false,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 10)),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return Padding(
+                      padding: EdgeInsets.only(top: index > 0 ? 10 : 0),
+                      child: _buildRow(context, index),
+                    );
+                  },
+                  childCount: _rows.length,
                 ),
               ),
-            );
-          },
-        ),
-        // Add Row button
-        CupertinoButton(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          onPressed: _addRow,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                CupertinoIcons.add_circled,
-                size: 16,
-                color: CupertinoTheme.of(context).primaryColor,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Add Row',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: CupertinoTheme.of(context).primaryColor,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomClearance),
+                  child: _buildAddRowButton(context),
                 ),
               ),
             ],

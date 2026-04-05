@@ -25,6 +25,8 @@ mixin _$WebSocketMessage {
   String get content => throw _privateConstructorUsedError;
   WsMessageDirection get direction => throw _privateConstructorUsedError;
   DateTime get timestamp => throw _privateConstructorUsedError;
+  WsPayloadKind get payloadKind => throw _privateConstructorUsedError;
+  int? get byteLength => throw _privateConstructorUsedError;
 
   /// Serializes this WebSocketMessage to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -48,6 +50,8 @@ abstract class $WebSocketMessageCopyWith<$Res> {
     String content,
     WsMessageDirection direction,
     DateTime timestamp,
+    WsPayloadKind payloadKind,
+    int? byteLength,
   });
 }
 
@@ -70,6 +74,8 @@ class _$WebSocketMessageCopyWithImpl<$Res, $Val extends WebSocketMessage>
     Object? content = null,
     Object? direction = null,
     Object? timestamp = null,
+    Object? payloadKind = null,
+    Object? byteLength = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -89,6 +95,14 @@ class _$WebSocketMessageCopyWithImpl<$Res, $Val extends WebSocketMessage>
                 ? _value.timestamp
                 : timestamp // ignore: cast_nullable_to_non_nullable
                       as DateTime,
+            payloadKind: null == payloadKind
+                ? _value.payloadKind
+                : payloadKind // ignore: cast_nullable_to_non_nullable
+                      as WsPayloadKind,
+            byteLength: freezed == byteLength
+                ? _value.byteLength
+                : byteLength // ignore: cast_nullable_to_non_nullable
+                      as int?,
           )
           as $Val,
     );
@@ -109,6 +123,8 @@ abstract class _$$WebSocketMessageImplCopyWith<$Res>
     String content,
     WsMessageDirection direction,
     DateTime timestamp,
+    WsPayloadKind payloadKind,
+    int? byteLength,
   });
 }
 
@@ -130,6 +146,8 @@ class __$$WebSocketMessageImplCopyWithImpl<$Res>
     Object? content = null,
     Object? direction = null,
     Object? timestamp = null,
+    Object? payloadKind = null,
+    Object? byteLength = freezed,
   }) {
     return _then(
       _$WebSocketMessageImpl(
@@ -149,6 +167,14 @@ class __$$WebSocketMessageImplCopyWithImpl<$Res>
             ? _value.timestamp
             : timestamp // ignore: cast_nullable_to_non_nullable
                   as DateTime,
+        payloadKind: null == payloadKind
+            ? _value.payloadKind
+            : payloadKind // ignore: cast_nullable_to_non_nullable
+                  as WsPayloadKind,
+        byteLength: freezed == byteLength
+            ? _value.byteLength
+            : byteLength // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }
@@ -162,6 +188,8 @@ class _$WebSocketMessageImpl implements _WebSocketMessage {
     required this.content,
     required this.direction,
     required this.timestamp,
+    this.payloadKind = WsPayloadKind.text,
+    this.byteLength,
   });
 
   factory _$WebSocketMessageImpl.fromJson(Map<String, dynamic> json) =>
@@ -175,10 +203,15 @@ class _$WebSocketMessageImpl implements _WebSocketMessage {
   final WsMessageDirection direction;
   @override
   final DateTime timestamp;
+  @override
+  @JsonKey()
+  final WsPayloadKind payloadKind;
+  @override
+  final int? byteLength;
 
   @override
   String toString() {
-    return 'WebSocketMessage(id: $id, content: $content, direction: $direction, timestamp: $timestamp)';
+    return 'WebSocketMessage(id: $id, content: $content, direction: $direction, timestamp: $timestamp, payloadKind: $payloadKind, byteLength: $byteLength)';
   }
 
   @override
@@ -191,13 +224,24 @@ class _$WebSocketMessageImpl implements _WebSocketMessage {
             (identical(other.direction, direction) ||
                 other.direction == direction) &&
             (identical(other.timestamp, timestamp) ||
-                other.timestamp == timestamp));
+                other.timestamp == timestamp) &&
+            (identical(other.payloadKind, payloadKind) ||
+                other.payloadKind == payloadKind) &&
+            (identical(other.byteLength, byteLength) ||
+                other.byteLength == byteLength));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, content, direction, timestamp);
+  int get hashCode => Object.hash(
+    runtimeType,
+    id,
+    content,
+    direction,
+    timestamp,
+    payloadKind,
+    byteLength,
+  );
 
   /// Create a copy of WebSocketMessage
   /// with the given fields replaced by the non-null parameter values.
@@ -222,6 +266,8 @@ abstract class _WebSocketMessage implements WebSocketMessage {
     required final String content,
     required final WsMessageDirection direction,
     required final DateTime timestamp,
+    final WsPayloadKind payloadKind,
+    final int? byteLength,
   }) = _$WebSocketMessageImpl;
 
   factory _WebSocketMessage.fromJson(Map<String, dynamic> json) =
@@ -235,6 +281,10 @@ abstract class _WebSocketMessage implements WebSocketMessage {
   WsMessageDirection get direction;
   @override
   DateTime get timestamp;
+  @override
+  WsPayloadKind get payloadKind;
+  @override
+  int? get byteLength;
 
   /// Create a copy of WebSocketMessage
   /// with the given fields replaced by the non-null parameter values.

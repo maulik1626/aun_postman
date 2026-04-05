@@ -12,6 +12,8 @@ class HistoryEntry with _$HistoryEntry {
     required HttpRequest request,
     required HttpResponse response,
     required DateTime executedAt,
+    /// Active environment variable map at send time (for faithful replay from history).
+    @Default({}) Map<String, String> variableSnapshot,
   }) = _HistoryEntry;
 
   factory HistoryEntry.fromJson(Map<String, dynamic> json) =>

@@ -10,3 +10,4 @@ export 'package:aun_postman/domain/models/key_value_pair.dart';
 export 'package:aun_postman/domain/models/request_body.dart';
 export 'package:aun_postman/domain/models/response_cookie.dart';
 export 'package:aun_postman/domain/models/websocket_message.dart';
+export 'package:aun_postman/domain/models/ws_saved_compose_message.dart';

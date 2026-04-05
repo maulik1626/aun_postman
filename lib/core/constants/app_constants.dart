@@ -15,4 +15,10 @@ class StorageKeys {
   static const String defaultTimeout = 'default_timeout';
   static const String followRedirects = 'follow_redirects';
   static const String sslVerification = 'ssl_verification';
+  static const String defaultHeaders = 'default_headers_json';
+  static const String httpProxy = 'http_proxy';
+  static const String wsAutoReconnect = 'ws_auto_reconnect';
+  static const String wsSavedSession = 'ws_saved_session_json';
+  static const String requestAutoSave = 'request_auto_save';
+  static const String icloudAutoBackup = 'icloud_auto_backup';
 }

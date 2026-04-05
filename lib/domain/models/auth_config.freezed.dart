@@ -25,6 +25,12 @@ AuthConfig _$AuthConfigFromJson(Map<String, dynamic> json) {
       return BasicAuth.fromJson(json);
     case 'apiKey':
       return ApiKeyAuth.fromJson(json);
+    case 'oauth2':
+      return OAuth2Auth.fromJson(json);
+    case 'digest':
+      return DigestAuth.fromJson(json);
+    case 'awsSigV4':
+      return AwsSigV4Auth.fromJson(json);
 
     default:
       throw CheckedFromJsonException(
@@ -45,6 +51,29 @@ mixin _$AuthConfig {
     required TResult Function(String username, String password) basic,
     required TResult Function(String key, String value, ApiKeyAddTo addTo)
     apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
@@ -52,6 +81,29 @@ mixin _$AuthConfig {
     TResult? Function(String token)? bearer,
     TResult? Function(String username, String password)? basic,
     TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
@@ -59,6 +111,29 @@ mixin _$AuthConfig {
     TResult Function(String token)? bearer,
     TResult Function(String username, String password)? basic,
     TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -67,6 +142,9 @@ mixin _$AuthConfig {
     required TResult Function(BearerAuth value) bearer,
     required TResult Function(BasicAuth value) basic,
     required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
@@ -74,6 +152,9 @@ mixin _$AuthConfig {
     TResult? Function(BearerAuth value)? bearer,
     TResult? Function(BasicAuth value)? basic,
     TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
   }) => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
@@ -81,6 +162,9 @@ mixin _$AuthConfig {
     TResult Function(BearerAuth value)? bearer,
     TResult Function(BasicAuth value)? basic,
     TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
     required TResult orElse(),
   }) => throw _privateConstructorUsedError;
 
@@ -165,6 +249,29 @@ class _$NoAuthImpl implements NoAuth {
     required TResult Function(String username, String password) basic,
     required TResult Function(String key, String value, ApiKeyAddTo addTo)
     apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
   }) {
     return none();
   }
@@ -176,6 +283,29 @@ class _$NoAuthImpl implements NoAuth {
     TResult? Function(String token)? bearer,
     TResult? Function(String username, String password)? basic,
     TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
   }) {
     return none?.call();
   }
@@ -187,6 +317,29 @@ class _$NoAuthImpl implements NoAuth {
     TResult Function(String token)? bearer,
     TResult Function(String username, String password)? basic,
     TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
     required TResult orElse(),
   }) {
     if (none != null) {
@@ -202,6 +355,9 @@ class _$NoAuthImpl implements NoAuth {
     required TResult Function(BearerAuth value) bearer,
     required TResult Function(BasicAuth value) basic,
     required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
   }) {
     return none(this);
   }
@@ -213,6 +369,9 @@ class _$NoAuthImpl implements NoAuth {
     TResult? Function(BearerAuth value)? bearer,
     TResult? Function(BasicAuth value)? basic,
     TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
   }) {
     return none?.call(this);
   }
@@ -224,6 +383,9 @@ class _$NoAuthImpl implements NoAuth {
     TResult Function(BearerAuth value)? bearer,
     TResult Function(BasicAuth value)? basic,
     TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
     required TResult orElse(),
   }) {
     if (none != null) {
@@ -328,6 +490,29 @@ class _$BearerAuthImpl implements BearerAuth {
     required TResult Function(String username, String password) basic,
     required TResult Function(String key, String value, ApiKeyAddTo addTo)
     apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
   }) {
     return bearer(token);
   }
@@ -339,6 +524,29 @@ class _$BearerAuthImpl implements BearerAuth {
     TResult? Function(String token)? bearer,
     TResult? Function(String username, String password)? basic,
     TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
   }) {
     return bearer?.call(token);
   }
@@ -350,6 +558,29 @@ class _$BearerAuthImpl implements BearerAuth {
     TResult Function(String token)? bearer,
     TResult Function(String username, String password)? basic,
     TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
     required TResult orElse(),
   }) {
     if (bearer != null) {
@@ -365,6 +596,9 @@ class _$BearerAuthImpl implements BearerAuth {
     required TResult Function(BearerAuth value) bearer,
     required TResult Function(BasicAuth value) basic,
     required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
   }) {
     return bearer(this);
   }
@@ -376,6 +610,9 @@ class _$BearerAuthImpl implements BearerAuth {
     TResult? Function(BearerAuth value)? bearer,
     TResult? Function(BasicAuth value)? basic,
     TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
   }) {
     return bearer?.call(this);
   }
@@ -387,6 +624,9 @@ class _$BearerAuthImpl implements BearerAuth {
     TResult Function(BearerAuth value)? bearer,
     TResult Function(BasicAuth value)? basic,
     TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
     required TResult orElse(),
   }) {
     if (bearer != null) {
@@ -513,6 +753,29 @@ class _$BasicAuthImpl implements BasicAuth {
     required TResult Function(String username, String password) basic,
     required TResult Function(String key, String value, ApiKeyAddTo addTo)
     apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
   }) {
     return basic(username, password);
   }
@@ -524,6 +787,29 @@ class _$BasicAuthImpl implements BasicAuth {
     TResult? Function(String token)? bearer,
     TResult? Function(String username, String password)? basic,
     TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
   }) {
     return basic?.call(username, password);
   }
@@ -535,6 +821,29 @@ class _$BasicAuthImpl implements BasicAuth {
     TResult Function(String token)? bearer,
     TResult Function(String username, String password)? basic,
     TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
     required TResult orElse(),
   }) {
     if (basic != null) {
@@ -550,6 +859,9 @@ class _$BasicAuthImpl implements BasicAuth {
     required TResult Function(BearerAuth value) bearer,
     required TResult Function(BasicAuth value) basic,
     required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
   }) {
     return basic(this);
   }
@@ -561,6 +873,9 @@ class _$BasicAuthImpl implements BasicAuth {
     TResult? Function(BearerAuth value)? bearer,
     TResult? Function(BasicAuth value)? basic,
     TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
   }) {
     return basic?.call(this);
   }
@@ -572,6 +887,9 @@ class _$BasicAuthImpl implements BasicAuth {
     TResult Function(BearerAuth value)? bearer,
     TResult Function(BasicAuth value)? basic,
     TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
     required TResult orElse(),
   }) {
     if (basic != null) {
@@ -707,6 +1025,29 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     required TResult Function(String username, String password) basic,
     required TResult Function(String key, String value, ApiKeyAddTo addTo)
     apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
   }) {
     return apiKey(key, value, addTo);
   }
@@ -718,6 +1059,29 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     TResult? Function(String token)? bearer,
     TResult? Function(String username, String password)? basic,
     TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
   }) {
     return apiKey?.call(key, value, addTo);
   }
@@ -729,6 +1093,29 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     TResult Function(String token)? bearer,
     TResult Function(String username, String password)? basic,
     TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
     required TResult orElse(),
   }) {
     if (apiKey != null) {
@@ -744,6 +1131,9 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     required TResult Function(BearerAuth value) bearer,
     required TResult Function(BasicAuth value) basic,
     required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
   }) {
     return apiKey(this);
   }
@@ -755,6 +1145,9 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     TResult? Function(BearerAuth value)? bearer,
     TResult? Function(BasicAuth value)? basic,
     TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
   }) {
     return apiKey?.call(this);
   }
@@ -766,6 +1159,9 @@ class _$ApiKeyAuthImpl implements ApiKeyAuth {
     TResult Function(BearerAuth value)? bearer,
     TResult Function(BasicAuth value)? basic,
     TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
     required TResult orElse(),
   }) {
     if (apiKey != null) {
@@ -798,5 +1194,1054 @@ abstract class ApiKeyAuth implements AuthConfig {
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$ApiKeyAuthImplCopyWith<_$ApiKeyAuthImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$OAuth2AuthImplCopyWith<$Res> {
+  factory _$$OAuth2AuthImplCopyWith(
+    _$OAuth2AuthImpl value,
+    $Res Function(_$OAuth2AuthImpl) then,
+  ) = __$$OAuth2AuthImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({
+    String accessToken,
+    String refreshToken,
+    String tokenType,
+    int? expiresAtSecs,
+    String tokenUrl,
+    String clientId,
+    String clientSecret,
+    String scope,
+    String username,
+    String password,
+    OAuth2GrantType grantType,
+  });
+}
+
+/// @nodoc
+class __$$OAuth2AuthImplCopyWithImpl<$Res>
+    extends _$AuthConfigCopyWithImpl<$Res, _$OAuth2AuthImpl>
+    implements _$$OAuth2AuthImplCopyWith<$Res> {
+  __$$OAuth2AuthImplCopyWithImpl(
+    _$OAuth2AuthImpl _value,
+    $Res Function(_$OAuth2AuthImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? accessToken = null,
+    Object? refreshToken = null,
+    Object? tokenType = null,
+    Object? expiresAtSecs = freezed,
+    Object? tokenUrl = null,
+    Object? clientId = null,
+    Object? clientSecret = null,
+    Object? scope = null,
+    Object? username = null,
+    Object? password = null,
+    Object? grantType = null,
+  }) {
+    return _then(
+      _$OAuth2AuthImpl(
+        accessToken: null == accessToken
+            ? _value.accessToken
+            : accessToken // ignore: cast_nullable_to_non_nullable
+                  as String,
+        refreshToken: null == refreshToken
+            ? _value.refreshToken
+            : refreshToken // ignore: cast_nullable_to_non_nullable
+                  as String,
+        tokenType: null == tokenType
+            ? _value.tokenType
+            : tokenType // ignore: cast_nullable_to_non_nullable
+                  as String,
+        expiresAtSecs: freezed == expiresAtSecs
+            ? _value.expiresAtSecs
+            : expiresAtSecs // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        tokenUrl: null == tokenUrl
+            ? _value.tokenUrl
+            : tokenUrl // ignore: cast_nullable_to_non_nullable
+                  as String,
+        clientId: null == clientId
+            ? _value.clientId
+            : clientId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        clientSecret: null == clientSecret
+            ? _value.clientSecret
+            : clientSecret // ignore: cast_nullable_to_non_nullable
+                  as String,
+        scope: null == scope
+            ? _value.scope
+            : scope // ignore: cast_nullable_to_non_nullable
+                  as String,
+        username: null == username
+            ? _value.username
+            : username // ignore: cast_nullable_to_non_nullable
+                  as String,
+        password: null == password
+            ? _value.password
+            : password // ignore: cast_nullable_to_non_nullable
+                  as String,
+        grantType: null == grantType
+            ? _value.grantType
+            : grantType // ignore: cast_nullable_to_non_nullable
+                  as OAuth2GrantType,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$OAuth2AuthImpl implements OAuth2Auth {
+  const _$OAuth2AuthImpl({
+    this.accessToken = '',
+    this.refreshToken = '',
+    this.tokenType = 'Bearer',
+    this.expiresAtSecs,
+    this.tokenUrl = '',
+    this.clientId = '',
+    this.clientSecret = '',
+    this.scope = '',
+    this.username = '',
+    this.password = '',
+    this.grantType = OAuth2GrantType.clientCredentials,
+    final String? $type,
+  }) : $type = $type ?? 'oauth2';
+
+  factory _$OAuth2AuthImpl.fromJson(Map<String, dynamic> json) =>
+      _$$OAuth2AuthImplFromJson(json);
+
+  @override
+  @JsonKey()
+  final String accessToken;
+  @override
+  @JsonKey()
+  final String refreshToken;
+  @override
+  @JsonKey()
+  final String tokenType;
+  @override
+  final int? expiresAtSecs;
+  @override
+  @JsonKey()
+  final String tokenUrl;
+  @override
+  @JsonKey()
+  final String clientId;
+  @override
+  @JsonKey()
+  final String clientSecret;
+  @override
+  @JsonKey()
+  final String scope;
+  @override
+  @JsonKey()
+  final String username;
+  @override
+  @JsonKey()
+  final String password;
+  @override
+  @JsonKey()
+  final OAuth2GrantType grantType;
+
+  @JsonKey(name: 'runtimeType')
+  final String $type;
+
+  @override
+  String toString() {
+    return 'AuthConfig.oauth2(accessToken: $accessToken, refreshToken: $refreshToken, tokenType: $tokenType, expiresAtSecs: $expiresAtSecs, tokenUrl: $tokenUrl, clientId: $clientId, clientSecret: $clientSecret, scope: $scope, username: $username, password: $password, grantType: $grantType)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$OAuth2AuthImpl &&
+            (identical(other.accessToken, accessToken) ||
+                other.accessToken == accessToken) &&
+            (identical(other.refreshToken, refreshToken) ||
+                other.refreshToken == refreshToken) &&
+            (identical(other.tokenType, tokenType) ||
+                other.tokenType == tokenType) &&
+            (identical(other.expiresAtSecs, expiresAtSecs) ||
+                other.expiresAtSecs == expiresAtSecs) &&
+            (identical(other.tokenUrl, tokenUrl) ||
+                other.tokenUrl == tokenUrl) &&
+            (identical(other.clientId, clientId) ||
+                other.clientId == clientId) &&
+            (identical(other.clientSecret, clientSecret) ||
+                other.clientSecret == clientSecret) &&
+            (identical(other.scope, scope) || other.scope == scope) &&
+            (identical(other.username, username) ||
+                other.username == username) &&
+            (identical(other.password, password) ||
+                other.password == password) &&
+            (identical(other.grantType, grantType) ||
+                other.grantType == grantType));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    accessToken,
+    refreshToken,
+    tokenType,
+    expiresAtSecs,
+    tokenUrl,
+    clientId,
+    clientSecret,
+    scope,
+    username,
+    password,
+    grantType,
+  );
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$OAuth2AuthImplCopyWith<_$OAuth2AuthImpl> get copyWith =>
+      __$$OAuth2AuthImplCopyWithImpl<_$OAuth2AuthImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function() none,
+    required TResult Function(String token) bearer,
+    required TResult Function(String username, String password) basic,
+    required TResult Function(String key, String value, ApiKeyAddTo addTo)
+    apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
+  }) {
+    return oauth2(
+      accessToken,
+      refreshToken,
+      tokenType,
+      expiresAtSecs,
+      tokenUrl,
+      clientId,
+      clientSecret,
+      scope,
+      username,
+      password,
+      grantType,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function()? none,
+    TResult? Function(String token)? bearer,
+    TResult? Function(String username, String password)? basic,
+    TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+  }) {
+    return oauth2?.call(
+      accessToken,
+      refreshToken,
+      tokenType,
+      expiresAtSecs,
+      tokenUrl,
+      clientId,
+      clientSecret,
+      scope,
+      username,
+      password,
+      grantType,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function()? none,
+    TResult Function(String token)? bearer,
+    TResult Function(String username, String password)? basic,
+    TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (oauth2 != null) {
+      return oauth2(
+        accessToken,
+        refreshToken,
+        tokenType,
+        expiresAtSecs,
+        tokenUrl,
+        clientId,
+        clientSecret,
+        scope,
+        username,
+        password,
+        grantType,
+      );
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(NoAuth value) none,
+    required TResult Function(BearerAuth value) bearer,
+    required TResult Function(BasicAuth value) basic,
+    required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
+  }) {
+    return oauth2(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(NoAuth value)? none,
+    TResult? Function(BearerAuth value)? bearer,
+    TResult? Function(BasicAuth value)? basic,
+    TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
+  }) {
+    return oauth2?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(NoAuth value)? none,
+    TResult Function(BearerAuth value)? bearer,
+    TResult Function(BasicAuth value)? basic,
+    TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (oauth2 != null) {
+      return oauth2(this);
+    }
+    return orElse();
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$OAuth2AuthImplToJson(this);
+  }
+}
+
+abstract class OAuth2Auth implements AuthConfig {
+  const factory OAuth2Auth({
+    final String accessToken,
+    final String refreshToken,
+    final String tokenType,
+    final int? expiresAtSecs,
+    final String tokenUrl,
+    final String clientId,
+    final String clientSecret,
+    final String scope,
+    final String username,
+    final String password,
+    final OAuth2GrantType grantType,
+  }) = _$OAuth2AuthImpl;
+
+  factory OAuth2Auth.fromJson(Map<String, dynamic> json) =
+      _$OAuth2AuthImpl.fromJson;
+
+  String get accessToken;
+  String get refreshToken;
+  String get tokenType;
+  int? get expiresAtSecs;
+  String get tokenUrl;
+  String get clientId;
+  String get clientSecret;
+  String get scope;
+  String get username;
+  String get password;
+  OAuth2GrantType get grantType;
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$OAuth2AuthImplCopyWith<_$OAuth2AuthImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$DigestAuthImplCopyWith<$Res> {
+  factory _$$DigestAuthImplCopyWith(
+    _$DigestAuthImpl value,
+    $Res Function(_$DigestAuthImpl) then,
+  ) = __$$DigestAuthImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({String username, String password});
+}
+
+/// @nodoc
+class __$$DigestAuthImplCopyWithImpl<$Res>
+    extends _$AuthConfigCopyWithImpl<$Res, _$DigestAuthImpl>
+    implements _$$DigestAuthImplCopyWith<$Res> {
+  __$$DigestAuthImplCopyWithImpl(
+    _$DigestAuthImpl _value,
+    $Res Function(_$DigestAuthImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({Object? username = null, Object? password = null}) {
+    return _then(
+      _$DigestAuthImpl(
+        username: null == username
+            ? _value.username
+            : username // ignore: cast_nullable_to_non_nullable
+                  as String,
+        password: null == password
+            ? _value.password
+            : password // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$DigestAuthImpl implements DigestAuth {
+  const _$DigestAuthImpl({
+    this.username = '',
+    this.password = '',
+    final String? $type,
+  }) : $type = $type ?? 'digest';
+
+  factory _$DigestAuthImpl.fromJson(Map<String, dynamic> json) =>
+      _$$DigestAuthImplFromJson(json);
+
+  @override
+  @JsonKey()
+  final String username;
+  @override
+  @JsonKey()
+  final String password;
+
+  @JsonKey(name: 'runtimeType')
+  final String $type;
+
+  @override
+  String toString() {
+    return 'AuthConfig.digest(username: $username, password: $password)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$DigestAuthImpl &&
+            (identical(other.username, username) ||
+                other.username == username) &&
+            (identical(other.password, password) ||
+                other.password == password));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, username, password);
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$DigestAuthImplCopyWith<_$DigestAuthImpl> get copyWith =>
+      __$$DigestAuthImplCopyWithImpl<_$DigestAuthImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function() none,
+    required TResult Function(String token) bearer,
+    required TResult Function(String username, String password) basic,
+    required TResult Function(String key, String value, ApiKeyAddTo addTo)
+    apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
+  }) {
+    return digest(username, password);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function()? none,
+    TResult? Function(String token)? bearer,
+    TResult? Function(String username, String password)? basic,
+    TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+  }) {
+    return digest?.call(username, password);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function()? none,
+    TResult Function(String token)? bearer,
+    TResult Function(String username, String password)? basic,
+    TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (digest != null) {
+      return digest(username, password);
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(NoAuth value) none,
+    required TResult Function(BearerAuth value) bearer,
+    required TResult Function(BasicAuth value) basic,
+    required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
+  }) {
+    return digest(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(NoAuth value)? none,
+    TResult? Function(BearerAuth value)? bearer,
+    TResult? Function(BasicAuth value)? basic,
+    TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
+  }) {
+    return digest?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(NoAuth value)? none,
+    TResult Function(BearerAuth value)? bearer,
+    TResult Function(BasicAuth value)? basic,
+    TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (digest != null) {
+      return digest(this);
+    }
+    return orElse();
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$DigestAuthImplToJson(this);
+  }
+}
+
+abstract class DigestAuth implements AuthConfig {
+  const factory DigestAuth({final String username, final String password}) =
+      _$DigestAuthImpl;
+
+  factory DigestAuth.fromJson(Map<String, dynamic> json) =
+      _$DigestAuthImpl.fromJson;
+
+  String get username;
+  String get password;
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$DigestAuthImplCopyWith<_$DigestAuthImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class _$$AwsSigV4AuthImplCopyWith<$Res> {
+  factory _$$AwsSigV4AuthImplCopyWith(
+    _$AwsSigV4AuthImpl value,
+    $Res Function(_$AwsSigV4AuthImpl) then,
+  ) = __$$AwsSigV4AuthImplCopyWithImpl<$Res>;
+  @useResult
+  $Res call({
+    String accessKeyId,
+    String secretAccessKey,
+    String sessionToken,
+    String region,
+    String service,
+  });
+}
+
+/// @nodoc
+class __$$AwsSigV4AuthImplCopyWithImpl<$Res>
+    extends _$AuthConfigCopyWithImpl<$Res, _$AwsSigV4AuthImpl>
+    implements _$$AwsSigV4AuthImplCopyWith<$Res> {
+  __$$AwsSigV4AuthImplCopyWithImpl(
+    _$AwsSigV4AuthImpl _value,
+    $Res Function(_$AwsSigV4AuthImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? accessKeyId = null,
+    Object? secretAccessKey = null,
+    Object? sessionToken = null,
+    Object? region = null,
+    Object? service = null,
+  }) {
+    return _then(
+      _$AwsSigV4AuthImpl(
+        accessKeyId: null == accessKeyId
+            ? _value.accessKeyId
+            : accessKeyId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        secretAccessKey: null == secretAccessKey
+            ? _value.secretAccessKey
+            : secretAccessKey // ignore: cast_nullable_to_non_nullable
+                  as String,
+        sessionToken: null == sessionToken
+            ? _value.sessionToken
+            : sessionToken // ignore: cast_nullable_to_non_nullable
+                  as String,
+        region: null == region
+            ? _value.region
+            : region // ignore: cast_nullable_to_non_nullable
+                  as String,
+        service: null == service
+            ? _value.service
+            : service // ignore: cast_nullable_to_non_nullable
+                  as String,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$AwsSigV4AuthImpl implements AwsSigV4Auth {
+  const _$AwsSigV4AuthImpl({
+    this.accessKeyId = '',
+    this.secretAccessKey = '',
+    this.sessionToken = '',
+    this.region = 'us-east-1',
+    this.service = 'execute-api',
+    final String? $type,
+  }) : $type = $type ?? 'awsSigV4';
+
+  factory _$AwsSigV4AuthImpl.fromJson(Map<String, dynamic> json) =>
+      _$$AwsSigV4AuthImplFromJson(json);
+
+  @override
+  @JsonKey()
+  final String accessKeyId;
+  @override
+  @JsonKey()
+  final String secretAccessKey;
+  @override
+  @JsonKey()
+  final String sessionToken;
+  @override
+  @JsonKey()
+  final String region;
+  @override
+  @JsonKey()
+  final String service;
+
+  @JsonKey(name: 'runtimeType')
+  final String $type;
+
+  @override
+  String toString() {
+    return 'AuthConfig.awsSigV4(accessKeyId: $accessKeyId, secretAccessKey: $secretAccessKey, sessionToken: $sessionToken, region: $region, service: $service)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$AwsSigV4AuthImpl &&
+            (identical(other.accessKeyId, accessKeyId) ||
+                other.accessKeyId == accessKeyId) &&
+            (identical(other.secretAccessKey, secretAccessKey) ||
+                other.secretAccessKey == secretAccessKey) &&
+            (identical(other.sessionToken, sessionToken) ||
+                other.sessionToken == sessionToken) &&
+            (identical(other.region, region) || other.region == region) &&
+            (identical(other.service, service) || other.service == service));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
+    region,
+    service,
+  );
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$AwsSigV4AuthImplCopyWith<_$AwsSigV4AuthImpl> get copyWith =>
+      __$$AwsSigV4AuthImplCopyWithImpl<_$AwsSigV4AuthImpl>(this, _$identity);
+
+  @override
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>({
+    required TResult Function() none,
+    required TResult Function(String token) bearer,
+    required TResult Function(String username, String password) basic,
+    required TResult Function(String key, String value, ApiKeyAddTo addTo)
+    apiKey,
+    required TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )
+    oauth2,
+    required TResult Function(String username, String password) digest,
+    required TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )
+    awsSigV4,
+  }) {
+    return awsSigV4(
+      accessKeyId,
+      secretAccessKey,
+      sessionToken,
+      region,
+      service,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>({
+    TResult? Function()? none,
+    TResult? Function(String token)? bearer,
+    TResult? Function(String username, String password)? basic,
+    TResult? Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult? Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult? Function(String username, String password)? digest,
+    TResult? Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+  }) {
+    return awsSigV4?.call(
+      accessKeyId,
+      secretAccessKey,
+      sessionToken,
+      region,
+      service,
+    );
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>({
+    TResult Function()? none,
+    TResult Function(String token)? bearer,
+    TResult Function(String username, String password)? basic,
+    TResult Function(String key, String value, ApiKeyAddTo addTo)? apiKey,
+    TResult Function(
+      String accessToken,
+      String refreshToken,
+      String tokenType,
+      int? expiresAtSecs,
+      String tokenUrl,
+      String clientId,
+      String clientSecret,
+      String scope,
+      String username,
+      String password,
+      OAuth2GrantType grantType,
+    )?
+    oauth2,
+    TResult Function(String username, String password)? digest,
+    TResult Function(
+      String accessKeyId,
+      String secretAccessKey,
+      String sessionToken,
+      String region,
+      String service,
+    )?
+    awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (awsSigV4 != null) {
+      return awsSigV4(
+        accessKeyId,
+        secretAccessKey,
+        sessionToken,
+        region,
+        service,
+      );
+    }
+    return orElse();
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>({
+    required TResult Function(NoAuth value) none,
+    required TResult Function(BearerAuth value) bearer,
+    required TResult Function(BasicAuth value) basic,
+    required TResult Function(ApiKeyAuth value) apiKey,
+    required TResult Function(OAuth2Auth value) oauth2,
+    required TResult Function(DigestAuth value) digest,
+    required TResult Function(AwsSigV4Auth value) awsSigV4,
+  }) {
+    return awsSigV4(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>({
+    TResult? Function(NoAuth value)? none,
+    TResult? Function(BearerAuth value)? bearer,
+    TResult? Function(BasicAuth value)? basic,
+    TResult? Function(ApiKeyAuth value)? apiKey,
+    TResult? Function(OAuth2Auth value)? oauth2,
+    TResult? Function(DigestAuth value)? digest,
+    TResult? Function(AwsSigV4Auth value)? awsSigV4,
+  }) {
+    return awsSigV4?.call(this);
+  }
+
+  @override
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>({
+    TResult Function(NoAuth value)? none,
+    TResult Function(BearerAuth value)? bearer,
+    TResult Function(BasicAuth value)? basic,
+    TResult Function(ApiKeyAuth value)? apiKey,
+    TResult Function(OAuth2Auth value)? oauth2,
+    TResult Function(DigestAuth value)? digest,
+    TResult Function(AwsSigV4Auth value)? awsSigV4,
+    required TResult orElse(),
+  }) {
+    if (awsSigV4 != null) {
+      return awsSigV4(this);
+    }
+    return orElse();
+  }
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$AwsSigV4AuthImplToJson(this);
+  }
+}
+
+abstract class AwsSigV4Auth implements AuthConfig {
+  const factory AwsSigV4Auth({
+    final String accessKeyId,
+    final String secretAccessKey,
+    final String sessionToken,
+    final String region,
+    final String service,
+  }) = _$AwsSigV4AuthImpl;
+
+  factory AwsSigV4Auth.fromJson(Map<String, dynamic> json) =
+      _$AwsSigV4AuthImpl.fromJson;
+
+  String get accessKeyId;
+  String get secretAccessKey;
+  String get sessionToken;
+  String get region;
+  String get service;
+
+  /// Create a copy of AuthConfig
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$AwsSigV4AuthImplCopyWith<_$AwsSigV4AuthImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }

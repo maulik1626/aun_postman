@@ -32,6 +32,8 @@ mixin _$HttpRequest {
   String? get collectionUid => throw _privateConstructorUsedError;
   String? get folderUid => throw _privateConstructorUsedError;
   int get sortOrder => throw _privateConstructorUsedError;
+  @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+  List<TestAssertion> get assertions => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
 
@@ -64,6 +66,8 @@ abstract class $HttpRequestCopyWith<$Res> {
     String? collectionUid,
     String? folderUid,
     int sortOrder,
+    @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+    List<TestAssertion> assertions,
     DateTime createdAt,
     DateTime updatedAt,
   });
@@ -98,6 +102,7 @@ class _$HttpRequestCopyWithImpl<$Res, $Val extends HttpRequest>
     Object? collectionUid = freezed,
     Object? folderUid = freezed,
     Object? sortOrder = null,
+    Object? assertions = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
@@ -147,6 +152,10 @@ class _$HttpRequestCopyWithImpl<$Res, $Val extends HttpRequest>
                 ? _value.sortOrder
                 : sortOrder // ignore: cast_nullable_to_non_nullable
                       as int,
+            assertions: null == assertions
+                ? _value.assertions
+                : assertions // ignore: cast_nullable_to_non_nullable
+                      as List<TestAssertion>,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -202,6 +211,8 @@ abstract class _$$HttpRequestImplCopyWith<$Res>
     String? collectionUid,
     String? folderUid,
     int sortOrder,
+    @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+    List<TestAssertion> assertions,
     DateTime createdAt,
     DateTime updatedAt,
   });
@@ -237,6 +248,7 @@ class __$$HttpRequestImplCopyWithImpl<$Res>
     Object? collectionUid = freezed,
     Object? folderUid = freezed,
     Object? sortOrder = null,
+    Object? assertions = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
@@ -286,6 +298,10 @@ class __$$HttpRequestImplCopyWithImpl<$Res>
             ? _value.sortOrder
             : sortOrder // ignore: cast_nullable_to_non_nullable
                   as int,
+        assertions: null == assertions
+            ? _value._assertions
+            : assertions // ignore: cast_nullable_to_non_nullable
+                  as List<TestAssertion>,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -314,10 +330,13 @@ class _$HttpRequestImpl implements _HttpRequest {
     this.collectionUid,
     this.folderUid,
     this.sortOrder = 0,
+    @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+    final List<TestAssertion> assertions = const [],
     required this.createdAt,
     required this.updatedAt,
   }) : _params = params,
-       _headers = headers;
+       _headers = headers,
+       _assertions = assertions;
 
   factory _$HttpRequestImpl.fromJson(Map<String, dynamic> json) =>
       _$$HttpRequestImplFromJson(json);
@@ -360,6 +379,15 @@ class _$HttpRequestImpl implements _HttpRequest {
   @override
   @JsonKey()
   final int sortOrder;
+  final List<TestAssertion> _assertions;
+  @override
+  @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+  List<TestAssertion> get assertions {
+    if (_assertions is EqualUnmodifiableListView) return _assertions;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_assertions);
+  }
+
   @override
   final DateTime createdAt;
   @override
@@ -367,7 +395,7 @@ class _$HttpRequestImpl implements _HttpRequest {
 
   @override
   String toString() {
-    return 'HttpRequest(uid: $uid, name: $name, method: $method, url: $url, params: $params, headers: $headers, body: $body, auth: $auth, collectionUid: $collectionUid, folderUid: $folderUid, sortOrder: $sortOrder, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'HttpRequest(uid: $uid, name: $name, method: $method, url: $url, params: $params, headers: $headers, body: $body, auth: $auth, collectionUid: $collectionUid, folderUid: $folderUid, sortOrder: $sortOrder, assertions: $assertions, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -389,6 +417,10 @@ class _$HttpRequestImpl implements _HttpRequest {
                 other.folderUid == folderUid) &&
             (identical(other.sortOrder, sortOrder) ||
                 other.sortOrder == sortOrder) &&
+            const DeepCollectionEquality().equals(
+              other._assertions,
+              _assertions,
+            ) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -410,6 +442,7 @@ class _$HttpRequestImpl implements _HttpRequest {
     collectionUid,
     folderUid,
     sortOrder,
+    const DeepCollectionEquality().hash(_assertions),
     createdAt,
     updatedAt,
   );
@@ -441,6 +474,8 @@ abstract class _HttpRequest implements HttpRequest {
     final String? collectionUid,
     final String? folderUid,
     final int sortOrder,
+    @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+    final List<TestAssertion> assertions,
     required final DateTime createdAt,
     required final DateTime updatedAt,
   }) = _$HttpRequestImpl;
@@ -470,6 +505,9 @@ abstract class _HttpRequest implements HttpRequest {
   String? get folderUid;
   @override
   int get sortOrder;
+  @override
+  @JsonKey(fromJson: assertionsFromJson, toJson: assertionsToJson)
+  List<TestAssertion> get assertions;
   @override
   DateTime get createdAt;
   @override

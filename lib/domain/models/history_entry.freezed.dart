@@ -26,6 +26,10 @@ mixin _$HistoryEntry {
   HttpResponse get response => throw _privateConstructorUsedError;
   DateTime get executedAt => throw _privateConstructorUsedError;
 
+  /// Active environment variable map at send time (for faithful replay from history).
+  Map<String, String> get variableSnapshot =>
+      throw _privateConstructorUsedError;
+
   /// Serializes this HistoryEntry to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -48,6 +52,7 @@ abstract class $HistoryEntryCopyWith<$Res> {
     HttpRequest request,
     HttpResponse response,
     DateTime executedAt,
+    Map<String, String> variableSnapshot,
   });
 
   $HttpRequestCopyWith<$Res> get request;
@@ -73,6 +78,7 @@ class _$HistoryEntryCopyWithImpl<$Res, $Val extends HistoryEntry>
     Object? request = null,
     Object? response = null,
     Object? executedAt = null,
+    Object? variableSnapshot = null,
   }) {
     return _then(
       _value.copyWith(
@@ -92,6 +98,10 @@ class _$HistoryEntryCopyWithImpl<$Res, $Val extends HistoryEntry>
                 ? _value.executedAt
                 : executedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime,
+            variableSnapshot: null == variableSnapshot
+                ? _value.variableSnapshot
+                : variableSnapshot // ignore: cast_nullable_to_non_nullable
+                      as Map<String, String>,
           )
           as $Val,
     );
@@ -132,6 +142,7 @@ abstract class _$$HistoryEntryImplCopyWith<$Res>
     HttpRequest request,
     HttpResponse response,
     DateTime executedAt,
+    Map<String, String> variableSnapshot,
   });
 
   @override
@@ -158,6 +169,7 @@ class __$$HistoryEntryImplCopyWithImpl<$Res>
     Object? request = null,
     Object? response = null,
     Object? executedAt = null,
+    Object? variableSnapshot = null,
   }) {
     return _then(
       _$HistoryEntryImpl(
@@ -177,6 +189,10 @@ class __$$HistoryEntryImplCopyWithImpl<$Res>
             ? _value.executedAt
             : executedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime,
+        variableSnapshot: null == variableSnapshot
+            ? _value._variableSnapshot
+            : variableSnapshot // ignore: cast_nullable_to_non_nullable
+                  as Map<String, String>,
       ),
     );
   }
@@ -190,7 +206,8 @@ class _$HistoryEntryImpl implements _HistoryEntry {
     required this.request,
     required this.response,
     required this.executedAt,
-  });
+    final Map<String, String> variableSnapshot = const {},
+  }) : _variableSnapshot = variableSnapshot;
 
   factory _$HistoryEntryImpl.fromJson(Map<String, dynamic> json) =>
       _$$HistoryEntryImplFromJson(json);
@@ -204,9 +221,21 @@ class _$HistoryEntryImpl implements _HistoryEntry {
   @override
   final DateTime executedAt;
 
+  /// Active environment variable map at send time (for faithful replay from history).
+  final Map<String, String> _variableSnapshot;
+
+  /// Active environment variable map at send time (for faithful replay from history).
+  @override
+  @JsonKey()
+  Map<String, String> get variableSnapshot {
+    if (_variableSnapshot is EqualUnmodifiableMapView) return _variableSnapshot;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_variableSnapshot);
+  }
+
   @override
   String toString() {
-    return 'HistoryEntry(uid: $uid, request: $request, response: $response, executedAt: $executedAt)';
+    return 'HistoryEntry(uid: $uid, request: $request, response: $response, executedAt: $executedAt, variableSnapshot: $variableSnapshot)';
   }
 
   @override
@@ -219,13 +248,23 @@ class _$HistoryEntryImpl implements _HistoryEntry {
             (identical(other.response, response) ||
                 other.response == response) &&
             (identical(other.executedAt, executedAt) ||
-                other.executedAt == executedAt));
+                other.executedAt == executedAt) &&
+            const DeepCollectionEquality().equals(
+              other._variableSnapshot,
+              _variableSnapshot,
+            ));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, uid, request, response, executedAt);
+  int get hashCode => Object.hash(
+    runtimeType,
+    uid,
+    request,
+    response,
+    executedAt,
+    const DeepCollectionEquality().hash(_variableSnapshot),
+  );
 
   /// Create a copy of HistoryEntry
   /// with the given fields replaced by the non-null parameter values.
@@ -247,6 +286,7 @@ abstract class _HistoryEntry implements HistoryEntry {
     required final HttpRequest request,
     required final HttpResponse response,
     required final DateTime executedAt,
+    final Map<String, String> variableSnapshot,
   }) = _$HistoryEntryImpl;
 
   factory _HistoryEntry.fromJson(Map<String, dynamic> json) =
@@ -260,6 +300,10 @@ abstract class _HistoryEntry implements HistoryEntry {
   HttpResponse get response;
   @override
   DateTime get executedAt;
+
+  /// Active environment variable map at send time (for faithful replay from history).
+  @override
+  Map<String, String> get variableSnapshot;
 
   /// Create a copy of HistoryEntry
   /// with the given fields replaced by the non-null parameter values.

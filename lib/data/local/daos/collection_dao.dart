@@ -7,6 +7,7 @@ import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_postman/domain/models/test_assertion.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// Persists [Collection] objects (and their [Folder]s and [HttpRequest]s)
@@ -52,6 +53,7 @@ class CollectionDao {
       'name': collection.name,
       'description': collection.description,
       'sortOrder': collection.sortOrder,
+      'auth': collection.auth.toJson(),
       'requestUids': collection.requests.map((r) => r.uid).toList(),
       'folderUids': collection.folders.map((f) => f.uid).toList(),
       'createdAt': collection.createdAt.toIso8601String(),
@@ -154,6 +156,11 @@ class CollectionDao {
       sortOrder: json['sortOrder'] as int? ?? 0,
       requests: requests,
       folders: folders,
+      auth: AuthConfig.fromJson(
+        Map<String, dynamic>.from(
+          json['auth'] as Map? ?? const {'runtimeType': 'none'},
+        ),
+      ),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -219,6 +226,10 @@ class CollectionDao {
           json['body'] as Map<String, dynamic>? ?? {'runtimeType': 'none'}),
       auth: AuthConfig.fromJson(
           json['auth'] as Map<String, dynamic>? ?? {'runtimeType': 'none'}),
+      assertions: (json['assertions'] as List? ?? [])
+          .cast<Map<String, dynamic>>()
+          .map(TestAssertion.fromJson)
+          .toList(),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -236,6 +247,7 @@ class CollectionDao {
         'headers': r.headers.map((h) => h.toJson()).toList(),
         'body': r.body.toJson(),
         'auth': r.auth.toJson(),
+        'assertions': r.assertions.map((a) => a.toJson()).toList(),
         'createdAt': r.createdAt.toIso8601String(),
         'updatedAt': r.updatedAt.toIso8601String(),
       };

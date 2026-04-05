@@ -57,4 +57,30 @@ class TestAssertion {
         expected: expected ?? this.expected,
         isEnabled: isEnabled ?? this.isEnabled,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'target': target.name,
+        'op': op.name,
+        'property': property,
+        'expected': expected,
+        'isEnabled': isEnabled,
+      };
+
+  factory TestAssertion.fromJson(Map<String, dynamic> json) {
+    return TestAssertion(
+      id: json['id'] as String?,
+      target: AssertionTarget.values.firstWhere(
+        (e) => e.name == json['target'],
+        orElse: () => AssertionTarget.statusCode,
+      ),
+      op: AssertionOp.values.firstWhere(
+        (e) => e.name == json['op'],
+        orElse: () => AssertionOp.equals,
+      ),
+      property: json['property'] as String? ?? '',
+      expected: json['expected'] as String? ?? '',
+      isEnabled: json['isEnabled'] as bool? ?? true,
+    );
+  }
 }

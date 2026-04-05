@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/environment.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
+import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
@@ -58,31 +59,57 @@ class VariableInterpolator {
     r'$randomEmail',
   ];
 
-  HttpRequest interpolateRequest(HttpRequest request, Environment? env) {
-    // Dynamic variables resolve even without an active environment
-    final vars = env?.variableMap ?? {};
+  /// Resolves `{{var}}` using [variables] (plus dynamic `$…` built-ins).
+  HttpRequest interpolateRequestWithVariables(
+    HttpRequest request,
+    Map<String, String> variables,
+  ) {
     return request.copyWith(
-      url: interpolate(request.url, vars),
+      url: interpolate(request.url, variables),
       params: request.params
           .map(
             (p) => p.copyWith(
-              key: interpolate(p.key, vars),
-              value: interpolate(p.value, vars),
+              key: interpolate(p.key, variables),
+              value: interpolate(p.value, variables),
             ),
           )
           .toList(),
       headers: request.headers
           .map(
             (h) => h.copyWith(
-              key: interpolate(h.key, vars),
-              value: interpolate(h.value, vars),
+              key: interpolate(h.key, variables),
+              value: interpolate(h.value, variables),
             ),
           )
           .toList(),
-      body: _interpolateBody(request.body, vars),
-      auth: _interpolateAuth(request.auth, vars),
+      body: _interpolateBody(request.body, variables),
+      auth: _interpolateAuth(request.auth, variables),
     );
   }
+
+  HttpRequest interpolateRequest(HttpRequest request, Environment? env) =>
+      interpolateRequestWithVariables(request, env?.variableMap ?? {});
+
+  /// Interpolates app-wide default headers the same way as request headers.
+  List<RequestHeader> interpolateHeadersWithVariables(
+    List<RequestHeader> headers,
+    Map<String, String> variables,
+  ) {
+    return headers
+        .map(
+          (h) => h.copyWith(
+            key: interpolate(h.key, variables),
+            value: interpolate(h.value, variables),
+          ),
+        )
+        .toList();
+  }
+
+  List<RequestHeader> interpolateHeaders(
+    List<RequestHeader> headers,
+    Environment? env,
+  ) =>
+      interpolateHeadersWithVariables(headers, env?.variableMap ?? {});
 
   RequestBody _interpolateBody(RequestBody body, Map<String, String> vars) {
     return switch (body) {
@@ -132,6 +159,50 @@ class VariableInterpolator {
           key: interpolate(key, vars),
           value: interpolate(value, vars),
           addTo: addTo,
+        ),
+      OAuth2Auth(
+        :final accessToken,
+        :final refreshToken,
+        :final tokenType,
+        :final expiresAtSecs,
+        :final tokenUrl,
+        :final clientId,
+        :final clientSecret,
+        :final scope,
+        :final username,
+        :final password,
+        :final grantType,
+      ) =>
+        OAuth2Auth(
+          accessToken: interpolate(accessToken, vars),
+          refreshToken: interpolate(refreshToken, vars),
+          tokenType: interpolate(tokenType, vars),
+          expiresAtSecs: expiresAtSecs,
+          tokenUrl: interpolate(tokenUrl, vars),
+          clientId: interpolate(clientId, vars),
+          clientSecret: interpolate(clientSecret, vars),
+          scope: interpolate(scope, vars),
+          username: interpolate(username, vars),
+          password: interpolate(password, vars),
+          grantType: grantType,
+        ),
+      DigestAuth(:final username, :final password) => DigestAuth(
+          username: interpolate(username, vars),
+          password: interpolate(password, vars),
+        ),
+      AwsSigV4Auth(
+        :final accessKeyId,
+        :final secretAccessKey,
+        :final sessionToken,
+        :final region,
+        :final service,
+      ) =>
+        AwsSigV4Auth(
+          accessKeyId: interpolate(accessKeyId, vars),
+          secretAccessKey: interpolate(secretAccessKey, vars),
+          sessionToken: interpolate(sessionToken, vars),
+          region: interpolate(region, vars),
+          service: interpolate(service, vars),
         ),
     };
   }

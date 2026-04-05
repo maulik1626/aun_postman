@@ -1,3 +1,4 @@
+import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
@@ -14,6 +15,7 @@ class Collection with _$Collection {
     @Default(0) int sortOrder,
     @Default([]) List<Folder> folders,
     @Default([]) List<HttpRequest> requests,
+    @Default(NoAuth()) AuthConfig auth,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _Collection;

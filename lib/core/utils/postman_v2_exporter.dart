@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/collection.dart';
+import 'package:aun_postman/domain/models/environment.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
@@ -146,6 +147,61 @@ class PostmanV2Exporter {
             },
           ],
         },
+      OAuth2Auth(
+        :final accessToken,
+        :final refreshToken,
+        :final tokenType,
+        :final tokenUrl,
+        :final clientId,
+        :final clientSecret,
+        :final scope,
+        :final username,
+        :final password,
+        :final grantType,
+      ) =>
+        {
+          'type': 'oauth2',
+          'oauth2': [
+            {'key': 'accessToken', 'value': accessToken, 'type': 'string'},
+            {'key': 'tokenType', 'value': tokenType, 'type': 'string'},
+            {'key': 'refreshToken', 'value': refreshToken, 'type': 'string'},
+            {'key': 'accessTokenUrl', 'value': tokenUrl, 'type': 'string'},
+            {'key': 'clientId', 'value': clientId, 'type': 'string'},
+            {'key': 'clientSecret', 'value': clientSecret, 'type': 'string'},
+            {'key': 'scope', 'value': scope, 'type': 'string'},
+            {'key': 'username', 'value': username, 'type': 'string'},
+            {'key': 'password', 'value': password, 'type': 'string'},
+            {
+              'key': 'grant_type',
+              'value': grantType.wireValue,
+              'type': 'string',
+            },
+          ],
+        },
+      DigestAuth() => {
+          'type': 'noauth',
+        },
+      AwsSigV4Auth() => {'type': 'noauth'},
     };
+  }
+
+  /// Postman-compatible environment JSON (importable in Postman / this app).
+  static String exportEnvironment(Environment env) {
+    final data = {
+      'id': env.uid,
+      'name': env.name,
+      '_postman_variable_scope': 'environment',
+      'values': env.variables
+          .map(
+            (v) => {
+              'key': v.key,
+              'value': v.value,
+              'enabled': v.isEnabled,
+              'type': v.isSecret ? 'secret' : 'default',
+            },
+          )
+          .toList(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
   }
 }

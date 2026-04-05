@@ -27,6 +27,9 @@ _$HttpRequestImpl _$$HttpRequestImplFromJson(Map<String, dynamic> json) =>
       collectionUid: json['collectionUid'] as String?,
       folderUid: json['folderUid'] as String?,
       sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+      assertions: json['assertions'] == null
+          ? const []
+          : assertionsFromJson(json['assertions']),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -44,6 +47,7 @@ Map<String, dynamic> _$$HttpRequestImplToJson(_$HttpRequestImpl instance) =>
       'collectionUid': instance.collectionUid,
       'folderUid': instance.folderUid,
       'sortOrder': instance.sortOrder,
+      'assertions': assertionsToJson(instance.assertions),
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
     };

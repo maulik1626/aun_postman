@@ -27,6 +27,7 @@ mixin _$Collection {
   int get sortOrder => throw _privateConstructorUsedError;
   List<Folder> get folders => throw _privateConstructorUsedError;
   List<HttpRequest> get requests => throw _privateConstructorUsedError;
+  AuthConfig get auth => throw _privateConstructorUsedError;
   DateTime get createdAt => throw _privateConstructorUsedError;
   DateTime get updatedAt => throw _privateConstructorUsedError;
 
@@ -54,9 +55,12 @@ abstract class $CollectionCopyWith<$Res> {
     int sortOrder,
     List<Folder> folders,
     List<HttpRequest> requests,
+    AuthConfig auth,
     DateTime createdAt,
     DateTime updatedAt,
   });
+
+  $AuthConfigCopyWith<$Res> get auth;
 }
 
 /// @nodoc
@@ -80,6 +84,7 @@ class _$CollectionCopyWithImpl<$Res, $Val extends Collection>
     Object? sortOrder = null,
     Object? folders = null,
     Object? requests = null,
+    Object? auth = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
@@ -109,6 +114,10 @@ class _$CollectionCopyWithImpl<$Res, $Val extends Collection>
                 ? _value.requests
                 : requests // ignore: cast_nullable_to_non_nullable
                       as List<HttpRequest>,
+            auth: null == auth
+                ? _value.auth
+                : auth // ignore: cast_nullable_to_non_nullable
+                      as AuthConfig,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -120,6 +129,16 @@ class _$CollectionCopyWithImpl<$Res, $Val extends Collection>
           )
           as $Val,
     );
+  }
+
+  /// Create a copy of Collection
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $AuthConfigCopyWith<$Res> get auth {
+    return $AuthConfigCopyWith<$Res>(_value.auth, (value) {
+      return _then(_value.copyWith(auth: value) as $Val);
+    });
   }
 }
 
@@ -139,9 +158,13 @@ abstract class _$$CollectionImplCopyWith<$Res>
     int sortOrder,
     List<Folder> folders,
     List<HttpRequest> requests,
+    AuthConfig auth,
     DateTime createdAt,
     DateTime updatedAt,
   });
+
+  @override
+  $AuthConfigCopyWith<$Res> get auth;
 }
 
 /// @nodoc
@@ -164,6 +187,7 @@ class __$$CollectionImplCopyWithImpl<$Res>
     Object? sortOrder = null,
     Object? folders = null,
     Object? requests = null,
+    Object? auth = null,
     Object? createdAt = null,
     Object? updatedAt = null,
   }) {
@@ -193,6 +217,10 @@ class __$$CollectionImplCopyWithImpl<$Res>
             ? _value._requests
             : requests // ignore: cast_nullable_to_non_nullable
                   as List<HttpRequest>,
+        auth: null == auth
+            ? _value.auth
+            : auth // ignore: cast_nullable_to_non_nullable
+                  as AuthConfig,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -216,6 +244,7 @@ class _$CollectionImpl implements _Collection {
     this.sortOrder = 0,
     final List<Folder> folders = const [],
     final List<HttpRequest> requests = const [],
+    this.auth = const NoAuth(),
     required this.createdAt,
     required this.updatedAt,
   }) : _folders = folders,
@@ -252,13 +281,16 @@ class _$CollectionImpl implements _Collection {
   }
 
   @override
+  @JsonKey()
+  final AuthConfig auth;
+  @override
   final DateTime createdAt;
   @override
   final DateTime updatedAt;
 
   @override
   String toString() {
-    return 'Collection(uid: $uid, name: $name, description: $description, sortOrder: $sortOrder, folders: $folders, requests: $requests, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Collection(uid: $uid, name: $name, description: $description, sortOrder: $sortOrder, folders: $folders, requests: $requests, auth: $auth, createdAt: $createdAt, updatedAt: $updatedAt)';
   }
 
   @override
@@ -274,6 +306,7 @@ class _$CollectionImpl implements _Collection {
                 other.sortOrder == sortOrder) &&
             const DeepCollectionEquality().equals(other._folders, _folders) &&
             const DeepCollectionEquality().equals(other._requests, _requests) &&
+            (identical(other.auth, auth) || other.auth == auth) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -290,6 +323,7 @@ class _$CollectionImpl implements _Collection {
     sortOrder,
     const DeepCollectionEquality().hash(_folders),
     const DeepCollectionEquality().hash(_requests),
+    auth,
     createdAt,
     updatedAt,
   );
@@ -316,6 +350,7 @@ abstract class _Collection implements Collection {
     final int sortOrder,
     final List<Folder> folders,
     final List<HttpRequest> requests,
+    final AuthConfig auth,
     required final DateTime createdAt,
     required final DateTime updatedAt,
   }) = _$CollectionImpl;
@@ -335,6 +370,8 @@ abstract class _Collection implements Collection {
   List<Folder> get folders;
   @override
   List<HttpRequest> get requests;
+  @override
+  AuthConfig get auth;
   @override
   DateTime get createdAt;
   @override

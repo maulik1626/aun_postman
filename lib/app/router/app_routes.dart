@@ -10,5 +10,7 @@ class AppRoutes {
   static const String environmentDetail = '/environments/:uid';
   static const String websocket = '/websocket';
   static const String settings = '/settings';
+  static const String settingsDefaultHeaders = '/settings/default-headers';
+  static const String settingsProxy = '/settings/proxy';
   static const String importExport = '/import';
 }

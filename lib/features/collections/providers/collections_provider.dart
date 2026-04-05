@@ -41,9 +41,15 @@ class Collections extends _$Collections {
     ref.invalidateSelf();
   }
 
-  Future<void> reorder(List<String> orderedUids) async {
-    await ref.read(collectionRepositoryProvider).updateSortOrders(orderedUids);
-    ref.invalidateSelf();
+  /// Serialized so rapid drags apply in order and never race the DAO.
+  Future<void> _reorderQueue = Future.value();
+
+  Future<void> reorder(List<String> orderedUids) {
+    _reorderQueue = _reorderQueue.then((_) async {
+      await ref.read(collectionRepositoryProvider).updateSortOrders(orderedUids);
+      ref.invalidateSelf();
+    });
+    return _reorderQueue;
   }
 
   Future<void> clearAll() async {
@@ -66,6 +72,7 @@ class Collections extends _$Collections {
       uid: newColUid,
       name: '${source.name} (copy)',
       sortOrder: state.length,
+      auth: source.auth,
       createdAt: now,
       updatedAt: now,
       requests: source.requests

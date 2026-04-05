@@ -258,6 +258,28 @@ class PostmanV2Importer {
               ? ApiKeyAddTo.query
               : ApiKeyAddTo.header,
         );
+      case 'oauth2':
+        final oauth2 = authMap['oauth2'] as List<dynamic>? ?? [];
+        final om = <String, dynamic>{};
+        for (final e in oauth2.cast<Map<String, dynamic>>()) {
+          final k = e['key'] as String?;
+          if (k == null || k.isEmpty) continue;
+          om[k] = e['value'];
+        }
+        return OAuth2Auth(
+          accessToken: (om['accessToken'] as String?) ?? '',
+          tokenType: (om['tokenType'] as String?) ?? 'Bearer',
+          refreshToken: (om['refreshToken'] as String?) ?? '',
+          tokenUrl: (om['accessTokenUrl'] as String?) ??
+              (om['tokenUrl'] as String?) ??
+              '',
+          clientId: (om['clientId'] as String?) ?? '',
+          clientSecret: (om['clientSecret'] as String?) ?? '',
+          scope: (om['scope'] as String?) ?? '',
+          username: (om['username'] as String?) ?? '',
+          password: (om['password'] as String?) ?? '',
+          grantType: OAuth2GrantType.fromWire(om['grant_type'] as String?),
+        );
       default:
         return const NoAuth();
     }

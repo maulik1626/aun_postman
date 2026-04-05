@@ -22,6 +22,9 @@ _$CollectionImpl _$$CollectionImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => HttpRequest.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
+      auth: json['auth'] == null
+          ? const NoAuth()
+          : AuthConfig.fromJson(json['auth'] as Map<String, dynamic>),
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -34,6 +37,7 @@ Map<String, dynamic> _$$CollectionImplToJson(_$CollectionImpl instance) =>
       'sortOrder': instance.sortOrder,
       'folders': instance.folders,
       'requests': instance.requests,
+      'auth': instance.auth,
       'createdAt': instance.createdAt.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
     };

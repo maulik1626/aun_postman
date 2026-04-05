@@ -1,13 +1,19 @@
 import 'package:aun_postman/core/utils/assertion_runner.dart';
+import 'package:aun_postman/core/utils/oauth2_token_client.dart';
+import 'package:aun_postman/core/utils/request_name_from_url.dart';
+import 'package:aun_postman/core/utils/auth_merge.dart';
 import 'package:aun_postman/core/utils/variable_interpolator.dart';
 import 'package:aun_postman/data/http/dio_client.dart';
+import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/history_entry.dart';
+import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/http_response.dart';
 import 'package:aun_postman/features/environments/providers/active_environment_provider.dart';
 import 'package:aun_postman/features/history/providers/history_provider.dart';
 import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
 import 'package:aun_postman/features/request_builder/providers/test_results_provider.dart';
 import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_postman/infrastructure/collection_repository.dart';
 import 'package:aun_postman/infrastructure/history_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -21,16 +27,41 @@ class RequestExecution extends _$RequestExecution {
   CancelToken? _cancelToken;
   static final _interpolator = VariableInterpolator();
 
+  /// Last successfully executed request (interpolated + merged auth), for HAR export.
+  HttpRequest? _lastSentRequest;
+  DateTime? _lastStartedAt;
+
+  HttpRequest? get lastSentRequest => _lastSentRequest;
+  DateTime? get lastStartedAt => _lastStartedAt;
+
   @override
   AsyncValue<HttpResponse?> build() => const AsyncData(null);
 
   Future<void> execute() async {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
+    _lastSentRequest = null;
+    _lastStartedAt = null;
 
     final activeEnv = ref.read(activeEnvironmentProvider);
+    final builderState = ref.read(requestBuilderProvider);
     final rawRequest = ref.read(requestBuilderProvider.notifier).toRequest();
-    final request = _interpolator.interpolateRequest(rawRequest, activeEnv);
+    final vars = buildInterpolationVariableMap(
+      builder: builderState,
+      env: activeEnv,
+    );
+    final interpolated =
+        _interpolator.interpolateRequestWithVariables(rawRequest, vars);
+    final cUid = interpolated.collectionUid;
+    final collection = (cUid != null && cUid.isNotEmpty)
+        ? ref.read(collectionRepositoryProvider).getByUid(cUid)
+        : null;
+    final request = interpolated.copyWith(
+      auth: mergeRequestAndCollectionAuth(
+        interpolated.auth,
+        collection?.auth ?? const NoAuth(),
+      ),
+    );
 
     if (request.url.isEmpty) {
       state = AsyncError('URL cannot be empty', StackTrace.current);
@@ -40,14 +71,33 @@ class RequestExecution extends _$RequestExecution {
     state = const AsyncLoading();
 
     try {
+      var sendRequest = request;
+      if (request.auth case final OAuth2Auth oa) {
+        if (OAuth2TokenClient.shouldFetch(oa)) {
+          final next = await OAuth2TokenClient.fetchAndMerge(oa);
+          ref.read(requestBuilderProvider.notifier).setAuth(next);
+          sendRequest = request.copyWith(auth: next);
+        }
+      }
+
       final settings = ref.read(appSettingsProvider);
+      final defaultHdrs = _interpolator.interpolateHeadersWithVariables(
+        settings.defaultHeaders,
+        vars,
+      );
+      final startedAt = DateTime.now();
       final response = await DioClient.execute(
-        request,
+        sendRequest,
         cancelToken: _cancelToken,
         timeoutSeconds: settings.timeoutSeconds,
         followRedirects: settings.followRedirects,
+        verifySsl: settings.verifySsl,
+        httpProxy: settings.httpProxy,
+        defaultHeaders: defaultHdrs,
       );
       state = AsyncData(response);
+      _lastSentRequest = sendRequest;
+      _lastStartedAt = startedAt;
 
       // Run test assertions
       final assertions = ref.read(requestBuilderProvider).assertions;
@@ -58,12 +108,22 @@ class RequestExecution extends _$RequestExecution {
         ref.read(testResultsProvider.notifier).state = null;
       }
 
-      // Persist to history
+      // Persist to history (avoid generic "New Request" when we can title from URL)
+      var requestForHistory = rawRequest;
+      final trimmedName = rawRequest.name.trim();
+      if ((trimmedName.isEmpty || trimmedName == 'New Request') &&
+          rawRequest.url.trim().isNotEmpty) {
+        requestForHistory = rawRequest.copyWith(
+          name: suggestRequestNameFromUrl(rawRequest.url),
+        );
+      }
+
       final entry = HistoryEntry(
         uid: _uuid.v4(),
-        request: rawRequest,
+        request: requestForHistory,
         response: response,
         executedAt: DateTime.now(),
+        variableSnapshot: Map<String, String>.from(vars),
       );
       await ref.read(historyRepositoryProvider).save(entry);
       ref.invalidate(historyProvider);

@@ -27,8 +27,19 @@ mixin _$RequestBuilderState {
   String? get collectionUid => throw _privateConstructorUsedError;
   String? get folderUid => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
+
+  /// When false, [setUrl] updates [name] via [suggestRequestNameFromUrl].
+  bool get isRequestNameUserLocked => throw _privateConstructorUsedError;
   bool get isDirty => throw _privateConstructorUsedError;
   List<TestAssertion> get assertions => throw _privateConstructorUsedError;
+
+  /// From history replay: full `{{var}}` map captured at send time.
+  Map<String, String> get historyVariableSnapshot =>
+      throw _privateConstructorUsedError;
+
+  /// One-off overrides merged on top of env (or history snapshot) for Send / cURL.
+  Map<String, String> get preRequestVariables =>
+      throw _privateConstructorUsedError;
 
   /// Create a copy of RequestBuilderState
   /// with the given fields replaced by the non-null parameter values.
@@ -55,8 +66,11 @@ abstract class $RequestBuilderStateCopyWith<$Res> {
     String? collectionUid,
     String? folderUid,
     String name,
+    bool isRequestNameUserLocked,
     bool isDirty,
     List<TestAssertion> assertions,
+    Map<String, String> historyVariableSnapshot,
+    Map<String, String> preRequestVariables,
   });
 
   $RequestBodyCopyWith<$Res> get body;
@@ -88,8 +102,11 @@ class _$RequestBuilderStateCopyWithImpl<$Res, $Val extends RequestBuilderState>
     Object? collectionUid = freezed,
     Object? folderUid = freezed,
     Object? name = null,
+    Object? isRequestNameUserLocked = null,
     Object? isDirty = null,
     Object? assertions = null,
+    Object? historyVariableSnapshot = null,
+    Object? preRequestVariables = null,
   }) {
     return _then(
       _value.copyWith(
@@ -133,6 +150,10 @@ class _$RequestBuilderStateCopyWithImpl<$Res, $Val extends RequestBuilderState>
                 ? _value.name
                 : name // ignore: cast_nullable_to_non_nullable
                       as String,
+            isRequestNameUserLocked: null == isRequestNameUserLocked
+                ? _value.isRequestNameUserLocked
+                : isRequestNameUserLocked // ignore: cast_nullable_to_non_nullable
+                      as bool,
             isDirty: null == isDirty
                 ? _value.isDirty
                 : isDirty // ignore: cast_nullable_to_non_nullable
@@ -141,6 +162,14 @@ class _$RequestBuilderStateCopyWithImpl<$Res, $Val extends RequestBuilderState>
                 ? _value.assertions
                 : assertions // ignore: cast_nullable_to_non_nullable
                       as List<TestAssertion>,
+            historyVariableSnapshot: null == historyVariableSnapshot
+                ? _value.historyVariableSnapshot
+                : historyVariableSnapshot // ignore: cast_nullable_to_non_nullable
+                      as Map<String, String>,
+            preRequestVariables: null == preRequestVariables
+                ? _value.preRequestVariables
+                : preRequestVariables // ignore: cast_nullable_to_non_nullable
+                      as Map<String, String>,
           )
           as $Val,
     );
@@ -187,8 +216,11 @@ abstract class _$$RequestBuilderStateImplCopyWith<$Res>
     String? collectionUid,
     String? folderUid,
     String name,
+    bool isRequestNameUserLocked,
     bool isDirty,
     List<TestAssertion> assertions,
+    Map<String, String> historyVariableSnapshot,
+    Map<String, String> preRequestVariables,
   });
 
   @override
@@ -221,8 +253,11 @@ class __$$RequestBuilderStateImplCopyWithImpl<$Res>
     Object? collectionUid = freezed,
     Object? folderUid = freezed,
     Object? name = null,
+    Object? isRequestNameUserLocked = null,
     Object? isDirty = null,
     Object? assertions = null,
+    Object? historyVariableSnapshot = null,
+    Object? preRequestVariables = null,
   }) {
     return _then(
       _$RequestBuilderStateImpl(
@@ -266,6 +301,10 @@ class __$$RequestBuilderStateImplCopyWithImpl<$Res>
             ? _value.name
             : name // ignore: cast_nullable_to_non_nullable
                   as String,
+        isRequestNameUserLocked: null == isRequestNameUserLocked
+            ? _value.isRequestNameUserLocked
+            : isRequestNameUserLocked // ignore: cast_nullable_to_non_nullable
+                  as bool,
         isDirty: null == isDirty
             ? _value.isDirty
             : isDirty // ignore: cast_nullable_to_non_nullable
@@ -274,6 +313,14 @@ class __$$RequestBuilderStateImplCopyWithImpl<$Res>
             ? _value._assertions
             : assertions // ignore: cast_nullable_to_non_nullable
                   as List<TestAssertion>,
+        historyVariableSnapshot: null == historyVariableSnapshot
+            ? _value._historyVariableSnapshot
+            : historyVariableSnapshot // ignore: cast_nullable_to_non_nullable
+                  as Map<String, String>,
+        preRequestVariables: null == preRequestVariables
+            ? _value._preRequestVariables
+            : preRequestVariables // ignore: cast_nullable_to_non_nullable
+                  as Map<String, String>,
       ),
     );
   }
@@ -293,11 +340,16 @@ class _$RequestBuilderStateImpl implements _RequestBuilderState {
     this.collectionUid,
     this.folderUid,
     this.name = 'New Request',
+    this.isRequestNameUserLocked = false,
     this.isDirty = false,
     final List<TestAssertion> assertions = const [],
+    final Map<String, String> historyVariableSnapshot = const {},
+    final Map<String, String> preRequestVariables = const {},
   }) : _params = params,
        _headers = headers,
-       _assertions = assertions;
+       _assertions = assertions,
+       _historyVariableSnapshot = historyVariableSnapshot,
+       _preRequestVariables = preRequestVariables;
 
   @override
   @JsonKey()
@@ -338,6 +390,11 @@ class _$RequestBuilderStateImpl implements _RequestBuilderState {
   @override
   @JsonKey()
   final String name;
+
+  /// When false, [setUrl] updates [name] via [suggestRequestNameFromUrl].
+  @override
+  @JsonKey()
+  final bool isRequestNameUserLocked;
   @override
   @JsonKey()
   final bool isDirty;
@@ -350,9 +407,35 @@ class _$RequestBuilderStateImpl implements _RequestBuilderState {
     return EqualUnmodifiableListView(_assertions);
   }
 
+  /// From history replay: full `{{var}}` map captured at send time.
+  final Map<String, String> _historyVariableSnapshot;
+
+  /// From history replay: full `{{var}}` map captured at send time.
+  @override
+  @JsonKey()
+  Map<String, String> get historyVariableSnapshot {
+    if (_historyVariableSnapshot is EqualUnmodifiableMapView)
+      return _historyVariableSnapshot;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_historyVariableSnapshot);
+  }
+
+  /// One-off overrides merged on top of env (or history snapshot) for Send / cURL.
+  final Map<String, String> _preRequestVariables;
+
+  /// One-off overrides merged on top of env (or history snapshot) for Send / cURL.
+  @override
+  @JsonKey()
+  Map<String, String> get preRequestVariables {
+    if (_preRequestVariables is EqualUnmodifiableMapView)
+      return _preRequestVariables;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_preRequestVariables);
+  }
+
   @override
   String toString() {
-    return 'RequestBuilderState(method: $method, url: $url, params: $params, headers: $headers, body: $body, auth: $auth, loadedRequestUid: $loadedRequestUid, collectionUid: $collectionUid, folderUid: $folderUid, name: $name, isDirty: $isDirty, assertions: $assertions)';
+    return 'RequestBuilderState(method: $method, url: $url, params: $params, headers: $headers, body: $body, auth: $auth, loadedRequestUid: $loadedRequestUid, collectionUid: $collectionUid, folderUid: $folderUid, name: $name, isRequestNameUserLocked: $isRequestNameUserLocked, isDirty: $isDirty, assertions: $assertions, historyVariableSnapshot: $historyVariableSnapshot, preRequestVariables: $preRequestVariables)';
   }
 
   @override
@@ -373,10 +456,23 @@ class _$RequestBuilderStateImpl implements _RequestBuilderState {
             (identical(other.folderUid, folderUid) ||
                 other.folderUid == folderUid) &&
             (identical(other.name, name) || other.name == name) &&
+            (identical(
+                  other.isRequestNameUserLocked,
+                  isRequestNameUserLocked,
+                ) ||
+                other.isRequestNameUserLocked == isRequestNameUserLocked) &&
             (identical(other.isDirty, isDirty) || other.isDirty == isDirty) &&
             const DeepCollectionEquality().equals(
               other._assertions,
               _assertions,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._historyVariableSnapshot,
+              _historyVariableSnapshot,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._preRequestVariables,
+              _preRequestVariables,
             ));
   }
 
@@ -393,8 +489,11 @@ class _$RequestBuilderStateImpl implements _RequestBuilderState {
     collectionUid,
     folderUid,
     name,
+    isRequestNameUserLocked,
     isDirty,
     const DeepCollectionEquality().hash(_assertions),
+    const DeepCollectionEquality().hash(_historyVariableSnapshot),
+    const DeepCollectionEquality().hash(_preRequestVariables),
   );
 
   /// Create a copy of RequestBuilderState
@@ -421,8 +520,11 @@ abstract class _RequestBuilderState implements RequestBuilderState {
     final String? collectionUid,
     final String? folderUid,
     final String name,
+    final bool isRequestNameUserLocked,
     final bool isDirty,
     final List<TestAssertion> assertions,
+    final Map<String, String> historyVariableSnapshot,
+    final Map<String, String> preRequestVariables,
   }) = _$RequestBuilderStateImpl;
 
   @override
@@ -445,10 +547,22 @@ abstract class _RequestBuilderState implements RequestBuilderState {
   String? get folderUid;
   @override
   String get name;
+
+  /// When false, [setUrl] updates [name] via [suggestRequestNameFromUrl].
+  @override
+  bool get isRequestNameUserLocked;
   @override
   bool get isDirty;
   @override
   List<TestAssertion> get assertions;
+
+  /// From history replay: full `{{var}}` map captured at send time.
+  @override
+  Map<String, String> get historyVariableSnapshot;
+
+  /// One-off overrides merged on top of env (or history snapshot) for Send / cURL.
+  @override
+  Map<String, String> get preRequestVariables;
 
   /// Create a copy of RequestBuilderState
   /// with the given fields replaced by the non-null parameter values.

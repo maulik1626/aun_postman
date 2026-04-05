@@ -16,29 +16,26 @@ class HeadersTab extends ConsumerWidget {
       requestBuilderProvider.select((s) => s.loadedRequestUid),
     );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: KeyValueEditor(
-        key: ValueKey(loadedUid),
-        rows: headers
-            .map((h) => (key: h.key, value: h.value, isEnabled: h.isEnabled))
-            .toList(),
-        keyPlaceholder: 'Header',
-        valuePlaceholder: 'Value',
-        onChanged: (rows) {
-          ref.read(requestBuilderProvider.notifier).setHeaders(
-                rows
-                    .map(
-                      (r) => RequestHeader(
-                        key: r.key,
-                        value: r.value,
-                        isEnabled: r.isEnabled,
-                      ),
-                    )
-                    .toList(),
-              );
-        },
-      ),
+    return KeyValueEditor(
+      key: ValueKey(loadedUid),
+      rows: headers
+          .map((h) => (key: h.key, value: h.value, isEnabled: h.isEnabled))
+          .toList(),
+      keyPlaceholder: 'Header',
+      valuePlaceholder: 'Value',
+      onChanged: (rows) {
+        ref.read(requestBuilderProvider.notifier).setHeaders(
+              rows
+                  .map(
+                    (r) => RequestHeader(
+                      key: r.key,
+                      value: r.value,
+                      isEnabled: r.isEnabled,
+                    ),
+                  )
+                  .toList(),
+            );
+      },
     );
   }
 }

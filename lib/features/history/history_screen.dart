@@ -1,6 +1,6 @@
 import 'package:aun_postman/app/theme/app_colors.dart';
+import 'package:aun_postman/domain/models/history_entry.dart';
 import 'package:aun_postman/features/history/providers/history_provider.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -33,9 +33,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // Group into date buckets
     final groups = _groupByDate(filtered);
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return CupertinoPageScaffold(
       child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         slivers: [
           CupertinoSliverNavigationBar(
             largeTitle: const Text('History'),
@@ -49,7 +51,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 : null,
           ),
 
-          // Search bar
           if (history.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
@@ -62,215 +63,318 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             ),
 
-          // Empty state
           if (history.isEmpty)
             SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      CupertinoIcons.clock,
-                      size: 56,
-                      color: CupertinoTheme.of(context)
-                          .primaryColor
-                          .withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No History',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Send requests to see them here',
-                      style: TextStyle(
-                        color: CupertinoColors.secondaryLabel
-                            .resolveFrom(context),
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: CupertinoTheme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              CupertinoIcons.clock,
+                              size: 40,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'No History',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Send requests to see them here',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: CupertinoColors.secondaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-
-          // No results from search
-          else if (filtered.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(CupertinoIcons.search,
-                        size: 48,
-                        color: CupertinoColors.tertiaryLabel
-                            .resolveFrom(context)),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No results for "$_query"',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: CupertinoColors.secondaryLabel
-                            .resolveFrom(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-
-          // Grouped list
-          else
-            for (final group in groups) ...[
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
-                  child: Text(
-                    group.label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
-                      color: CupertinoColors.secondaryLabel
-                          .resolveFrom(context),
                     ),
                   ),
-                ),
+                  SizedBox(height: bottomInset + 8),
+                ],
               ),
-              SliverList.separated(
-                itemCount: group.entries.length,
-                separatorBuilder: (_, __) => Container(
-                  height: 0.5,
-                  margin: const EdgeInsets.only(left: 16),
-                  color: CupertinoColors.separator.resolveFrom(context),
-                ),
-                itemBuilder: (context, index) {
-                  final entry = group.entries[index];
-                  final statusColor =
-                      AppColors.statusColor(entry.response.statusCode);
-                  final methodColor =
-                      AppColors.methodColor(entry.request.method.value);
-
-                  return Slidable(
-                    key: ValueKey(entry.uid),
-                    endActionPane: ActionPane(
-                      motion: const DrawerMotion(),
-                      extentRatio: 0.22,
-                      children: [
-                        SlidableAction(
-                          onPressed: (_) => ref
-                              .read(historyProvider.notifier)
-                              .delete(entry.uid),
-                          backgroundColor: CupertinoColors.destructiveRed,
-                          foregroundColor: CupertinoColors.white,
-                          icon: CupertinoIcons.trash,
-                          label: 'Delete',
-                        ),
-                      ],
+            )
+          else if (filtered.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: CupertinoTheme.of(context)
+                                  .primaryColor
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              CupertinoIcons.search,
+                              size: 40,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'No results for "$_query"',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Try a different URL, method, or status code',
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: CupertinoColors.secondaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: GestureDetector(
-                      onTap: () {
-                        ref
-                            .read(requestBuilderProvider.notifier)
-                            .loadFromRequest(entry.request);
-                        final colUid =
-                            entry.request.collectionUid ?? 'history';
-                        context.push(
-                            '/collections/$colUid/request/${entry.request.uid}');
-                      },
-                      child: Container(
-                        color: CupertinoColors.systemBackground
-                            .resolveFrom(context),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        child: Row(
-                          children: [
-                            // Method badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: methodColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                entry.request.method.value,
-                                style: TextStyle(
-                                  color: methodColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'JetBrainsMono',
-                                ),
+                  ),
+                  SizedBox(height: bottomInset + 8),
+                ],
+              ),
+            )
+          else
+            SliverFillRemaining(
+              hasScrollBody: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: EdgeInsets.zero,
+                      itemCount: _flatHistoryCount(groups),
+                      itemBuilder: (context, index) {
+                        final row = _flatHistoryRow(groups, index);
+                        if (row.isHeader) {
+                          return Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16,
+                              index == 0 ? 8 : 16,
+                              16,
+                              6,
+                            ),
+                            child: Text(
+                              row.sectionLabel!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.8,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          );
+                        }
+                        final entry = row.entry!;
+                        final statusColor =
+                            AppColors.statusColor(entry.response.statusCode);
+                        final methodColor =
+                            AppColors.methodColor(entry.request.method.value);
+                        final isFirstInSection = _isFirstEntryAfterHeader(
+                          groups,
+                          index,
+                        );
+
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (!isFirstInSection)
+                              Container(
+                                height: 0.5,
+                                margin: const EdgeInsets.only(left: 16),
+                                color: CupertinoColors.separator.resolveFrom(context),
+                              ),
+                            Slidable(
+                              key: ValueKey(entry.uid),
+                              endActionPane: ActionPane(
+                                motion: const DrawerMotion(),
+                                extentRatio: 0.28,
                                 children: [
-                                  Text(
-                                    entry.request.url,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: 'JetBrainsMono',
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    DateFormat('HH:mm')
-                                        .format(entry.executedAt),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: CupertinoColors.secondaryLabel
-                                          .resolveFrom(context),
-                                    ),
+                                  SlidableAction(
+                                    onPressed: (_) => ref
+                                        .read(historyProvider.notifier)
+                                        .delete(entry.uid),
+                                    backgroundColor: CupertinoColors.destructiveRed,
+                                    foregroundColor: CupertinoColors.white,
+                                    icon: CupertinoIcons.trash,
+                                    spacing: 2,
+                                    label: 'Delete',
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 2, vertical: 4),
                                   ),
                                 ],
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${entry.response.statusCode}',
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w700,
-                                    fontFamily: 'JetBrainsMono',
-                                    fontSize: 13,
+                              child: GestureDetector(
+                                onTap: () {
+                                  final colUid =
+                                      entry.request.collectionUid ?? 'history';
+                                  context.push(
+                                    '/collections/$colUid/request/${entry.request.uid}',
+                                    extra: entry,
+                                  );
+                                },
+                                child: Container(
+                                  color: CupertinoColors.systemBackground
+                                      .resolveFrom(context),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: methodColor.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          entry.request.method.value,
+                                          style: TextStyle(
+                                            color: methodColor,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            fontFamily: 'JetBrainsMono',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              entry.request.url,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontFamily: 'JetBrainsMono',
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              DateFormat('HH:mm')
+                                                  .format(entry.executedAt),
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: CupertinoColors.secondaryLabel
+                                                    .resolveFrom(context),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '${entry.response.statusCode}',
+                                            style: TextStyle(
+                                              color: statusColor,
+                                              fontWeight: FontWeight.w700,
+                                              fontFamily: 'JetBrainsMono',
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${entry.response.durationMs}ms',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: CupertinoColors.secondaryLabel
+                                                  .resolveFrom(context),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  '${entry.response.durationMs}ms',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: CupertinoColors.secondaryLabel
-                                        .resolveFrom(context),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ],
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                  SizedBox(height: bottomInset + 8),
+                ],
               ),
-            ],
-
-          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + 8)),
+            ),
         ],
       ),
     );
   }
 
-  List<_HistoryGroup> _groupByDate(List<dynamic> entries) {
+  int _flatHistoryCount(List<_HistoryGroup> groups) {
+    var n = 0;
+    for (final g in groups) {
+      n += 1 + g.entries.length;
+    }
+    return n;
+  }
+
+  ({bool isHeader, String? sectionLabel, HistoryEntry? entry}) _flatHistoryRow(
+    List<_HistoryGroup> groups,
+    int index,
+  ) {
+    var i = 0;
+    for (final g in groups) {
+      if (i == index) {
+        return (isHeader: true, sectionLabel: g.label, entry: null);
+      }
+      i++;
+      for (final e in g.entries) {
+        if (i == index) {
+          return (isHeader: false, sectionLabel: null, entry: e);
+        }
+        i++;
+      }
+    }
+    throw StateError('history flat index out of range');
+  }
+
+  bool _isFirstEntryAfterHeader(List<_HistoryGroup> groups, int index) {
+    if (index == 0) return true;
+    final prev = _flatHistoryRow(groups, index - 1);
+    return prev.isHeader;
+  }
+
+  List<_HistoryGroup> _groupByDate(List<HistoryEntry> entries) {
     if (entries.isEmpty) return [];
 
     final now = DateTime.now();
@@ -279,11 +383,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final thisWeekStart = today.subtract(Duration(days: today.weekday - 1));
     final thisMonthStart = DateTime(now.year, now.month);
 
-    final todayList = [];
-    final yesterdayList = [];
-    final thisWeekList = [];
-    final thisMonthList = [];
-    final olderList = [];
+    final todayList = <HistoryEntry>[];
+    final yesterdayList = <HistoryEntry>[];
+    final thisWeekList = <HistoryEntry>[];
+    final thisMonthList = <HistoryEntry>[];
+    final olderList = <HistoryEntry>[];
 
     for (final e in entries) {
       final d = DateTime(
@@ -302,16 +406,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
 
     return [
-      if (todayList.isNotEmpty)
-        _HistoryGroup('TODAY', todayList.cast()),
-      if (yesterdayList.isNotEmpty)
-        _HistoryGroup('YESTERDAY', yesterdayList.cast()),
-      if (thisWeekList.isNotEmpty)
-        _HistoryGroup('THIS WEEK', thisWeekList.cast()),
-      if (thisMonthList.isNotEmpty)
-        _HistoryGroup('THIS MONTH', thisMonthList.cast()),
-      if (olderList.isNotEmpty)
-        _HistoryGroup('OLDER', olderList.cast()),
+      if (todayList.isNotEmpty) _HistoryGroup('TODAY', todayList),
+      if (yesterdayList.isNotEmpty) _HistoryGroup('YESTERDAY', yesterdayList),
+      if (thisWeekList.isNotEmpty) _HistoryGroup('THIS WEEK', thisWeekList),
+      if (thisMonthList.isNotEmpty) _HistoryGroup('THIS MONTH', thisMonthList),
+      if (olderList.isNotEmpty) _HistoryGroup('OLDER', olderList),
     ];
   }
 
@@ -343,5 +442,5 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 class _HistoryGroup {
   const _HistoryGroup(this.label, this.entries);
   final String label;
-  final List entries;
+  final List<HistoryEntry> entries;
 }

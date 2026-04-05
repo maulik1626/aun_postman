@@ -1,6 +1,8 @@
+import 'package:aun_postman/core/utils/request_name_from_url.dart';
 import 'package:aun_postman/domain/enums/http_method.dart';
 import 'package:aun_postman/domain/models/collection.dart';
 import 'package:aun_postman/domain/models/auth_config.dart';
+import 'package:aun_postman/domain/models/environment.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
@@ -27,9 +29,32 @@ class RequestBuilderState with _$RequestBuilderState {
     String? collectionUid,
     String? folderUid,
     @Default('New Request') String name,
+    /// When false, [setUrl] updates [name] via [suggestRequestNameFromUrl].
+    @Default(false) bool isRequestNameUserLocked,
     @Default(false) bool isDirty,
     @Default([]) List<TestAssertion> assertions,
+    /// From history replay: full `{{var}}` map captured at send time.
+    @Default({}) Map<String, String> historyVariableSnapshot,
+    /// One-off overrides merged on top of env (or history snapshot) for Send / cURL.
+    @Default({}) Map<String, String> preRequestVariables,
   }) = _RequestBuilderState;
+}
+
+/// Variable map for [VariableInterpolator]: history replay base + pre-request overrides.
+Map<String, String> buildInterpolationVariableMap({
+  required RequestBuilderState builder,
+  required Environment? env,
+}) {
+  if (builder.historyVariableSnapshot.isNotEmpty) {
+    return {
+      ...builder.historyVariableSnapshot,
+      ...builder.preRequestVariables,
+    };
+  }
+  return {
+    ...(env?.variableMap ?? {}),
+    ...builder.preRequestVariables,
+  };
 }
 
 @riverpod
@@ -42,10 +67,35 @@ class RequestBuilder extends _$RequestBuilder {
   void setMethod(HttpMethod method) =>
       state = state.copyWith(method: method, isDirty: true);
 
-  void setUrl(String url) => state = state.copyWith(url: url, isDirty: true);
+  void setUrl(String url) {
+    final suggested = suggestRequestNameFromUrl(url);
+    state = state.copyWith(
+      url: url,
+      isDirty: true,
+      name: state.isRequestNameUserLocked ? state.name : suggested,
+    );
+  }
 
-  void setName(String name) =>
-      state = state.copyWith(name: name, isDirty: true);
+  void setName(String name) => state = state.copyWith(
+        name: name,
+        isDirty: true,
+        isRequestNameUserLocked: true,
+      );
+
+  /// Rename sheet: non-empty text locks the title; empty clears the lock and
+  /// derives the title from the current URL again (same rules as [setUrl]).
+  void applyRequestNameFromUserInput(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      state = state.copyWith(
+        isRequestNameUserLocked: false,
+        name: suggestRequestNameFromUrl(state.url),
+        isDirty: true,
+      );
+      return;
+    }
+    setName(trimmed);
+  }
 
   void setParams(List<RequestParam> params) =>
       state = state.copyWith(params: params, isDirty: true);
@@ -62,7 +112,35 @@ class RequestBuilder extends _$RequestBuilder {
   void setAssertions(List<TestAssertion> assertions) =>
       state = state.copyWith(assertions: assertions, isDirty: true);
 
-  void loadFromRequest(HttpRequest request) {
+  void setPreRequestVariables(Map<String, String> variables) =>
+      state = state.copyWith(preRequestVariables: variables, isDirty: true);
+
+  void clearPreRequestVariables() =>
+      state = state.copyWith(preRequestVariables: {}, isDirty: true);
+
+  /// Replace tab fields from cURL import; clears replay/pre-request maps; new unsaved request.
+  void applyImportedHttpRequest(HttpRequest parsed) {
+    state = state.copyWith(
+      method: parsed.method,
+      url: parsed.url,
+      params: parsed.params,
+      headers: parsed.headers,
+      body: parsed.body,
+      auth: parsed.auth,
+      assertions: parsed.assertions,
+      name: parsed.name,
+      loadedRequestUid: null,
+      isDirty: true,
+      isRequestNameUserLocked: true,
+      historyVariableSnapshot: const {},
+      preRequestVariables: const {},
+    );
+  }
+
+  void loadFromRequest(
+    HttpRequest request, {
+    Map<String, String>? replayVariableSnapshot,
+  }) {
     state = RequestBuilderState(
       method: request.method,
       url: request.url,
@@ -70,11 +148,15 @@ class RequestBuilder extends _$RequestBuilder {
       headers: request.headers,
       body: request.body,
       auth: request.auth,
+      assertions: request.assertions,
       loadedRequestUid: request.uid,
       collectionUid: request.collectionUid,
       folderUid: request.folderUid,
       name: request.name,
       isDirty: false,
+      isRequestNameUserLocked: true,
+      historyVariableSnapshot: replayVariableSnapshot ?? const {},
+      preRequestVariables: const {},
     );
   }
 
@@ -89,6 +171,7 @@ class RequestBuilder extends _$RequestBuilder {
       headers: state.headers,
       body: state.body,
       auth: state.auth,
+      assertions: state.assertions,
       collectionUid: state.collectionUid,
       folderUid: state.folderUid,
       createdAt: now,
@@ -121,6 +204,7 @@ class RequestBuilder extends _$RequestBuilder {
       headers: state.headers,
       body: state.body,
       auth: state.auth,
+      assertions: state.assertions,
       collectionUid: collectionUid,
       folderUid: folderUid,
       createdAt: createdAt,
@@ -162,6 +246,7 @@ class RequestBuilder extends _$RequestBuilder {
       loadedRequestUid: requestUid,
       collectionUid: collectionUid,
       isDirty: false,
+      isRequestNameUserLocked: true,
     );
   }
 

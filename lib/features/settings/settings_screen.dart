@@ -1,12 +1,17 @@
+import 'dart:io' show Platform;
+
+import 'package:aun_postman/app/router/app_routes.dart';
+import 'package:aun_postman/app/widgets/scaled_cupertino_switch.dart';
 import 'package:aun_postman/app/theme/app_theme_provider.dart';
+import 'package:aun_postman/app/widgets/cupertino_licenses_page.dart';
 import 'package:aun_postman/domain/enums/theme_preference.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
 import 'package:aun_postman/features/environments/providers/environments_provider.dart';
 import 'package:aun_postman/features/history/providers/history_provider.dart';
 import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show showLicensePage;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -17,16 +22,24 @@ class SettingsScreen extends ConsumerWidget {
     final brightness = ref.watch(appThemeNotifierProvider);
     final settings = ref.watch(appSettingsProvider);
 
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return CupertinoPageScaffold(
       child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         slivers: [
           const CupertinoSliverNavigationBar(
             largeTitle: Text('Settings'),
           ),
-          SliverToBoxAdapter(
+          SliverFillRemaining(
+            hasScrollBody: true,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
                 _SectionHeader(title: 'Appearance'),
                 _SettingsGroup(
                   children: [
@@ -122,7 +135,7 @@ class SettingsScreen extends ConsumerWidget {
                           const Expanded(
                               child: Text('Follow Redirects',
                                   style: TextStyle(fontSize: 16))),
-                          CupertinoSwitch(
+                          ScaledCupertinoSwitch(
                             value: settings.followRedirects,
                             onChanged: (v) => ref
                                 .read(appSettingsProvider.notifier)
@@ -131,6 +144,282 @@ class SettingsScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            CupertinoIcons.doc_on_doc,
+                            color: CupertinoColors.systemPurple
+                                .resolveFrom(context),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Auto-save requests',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                Text(
+                                  'Unsaved edits are kept locally if the app closes.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: CupertinoColors.secondaryLabel
+                                        .resolveFrom(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ScaledCupertinoSwitch(
+                            value: settings.requestAutoSave,
+                            onChanged: (v) => ref
+                                .read(appSettingsProvider.notifier)
+                                .setRequestAutoSave(v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            CupertinoIcons.lock_shield,
+                            color: CupertinoColors.systemGreen
+                                .resolveFrom(context),
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Verify SSL',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                Text(
+                                  'Turn off only for trusted dev servers (not on web).',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: CupertinoColors.secondaryLabel
+                                        .resolveFrom(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ScaledCupertinoSwitch(
+                            value: settings.verifySsl,
+                            onChanged: (v) => ref
+                                .read(appSettingsProvider.notifier)
+                                .setVerifySsl(v),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    GestureDetector(
+                      onTap: () =>
+                          context.push(AppRoutes.settingsDefaultHeaders),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.list_bullet,
+                              color: CupertinoColors.systemTeal
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Default Headers',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Text(
+                              '${settings.defaultHeaders.where((h) => h.isEnabled && h.key.trim().isNotEmpty).length}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    GestureDetector(
+                      onTap: () => context.push(AppRoutes.settingsProxy),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.arrow_right_square,
+                              color: CupertinoColors.systemIndigo
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'HTTP Proxy',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            Text(
+                              settings.httpProxy.isEmpty ? 'Off' : 'On',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context)),
+                    GestureDetector(
+                      onTap: () => context.push(AppRoutes.importExport),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              CupertinoIcons.arrow_up_arrow_down_circle,
+                              color: CupertinoColors.systemOrange
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Import / Export',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Postman files, cURL, full backup',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: CupertinoColors.secondaryLabel
+                                          .resolveFrom(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: CupertinoColors.tertiaryLabel
+                                  .resolveFrom(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (Platform.isIOS) ...[
+                      Container(
+                        height: 0.5,
+                        margin: const EdgeInsets.only(left: 50),
+                        color: CupertinoColors.separator.resolveFrom(context),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              CupertinoIcons.cloud_fill,
+                              color: CupertinoColors.systemBlue
+                                  .resolveFrom(context),
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'iCloud auto-backup',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                  Text(
+                                    'After you leave the app, saves a full backup '
+                                    'to iCloud (same data as Import/Export).',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: CupertinoColors.secondaryLabel
+                                          .resolveFrom(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ScaledCupertinoSwitch(
+                              value: settings.icloudAutoBackup,
+                              onChanged: (v) => ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setIcloudAutoBackup(v),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 _SectionHeader(title: 'Danger Zone'),
@@ -245,7 +534,7 @@ class SettingsScreen extends ConsumerWidget {
                 _SettingsGroup(
                   children: [
                     GestureDetector(
-                      onTap: () => showLicensePage(context: context),
+                      onTap: () => showCupertinoLicensePage(context),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 13),
@@ -276,7 +565,10 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+                    ],
+                  ),
+                ),
+                SizedBox(height: bottomInset + 8),
               ],
             ),
           ),

@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/core/notifications/user_notification.dart';
+import 'package:aun_postman/core/platform/icloud_backup_channel.dart';
+import 'package:aun_postman/core/utils/app_backup.dart';
+import 'package:aun_postman/core/utils/full_backup_json.dart';
 import 'package:aun_postman/core/utils/curl_parser.dart';
 import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
 import 'package:aun_postman/core/utils/postman_v2_importer.dart';
@@ -8,11 +13,16 @@ import 'package:aun_postman/domain/models/environment.dart';
 import 'package:aun_postman/domain/models/environment_variable.dart';
 import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_postman/features/environments/providers/active_environment_provider.dart';
 import 'package:aun_postman/features/environments/providers/environments_provider.dart';
+import 'package:aun_postman/features/history/providers/history_provider.dart';
+import 'package:aun_postman/features/websocket/providers/ws_saved_compose_provider.dart';
+import 'package:aun_postman/infrastructure/history_repository.dart';
+import 'package:aun_postman/infrastructure/ws_saved_compose_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -31,161 +41,518 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
   String? _statusMessage;
   String? _lastImportedEnvUid; // uid of auto-created env, for navigation
 
+  /// iOS: after first [_refreshIcloudMeta] completes.
+  bool _icloudMetaLoaded = false;
+  bool _icloudAvailable = false;
+  double? _icloudModifiedMs;
+
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isIOS) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => unawaited(_refreshIcloudMeta()),
+      );
+    }
+  }
+
+  Future<void> _refreshIcloudMeta() async {
+    if (!Platform.isIOS) return;
+    final av = await IcloudBackupChannel.isAvailable();
+    double? ms;
+    if (av && await IcloudBackupChannel.backupExists()) {
+      ms = await IcloudBackupChannel.backupModifiedMsSinceEpoch();
+    }
+    if (!mounted) return;
+    setState(() {
+      _icloudMetaLoaded = true;
+      _icloudAvailable = av;
+      _icloudModifiedMs = ms;
+    });
+  }
+
+  String? _icloudBackupAgeLabel() {
+    final ms = _icloudModifiedMs;
+    if (ms == null) return null;
+    final dt = DateTime.fromMillisecondsSinceEpoch(ms.round());
+    return DateFormat.yMMMd().add_jm().format(dt);
+  }
+
   @override
   Widget build(BuildContext context) {
     final collections = ref.watch(collectionsProvider);
 
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('Import / Export'),
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          minSize: 44,
-          onPressed: () => Navigator.pop(context),
-          child: const Icon(CupertinoIcons.xmark),
-        ),
-      ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_statusMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: CupertinoTheme.of(context)
-                        .primaryColor
-                        .withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          CupertinoSliverNavigationBar(
+            largeTitle: const Text('Import / Export'),
+            leading: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minSize: 44,
+              onPressed: () => Navigator.pop(context),
+              child: const Icon(CupertinoIcons.xmark),
+            ),
+          ),
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            CupertinoIcons.checkmark_circle,
-                            color: CupertinoTheme.of(context).primaryColor,
+                      _SectionHeader(title: 'Full backup'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Export or restore collections, environments, request history, '
+                        'and saved WebSocket composer messages. '
+                        'Global settings (timeout, proxy, default headers, etc.) and '
+                        'saved WebSocket connection sessions are not included. '
+                        'Restore replaces all current data of those types.'
+                        '${Platform.isIOS ? ' On iPhone and iPad you can also save and restore the same backup via iCloud.' : ''}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.35,
+                          color: CupertinoColors.secondaryLabel.resolveFrom(
+                            context,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _statusMessage!,
-                              style: TextStyle(
-                                color: CupertinoTheme.of(context).primaryColor,
-                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _OptionCard(
+                        icon: CupertinoIcons.archivebox_fill,
+                        title: 'Export all data',
+                        subtitle:
+                            'Single JSON file — use for backup or moving devices',
+                        onTap: _exportFullBackup,
+                      ),
+                      const SizedBox(height: 8),
+                      _OptionCard(
+                        icon: CupertinoIcons.arrow_counterclockwise_circle,
+                        title: 'Restore from backup',
+                        subtitle:
+                            'Deletes all current data, then imports the file',
+                        onTap: _restoreFullBackup,
+                      ),
+                      if (Platform.isIOS) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'iCloud',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              context,
                             ),
                           ),
-                        ],
-                      ),
-                      if (_lastImportedEnvUid != null) ...[
+                        ),
                         const SizedBox(height: 8),
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minSize: 0,
-                          onPressed: () {
-                            Navigator.pop(context);
-                            context.push(
-                                '${AppRoutes.environments}/$_lastImportedEnvUid');
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                CupertinoIcons.arrow_right_circle,
-                                size: 16,
-                                color: CupertinoTheme.of(context).primaryColor,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'View & fill variables',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color:
-                                      CupertinoTheme.of(context).primaryColor,
+                        if (!_icloudMetaLoaded)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                const CupertinoActivityIndicator(radius: 10),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Checking iCloud…',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: CupertinoColors.secondaryLabel
+                                        .resolveFrom(context),
+                                  ),
                                 ),
+                              ],
+                            ),
+                          )
+                        else if (!_icloudAvailable)
+                          Text(
+                            'iCloud is not available. Sign in to iCloud on this device '
+                            'and ensure iCloud Drive is enabled.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.35,
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
                               ),
+                            ),
+                          )
+                        else ...[
+                          _OptionCard(
+                            icon: CupertinoIcons.cloud_upload_fill,
+                            title: 'Save backup to iCloud',
+                            subtitle:
+                                'Replaces any previous iCloud backup for this app',
+                            onTap: _saveBackupToIcloud,
+                          ),
+                          const SizedBox(height: 8),
+                          _OptionCard(
+                            icon: CupertinoIcons.cloud_download_fill,
+                            title: 'Restore from iCloud',
+                            subtitle: _icloudBackupAgeLabel() != null
+                                ? 'Last saved: ${_icloudBackupAgeLabel()}'
+                                : 'Uses the latest file saved from this app',
+                            onTap: _restoreFromIcloud,
+                          ),
+                        ],
+                      ],
+                      const SizedBox(height: 24),
+                      if (_statusMessage != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: CupertinoTheme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.checkmark_circle,
+                                    color: CupertinoTheme.of(
+                                      context,
+                                    ).primaryColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _statusMessage!,
+                                      style: TextStyle(
+                                        color: CupertinoTheme.of(
+                                          context,
+                                        ).primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_lastImportedEnvUid != null) ...[
+                                const SizedBox(height: 8),
+                                CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  minSize: 0,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    context.push(
+                                      '${AppRoutes.environments}/$_lastImportedEnvUid',
+                                    );
+                                  },
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        CupertinoIcons.arrow_right_circle,
+                                        size: 16,
+                                        color: CupertinoTheme.of(
+                                          context,
+                                        ).primaryColor,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'View & fill variables',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: CupertinoTheme.of(
+                                            context,
+                                          ).primaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                      ],
+
+                      _SectionHeader(title: 'Import'),
+                      const SizedBox(height: 12),
+
+                      _OptionCard(
+                        icon: CupertinoIcons.doc_text,
+                        title: 'Postman Collection v2.1',
+                        subtitle:
+                            'Import requests + auto-create variable environment',
+                        onTap: _importPostmanFile,
+                      ),
+                      const SizedBox(height: 8),
+                      _OptionCard(
+                        icon: CupertinoIcons.globe,
+                        title: 'Postman Environment',
+                        subtitle: 'Import a .postman_environment.json file',
+                        onTap: _importPostmanEnvironment,
+                      ),
+                      const SizedBox(height: 8),
+                      _OptionCard(
+                        icon: CupertinoIcons.chevron_left_slash_chevron_right,
+                        title: 'cURL Command',
+                        subtitle: 'Paste a cURL command to import a request',
+                        onTap: _importCurl,
+                      ),
+
+                      const SizedBox(height: 24),
+                      _SectionHeader(title: 'Export'),
+                      const SizedBox(height: 12),
+
+                      if (collections.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'No collections to export',
+                            style: TextStyle(
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ...collections.map(
+                          (col) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Builder(
+                              builder: (cardContext) => _OptionCard(
+                                icon: CupertinoIcons.folder_fill,
+                                title: col.name,
+                                subtitle: 'Export as Postman v2.1 JSON',
+                                onTap: () => _exportCollection(
+                                  col.uid,
+                                  sharePositionOrigin: _shareAnchorRect(
+                                    cardContext,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      if (_isLoading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: CupertinoActivityIndicator(),
+                          ),
+                        ),
                     ],
                   ),
                 ),
-
-              _SectionHeader(title: 'Import'),
-              const SizedBox(height: 12),
-
-              _OptionCard(
-                icon: CupertinoIcons.doc_text,
-                title: 'Postman Collection v2.1',
-                subtitle: 'Import requests + auto-create variable environment',
-                onTap: _importPostmanFile,
-              ),
-              const SizedBox(height: 8),
-              _OptionCard(
-                icon: CupertinoIcons.globe,
-                title: 'Postman Environment',
-                subtitle: 'Import a .postman_environment.json file',
-                onTap: _importPostmanEnvironment,
-              ),
-              const SizedBox(height: 8),
-              _OptionCard(
-                icon: CupertinoIcons.chevron_left_slash_chevron_right,
-                title: 'cURL Command',
-                subtitle: 'Paste a cURL command to import a request',
-                onTap: _importCurl,
-              ),
-
-              const SizedBox(height: 24),
-              _SectionHeader(title: 'Export'),
-              const SizedBox(height: 12),
-
-              if (collections.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    'No collections to export',
-                    style: TextStyle(
-                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
-                    ),
-                  ),
-                )
-              else
-                ...collections.map(
-                  (col) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Builder(
-                      builder: (cardContext) => _OptionCard(
-                        icon: CupertinoIcons.folder_fill,
-                        title: col.name,
-                        subtitle: 'Export as Postman v2.1 JSON',
-                        onTap: () => _exportCollection(
-                          col.uid,
-                          sharePositionOrigin:
-                              _shareAnchorRect(cardContext),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CupertinoActivityIndicator(),
-                  ),
-                ),
-            ],
+                SizedBox(height: bottomInset),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  Future<void> _exportFullBackup() async {
+    setState(() => _isLoading = true);
+    try {
+      final json = await buildFullBackupJson(ref);
+      final dir = await getTemporaryDirectory();
+      final stamp = DateTime.now().toIso8601String().split('T').first;
+      final file = File('${dir.path}/aun_postman_backup_$stamp.json');
+      await file.writeAsString(json);
+
+      if (!mounted) return;
+      final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: 'Aun Postman — full backup',
+        sharePositionOrigin: origin,
+      );
+      if (mounted) {
+        setState(() => _statusMessage = 'Full backup exported');
+      }
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreFullBackup() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Restore backup?'),
+        content: const Text(
+          'This will permanently delete all collections, environments, '
+          'request history, and saved WebSocket messages on this device, '
+          'then replace them with the backup file.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        allowMultiple: false,
+      );
+      if (result == null || result.files.single.path == null) return;
+
+      final content = await File(result.files.single.path!).readAsString();
+      final data = AppBackup.parse(content);
+      await _applyFullRestore(data);
+
+      if (!mounted) return;
+      setState(() {
+        _lastImportedEnvUid = null;
+        _statusMessage =
+            'Restored ${data.collections.length} collection(s), '
+            '${data.environments.length} environment(s), '
+            '${data.history.length} history entries';
+      });
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveBackupToIcloud() async {
+    if (!Platform.isIOS) return;
+    setState(() => _isLoading = true);
+    try {
+      final json = await buildFullBackupJson(ref);
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/aun_postman_icloud_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
+      await file.writeAsString(json);
+      await IcloudBackupChannel.copyFileToICloud(file.path);
+      await file.delete();
+      await _refreshIcloudMeta();
+      if (mounted) {
+        setState(() => _statusMessage = 'Backup saved to iCloud');
+      }
+    } on IcloudBackupException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _restoreFromIcloud() async {
+    if (!Platform.isIOS) return;
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Restore from iCloud?'),
+        content: const Text(
+          'This will permanently delete all collections, environments, '
+          'request history, and saved WebSocket messages on this device, '
+          'then replace them with the iCloud backup.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoading = true);
+    String? tempPath;
+    try {
+      tempPath = await IcloudBackupChannel.copyFromICloudToTempPath();
+      if (tempPath == null) {
+        _showError('No backup found in iCloud. Save a backup to iCloud first.');
+        return;
+      }
+      final content = await File(tempPath).readAsString();
+      final data = AppBackup.parse(content);
+      await _applyFullRestore(data);
+
+      if (!mounted) return;
+      setState(() {
+        _lastImportedEnvUid = null;
+        _statusMessage =
+            'Restored from iCloud: ${data.collections.length} collection(s), '
+            '${data.environments.length} environment(s), '
+            '${data.history.length} history entries';
+      });
+      await _refreshIcloudMeta();
+    } on IcloudBackupException catch (e) {
+      _showError(e.message);
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (tempPath != null) {
+        try {
+          await File(tempPath).delete();
+        } catch (_) {}
+      }
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _applyFullRestore(AppBackupData data) async {
+    await ref.read(collectionsProvider.notifier).clearAll();
+    await ref.read(environmentsProvider.notifier).clearAll();
+    await ref.read(historyProvider.notifier).clearAll();
+    await ref.read(wsSavedComposeRepositoryProvider).clearAll();
+
+    for (final c in data.collections) {
+      await ref.read(collectionsProvider.notifier).importCollection(c);
+    }
+    for (final e in data.environments) {
+      await ref
+          .read(environmentsProvider.notifier)
+          .importEnvironment(e.copyWith(isActive: false));
+    }
+    for (final h in data.history) {
+      await ref.read(historyRepositoryProvider).save(h);
+    }
+    ref.invalidate(historyProvider);
+
+    for (final m in data.wsSavedCompose) {
+      await ref.read(wsSavedComposeRepositoryProvider).save(m);
+    }
+    ref.invalidate(wsSavedComposeListProvider);
+
+    await ref.read(activeEnvironmentProvider.notifier).clearActive();
+    final uid = data.activeEnvironmentUid;
+    if (uid != null && data.environments.any((e) => e.uid == uid)) {
+      await ref.read(environmentsProvider.notifier).setActive(uid);
+    }
+    ref.invalidate(collectionsProvider);
+    ref.invalidate(environmentsProvider);
+    ref.invalidate(activeEnvironmentProvider);
   }
 
   Future<void> _importPostmanFile() async {
@@ -258,17 +625,16 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
   }
 
   /// Creates an [Environment] with empty placeholder values for each variable name.
-  Environment _buildEnvironmentFromVarNames(String name, List<String> varNames) {
+  Environment _buildEnvironmentFromVarNames(
+    String name,
+    List<String> varNames,
+  ) {
     final now = DateTime.now();
     return Environment(
       uid: _uuid.v4(),
       name: name,
       variables: varNames
-          .map((k) => EnvironmentVariable(
-                uid: _uuid.v4(),
-                key: k,
-                value: '',
-              ))
+          .map((k) => EnvironmentVariable(uid: _uuid.v4(), key: k, value: ''))
           .toList(),
       createdAt: now,
       updatedAt: now,
@@ -281,116 +647,116 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       context: context,
       builder: (ctx) => Container(
         decoration: BoxDecoration(
-          color:
-              CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
-          borderRadius:
-              const BorderRadius.vertical(top: Radius.circular(20)),
+          color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         padding: EdgeInsets.only(
           top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom +
+          bottom:
+              MediaQuery.of(ctx).viewInsets.bottom +
               MediaQuery.of(ctx).padding.bottom +
               16,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.separator.resolveFrom(ctx),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Import cURL',
-                style:
-                    TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Paste a cURL command to import a request',
-                style: TextStyle(
-                  fontSize: 13,
-                  color:
-                      CupertinoColors.secondaryLabel.resolveFrom(ctx),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: CupertinoTextField(
-                controller: controller,
-                maxLines: 6,
-                minLines: 4,
-                style: const TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 12,
-                ),
-                padding: const EdgeInsets.all(12),
-                placeholder: "curl -X GET 'https://api.example.com'",
-                decoration: BoxDecoration(
-                  color: CupertinoColors.tertiarySystemBackground
-                      .resolveFrom(ctx),
-                  border: Border.all(
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(ctx).unfocus(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
                     color: CupertinoColors.separator.resolveFrom(ctx),
-                    width: 0.5,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  borderRadius: BorderRadius.circular(10),
                 ),
-                autofocus: true,
               ),
-            ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CupertinoButton(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 14),
-                      color: CupertinoColors.tertiarySystemFill
-                          .resolveFrom(ctx),
-                      borderRadius: BorderRadius.circular(12),
-                      onPressed: () => Navigator.pop(ctx),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color:
-                              CupertinoColors.label.resolveFrom(ctx),
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Import cURL',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Paste a cURL command to import a request',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(ctx),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: CupertinoTextField(
+                  controller: controller,
+                  maxLines: 6,
+                  minLines: 4,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 12,
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  placeholder: "curl -X GET 'https://api.example.com'",
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.tertiarySystemBackground.resolveFrom(
+                      ctx,
+                    ),
+                    border: Border.all(
+                      color: CupertinoColors.separator.resolveFrom(ctx),
+                      width: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  autofocus: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        color: CupertinoColors.tertiarySystemFill.resolveFrom(
+                          ctx,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.label.resolveFrom(ctx),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppGradientButton(
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 14),
-                      borderRadius: BorderRadius.circular(12),
-                      onPressed: () =>
-                          Navigator.pop(ctx, controller.text.trim()),
-                      child: const Text('Import'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppGradientButton(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: () =>
+                            Navigator.pop(ctx, controller.text.trim()),
+                        child: const Text('Import'),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -433,10 +799,8 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
     if (targetCollection == null) return;
 
-    final collection =
-        collections.firstWhere((c) => c.uid == targetCollection);
-    final updatedRequest =
-        request.copyWith(collectionUid: targetCollection);
+    final collection = collections.firstWhere((c) => c.uid == targetCollection);
+    final updatedRequest = request.copyWith(collectionUid: targetCollection);
     final updatedCollection = collection.copyWith(
       requests: [...collection.requests, updatedRequest],
     );
@@ -465,8 +829,9 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
   }) async {
     setState(() => _isLoading = true);
     try {
-      final collection =
-          ref.read(collectionsProvider).firstWhere((c) => c.uid == uid);
+      final collection = ref
+          .read(collectionsProvider)
+          .firstWhere((c) => c.uid == uid);
 
       final json = PostmanV2Exporter.export(collection);
       final dir = await getTemporaryDirectory();
@@ -496,24 +861,17 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    showCupertinoDialog(
+    UserNotification.show(
       context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+      title: 'Import / Export',
+      body: message,
     );
   }
 }
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});
+
   final String title;
 
   @override
@@ -537,6 +895,7 @@ class _OptionCard extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
   });
+
   final IconData icon;
   final String title;
   final String subtitle;
@@ -558,9 +917,9 @@ class _OptionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: CupertinoTheme.of(context)
-                      .primaryColor
-                      .withOpacity(0.15),
+                  color: CupertinoTheme.of(
+                    context,
+                  ).primaryColor.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -582,8 +941,9 @@ class _OptionCard extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 12,
-                        color: CupertinoColors.secondaryLabel
-                            .resolveFrom(context),
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
                       ),
                     ),
                   ],

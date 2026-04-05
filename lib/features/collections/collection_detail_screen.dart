@@ -1,8 +1,11 @@
+import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/core/utils/app_haptics.dart';
 import 'package:aun_postman/domain/models/collection.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_postman/features/collections/widgets/collection_tree_dnd.dart';
 import 'package:aun_postman/features/collections/widgets/method_badge.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +31,14 @@ class _CollectionDetailScreenState
 
   // Tracks which folder UIDs are expanded (works at any nesting depth)
   final Set<String> _expandedFolders = {};
+
+  CollectionTreeDragData? _draggingData;
+
+  void _endTreeDragSession() {
+    if (!mounted) return;
+    if (_draggingData == null) return;
+    setState(() => _draggingData = null);
+  }
 
   // ── Tree helpers ─────────────────────────────────────────────────────────────
 
@@ -69,16 +80,14 @@ class _CollectionDetailScreenState
       );
     }
 
-    // Flatten the entire folder tree into a list of widgets
-    final folderWidgets = _buildFolderWidgets(
-      context,
-      collection,
-      collection.folders,
-      indent: 0,
-    );
+    final descriptionText = collection.description?.trim();
+    final isEmpty =
+        collection.requests.isEmpty && collection.folders.isEmpty;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return CupertinoPageScaffold(
       child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
         slivers: [
           CupertinoSliverNavigationBar(
             largeTitle: Text(collection.name),
@@ -96,213 +105,712 @@ class _CollectionDetailScreenState
                   padding: EdgeInsets.zero,
                   minSize: 44,
                   onPressed: () =>
+                      context.push('${AppRoutes.collections}/${widget.uid}/auth'),
+                  child: const Icon(CupertinoIcons.lock_shield, size: 22),
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minSize: 44,
+                  onPressed: () =>
                       context.push('/collections/${widget.uid}/request/new'),
                   child: const Icon(CupertinoIcons.add),
                 ),
               ],
             ),
           ),
-          // Root-level requests
-          if (collection.requests.isNotEmpty) ...[
-            SliverToBoxAdapter(child: _sectionHeader(context, 'REQUESTS')),
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final request = collection.requests[index];
-                  return _RequestRow(
-                    key: ValueKey(request.uid),
-                    request: request,
-                    collectionUid: widget.uid,
-                    indent: 0,
-                    folderUid: null,
-                    onDelete: () =>
-                        _deleteRequest(collection, request, null),
-                    onDuplicate: () =>
-                        _duplicateRequest(collection, request, null),
-                    onRename: () => _showRenameRequestDialog(
-                        context, collection, request, null),
-                    onMove: () =>
-                        _showMoveDialog(collection, request, null),
-                  );
-                },
-                childCount: collection.requests.length,
-              ),
-            ),
-          ],
-
-          // Folders (recursively flattened)
-          if (folderWidgets.isNotEmpty) ...[
-            SliverToBoxAdapter(child: _sectionHeader(context, 'FOLDERS')),
-            SliverList(
-              delegate: SliverChildListDelegate(folderWidgets),
-            ),
-          ],
-
-          // Empty state
-          if (collection.requests.isEmpty && collection.folders.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: CupertinoTheme.of(context)
-                            .primaryColor
-                            .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Icon(
-                        CupertinoIcons.arrow_up_right_diamond,
-                        size: 36,
-                        color: CupertinoTheme.of(context).primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'No requests yet',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Add a request or create a folder to organise',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: CupertinoColors.secondaryLabel
-                            .resolveFrom(context),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CupertinoButton(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          color: CupertinoColors.tertiarySystemFill
-                              .resolveFrom(context),
-                          borderRadius: BorderRadius.circular(10),
-                          onPressed: () => _showCreateFolderDialog(
-                              context, collection,
-                              parentUid: null),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                CupertinoIcons.folder_badge_plus,
-                                size: 16,
-                                color:
-                                    CupertinoColors.label.resolveFrom(context),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'New Folder',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                  color: CupertinoColors.label
-                                      .resolveFrom(context),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        AppGradientButton(
-                          onPressed: () => context.push(
-                              '/collections/${widget.uid}/request/new'),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(CupertinoIcons.add, size: 16),
-                              SizedBox(width: 6),
-                              Text('Add Request'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+          if (descriptionText != null && descriptionText.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text(
+                  descriptionText,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.35,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                  ),
                 ),
               ),
             ),
-
-          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + 8)),
+          if (isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: CupertinoTheme.of(context)
+                                    .primaryColor
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                CupertinoIcons.arrow_up_right_diamond,
+                                size: 36,
+                                color: CupertinoTheme.of(context).primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'No requests yet',
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Add a request or create a folder to organise',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            SizedBox(
+                              width: MediaQuery.sizeOf(context).width - 48,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  AppGradientButton.secondary(
+                                    fullWidth: true,
+                                    onPressed: () => _showCreateFolderDialog(
+                                      context,
+                                      collection,
+                                      parentUid: null,
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.folder_badge_plus,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('New Folder'),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  AppGradientButton(
+                                    fullWidth: true,
+                                    onPressed: () => context.push(
+                                      '/collections/${widget.uid}/request/new',
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(CupertinoIcons.add, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('Add Request'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: bottomInset + 8),
+                ],
+              ),
+            )
+          else
+            SliverFillRemaining(
+              hasScrollBody: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: CollectionTreeDnDScope(
+                      dragging: _draggingData,
+                      child: Builder(
+                        builder: (scopedContext) {
+                          return ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
+                              if (collection.requests.isNotEmpty) ...[
+                                _sectionHeader(scopedContext, 'REQUESTS'),
+                                ...List.generate(
+                                  collection.requests.length,
+                                  (i) => _rootRequestTile(
+                                    scopedContext,
+                                    collection,
+                                    i,
+                                  ),
+                                ),
+                              ] else if (collection.folders.isNotEmpty &&
+                                  _draggingData is CollectionTreeDragRequest &&
+                                  (_draggingData! as CollectionTreeDragRequest)
+                                          .fromFolderUid !=
+                                      null) ...[
+                                _sectionHeader(scopedContext, 'REQUESTS'),
+                                _emptyRootRequestsDropStrip(scopedContext),
+                              ],
+                              if (collection.folders.isNotEmpty) ...[
+                                _sectionHeader(scopedContext, 'FOLDERS'),
+                                _buildFolderDnDList(
+                                  scopedContext,
+                                  collection,
+                                  collection.folders,
+                                  indent: 0,
+                                  parentFolderUid: null,
+                                ),
+                              ],
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: bottomInset + 8),
+                ],
+              ),
+            ),
         ],
       ),
     );
   }
 
-  /// Recursively builds a flat list of widgets for folders and their contents.
-  List<Widget> _buildFolderWidgets(
+  static const _folderSiblingBandHeight = 16.0;
+
+  /// Nested folder branches with drag-and-drop (reorder, reparent, move requests).
+  Widget _buildFolderDnDList(
     BuildContext context,
     Collection collection,
     List<Folder> folders, {
     required int indent,
+    required String? parentFolderUid,
   }) {
-    final widgets = <Widget>[];
-    for (final folder in folders) {
-      final isExpanded = _expandedFolders.contains(folder.uid);
+    if (folders.isEmpty) return const SizedBox.shrink();
 
-      widgets.add(_FolderHeader(
-        key: ValueKey('folder_header_${folder.uid}'),
-        folder: folder,
-        isExpanded: isExpanded,
-        indent: indent,
-        onToggle: () => setState(() {
-          if (isExpanded) {
-            _expandedFolders.remove(folder.uid);
-          } else {
-            _expandedFolders.add(folder.uid);
-          }
-        }),
-        onRename: () =>
-            _showRenameFolderDialog(context, collection, folder),
-        onDelete: () => _deleteFolder(collection, folder),
-        onAddRequest: () => context.push(
-          '/collections/${widget.uid}/request/new',
-          extra: folder.uid,
-        ),
-        onAddSubFolder: () => _showCreateFolderDialog(
-          context,
-          collection,
-          parentUid: folder.uid,
-        ),
-      ));
+    return Column(
+      key: ValueKey('folders_${parentFolderUid ?? 'root'}'),
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: List.generate(folders.length, (index) {
+        final folder = folders[index];
+        final isExpanded = _expandedFolders.contains(folder.uid);
 
-      if (isExpanded) {
-        // Sub-folders first (recursive)
-        widgets.addAll(_buildFolderWidgets(
-          context,
-          collection,
-          folder.subFolders,
-          indent: indent + 1,
-        ));
-
-        // Requests in this folder
-        for (final request in folder.requests) {
-          widgets.add(_RequestRow(
-            key: ValueKey('req_${request.uid}'),
-            request: request,
+        final header = _FolderHeader(
+          folder: folder,
+          isExpanded: isExpanded,
+          indent: indent,
+          dragData: CollectionTreeDragFolder(
             collectionUid: widget.uid,
-            indent: indent + 1,
-            folderUid: folder.uid,
-            onDelete: () =>
-                _deleteRequest(collection, request, folder.uid),
-            onDuplicate: () =>
-                _duplicateRequest(collection, request, folder.uid),
-            onRename: () => _showRenameRequestDialog(
-                context, collection, request, folder.uid),
-            onMove: () =>
-                _showMoveDialog(collection, request, folder.uid),
-          ));
+            folder: folder,
+            parentFolderUid: parentFolderUid,
+          ),
+          onDragStarted: () => setState(() {
+            _draggingData = CollectionTreeDragFolder(
+              collectionUid: widget.uid,
+              folder: folder,
+              parentFolderUid: parentFolderUid,
+            );
+          }),
+          onDragEnd: _endTreeDragSession,
+          onDragCanceled: _endTreeDragSession,
+          onToggle: () => setState(() {
+            if (isExpanded) {
+              _expandedFolders.remove(folder.uid);
+            } else {
+              _expandedFolders.add(folder.uid);
+            }
+          }),
+          onRename: () =>
+              _showRenameFolderDialog(context, collection, folder),
+          onDelete: () => _deleteFolder(collection, folder),
+          onAddRequest: () => context.push(
+            '/collections/${widget.uid}/request/new',
+            extra: folder.uid,
+          ),
+          onAddSubFolder: () => _showCreateFolderDialog(
+            context,
+            collection,
+            parentUid: folder.uid,
+          ),
+        );
+
+        final expandedBody = isExpanded
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildFolderDnDList(
+                    context,
+                    collection,
+                    folder.subFolders,
+                    indent: indent + 1,
+                    parentFolderUid: folder.uid,
+                  ),
+                  if (folder.requests.isNotEmpty)
+                    ...List.generate(
+                      folder.requests.length,
+                      (reqIndex) => _folderRequestTile(
+                        context,
+                        collection,
+                        folder,
+                        indent + 1,
+                        reqIndex,
+                      ),
+                    )
+                  else if (_draggingData is CollectionTreeDragRequest)
+                    _emptyFolderRequestsDropStrip(
+                      context,
+                      folder,
+                      indent + 1,
+                    ),
+                ],
+              )
+            : null;
+
+        final folderCore = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            if (expandedBody != null) expandedBody,
+          ],
+        );
+
+        if (CollectionTreeDnDScope.maybeDraggingOf(context) == null) {
+          return Column(
+            key: ValueKey('folder_branch_${folder.uid}'),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [folderCore],
+          );
         }
-      }
+
+        final primary = CupertinoTheme.of(context).primaryColor;
+        return Column(
+          key: ValueKey('folder_branch_${folder.uid}'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: _folderSiblingBandHeight,
+              child: DragTarget<CollectionTreeDragData>(
+                onWillAcceptWithDetails: (details) => _willAcceptFolderSibling(
+                  details.data,
+                  parentFolderUid,
+                  index,
+                ),
+                onAcceptWithDetails: (details) async {
+                  _endTreeDragSession();
+                  final d = details.data;
+                  if (d is CollectionTreeDragFolder) {
+                    await _relocateFolderSibling(
+                      d,
+                      parentFolderUid,
+                      index,
+                    );
+                    AppHaptics.medium();
+                  }
+                },
+                builder: (context, candidate, _) {
+                  final show = candidate.isNotEmpty;
+                  return IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: show ? primary : const Color(0x00000000),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            DragTarget<CollectionTreeDragData>(
+              onWillAcceptWithDetails: (details) {
+                if (details.data is CollectionTreeDragRequest) {
+                  return _willAcceptRequestIntoFolder(details.data, folder);
+                }
+                if (details.data is CollectionTreeDragFolder) {
+                  return _willAcceptFolderIntoFolder(details.data, folder);
+                }
+                return false;
+              },
+              onAcceptWithDetails: (details) async {
+                _endTreeDragSession();
+                final d = details.data;
+                if (d is CollectionTreeDragRequest) {
+                  await _relocateRequestIntoFolder(d, folder.uid);
+                  AppHaptics.medium();
+                } else if (d is CollectionTreeDragFolder) {
+                  await _relocateFolderInto(d, folder);
+                  AppHaptics.medium();
+                }
+              },
+              builder: (context, candidate, _) {
+                final active = candidate.isNotEmpty;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: active
+                        ? Border.all(color: primary, width: 2)
+                        : null,
+                    color: active ? primary.withValues(alpha: 0.04) : null,
+                  ),
+                  clipBehavior: active ? Clip.antiAlias : Clip.none,
+                  child: folderCore,
+                );
+              },
+            ),
+            SizedBox(
+              height: _folderSiblingBandHeight,
+              child: DragTarget<CollectionTreeDragData>(
+                onWillAcceptWithDetails: (details) => _willAcceptFolderSibling(
+                  details.data,
+                  parentFolderUid,
+                  index + 1,
+                ),
+                onAcceptWithDetails: (details) async {
+                  _endTreeDragSession();
+                  final d = details.data;
+                  if (d is CollectionTreeDragFolder) {
+                    await _relocateFolderSibling(
+                      d,
+                      parentFolderUid,
+                      index + 1,
+                    );
+                    AppHaptics.medium();
+                  }
+                },
+                builder: (context, candidate, _) {
+                  final show = candidate.isNotEmpty;
+                  return IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: show ? primary : const Color(0x00000000),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _rootRequestTile(
+    BuildContext context,
+    Collection collection,
+    int index,
+  ) {
+    final request = collection.requests[index];
+    return _wrapRequestDropTargets(
+      context,
+      collection: collection,
+      parentFolderUid: null,
+      rowIndex: index,
+      child: _RequestRow(
+        key: ValueKey(request.uid),
+        request: request,
+        collectionUid: widget.uid,
+        indent: 0,
+        folderUid: null,
+        dragData: CollectionTreeDragRequest(
+          collectionUid: widget.uid,
+          request: request,
+          fromFolderUid: null,
+        ),
+        onDragStarted: () => setState(() {
+          _draggingData = CollectionTreeDragRequest(
+            collectionUid: widget.uid,
+            request: request,
+            fromFolderUid: null,
+          );
+        }),
+        onDragEnd: _endTreeDragSession,
+        onDragCanceled: _endTreeDragSession,
+        onDelete: () => _deleteRequest(collection, request, null),
+        onDuplicate: () => _duplicateRequest(collection, request, null),
+        onRename: () =>
+            _showRenameRequestDialog(context, collection, request, null),
+        onMove: () => _showMoveDialog(collection, request, null),
+      ),
+    );
+  }
+
+  Widget _folderRequestTile(
+    BuildContext context,
+    Collection collection,
+    Folder folder,
+    int indent,
+    int reqIndex,
+  ) {
+    final request = folder.requests[reqIndex];
+    return _wrapRequestDropTargets(
+      context,
+      collection: collection,
+      parentFolderUid: folder.uid,
+      rowIndex: reqIndex,
+      child: _RequestRow(
+        key: ValueKey('req_${request.uid}'),
+        request: request,
+        collectionUid: widget.uid,
+        indent: indent,
+        folderUid: folder.uid,
+        dragData: CollectionTreeDragRequest(
+          collectionUid: widget.uid,
+          request: request,
+          fromFolderUid: folder.uid,
+        ),
+        onDragStarted: () => setState(() {
+          _draggingData = CollectionTreeDragRequest(
+            collectionUid: widget.uid,
+            request: request,
+            fromFolderUid: folder.uid,
+          );
+        }),
+        onDragEnd: _endTreeDragSession,
+        onDragCanceled: _endTreeDragSession,
+        onDelete: () => _deleteRequest(collection, request, folder.uid),
+        onDuplicate: () => _duplicateRequest(collection, request, folder.uid),
+        onRename: () =>
+            _showRenameRequestDialog(context, collection, request, folder.uid),
+        onMove: () => _showMoveDialog(collection, request, folder.uid),
+      ),
+    );
+  }
+
+  Widget _wrapRequestDropTargets(
+    BuildContext context, {
+    required Collection collection,
+    required String? parentFolderUid,
+    required int rowIndex,
+    required Widget child,
+  }) {
+    if (CollectionTreeDnDScope.maybeDraggingOf(context) == null) {
+      return child;
     }
-    return widgets;
+    final primary = CupertinoTheme.of(context).primaryColor;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned.fill(
+          child: Column(
+            children: [
+              Expanded(
+                child: DragTarget<CollectionTreeDragData>(
+                  onWillAcceptWithDetails: (details) => _willAcceptRequestAt(
+                    details.data,
+                    parentFolderUid,
+                    rowIndex,
+                  ),
+                  onAcceptWithDetails: (details) async {
+                    _endTreeDragSession();
+                    final d = details.data;
+                    if (d is CollectionTreeDragRequest) {
+                      await _relocateRequest(d, parentFolderUid, rowIndex);
+                      AppHaptics.medium();
+                    }
+                  },
+                  builder: (context, candidate, _) {
+                    final show = candidate.isNotEmpty;
+                    return IgnorePointer(
+                      child: show
+                          ? Align(
+                              alignment: Alignment.topCenter,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Container(
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: primary,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.expand(),
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: DragTarget<CollectionTreeDragData>(
+                  onWillAcceptWithDetails: (details) => _willAcceptRequestAt(
+                    details.data,
+                    parentFolderUid,
+                    rowIndex + 1,
+                  ),
+                  onAcceptWithDetails: (details) async {
+                    _endTreeDragSession();
+                    final d = details.data;
+                    if (d is CollectionTreeDragRequest) {
+                      await _relocateRequest(d, parentFolderUid, rowIndex + 1);
+                      AppHaptics.medium();
+                    }
+                  },
+                  builder: (context, candidate, _) {
+                    final show = candidate.isNotEmpty;
+                    return IgnorePointer(
+                      child: show
+                          ? Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Container(
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    color: primary,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : const SizedBox.expand(),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyRootRequestsDropStrip(BuildContext context) {
+    final primary = CupertinoTheme.of(context).primaryColor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: DragTarget<CollectionTreeDragData>(
+        onWillAcceptWithDetails: (details) {
+          if (details.data is! CollectionTreeDragRequest) return false;
+          final d = details.data as CollectionTreeDragRequest;
+          return d.fromFolderUid != null;
+        },
+        onAcceptWithDetails: (details) async {
+          _endTreeDragSession();
+          final d = details.data;
+          if (d is CollectionTreeDragRequest) {
+            await _relocateRequest(d, null, 0);
+            AppHaptics.medium();
+          }
+        },
+        builder: (context, candidate, _) {
+          final active = candidate.isNotEmpty;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: active ? primary : CupertinoColors.separator.resolveFrom(context),
+                width: active ? 2 : 0.5,
+              ),
+              color: active
+                  ? primary.withValues(alpha: 0.08)
+                  : CupertinoColors.tertiarySystemFill.resolveFrom(context),
+            ),
+            child: Text(
+              'Release to move request to collection root',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: active
+                    ? primary
+                    : CupertinoColors.secondaryLabel.resolveFrom(context),
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _emptyFolderRequestsDropStrip(
+    BuildContext context,
+    Folder folder,
+    int indent,
+  ) {
+    final primary = CupertinoTheme.of(context).primaryColor;
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16.0 + indent * 20.0,
+        right: 16,
+        top: 4,
+        bottom: 8,
+      ),
+      child: DragTarget<CollectionTreeDragData>(
+        onWillAcceptWithDetails: (details) =>
+            _willAcceptRequestIntoFolder(details.data, folder),
+        onAcceptWithDetails: (details) async {
+          _endTreeDragSession();
+          final d = details.data;
+          if (d is CollectionTreeDragRequest) {
+            await _relocateRequestIntoFolder(d, folder.uid);
+            AppHaptics.medium();
+          }
+        },
+        builder: (context, candidate, _) {
+          final active = candidate.isNotEmpty;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: active ? primary : CupertinoColors.separator.resolveFrom(context),
+                width: active ? 2 : 0.5,
+              ),
+              color: active
+                  ? primary.withValues(alpha: 0.06)
+                  : CupertinoColors.tertiarySystemFill.resolveFrom(context),
+            ),
+            child: Text(
+              'Drop requests here',
+              style: TextStyle(
+                fontSize: 12,
+                color: active
+                    ? primary
+                    : CupertinoColors.secondaryLabel.resolveFrom(context),
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _sectionHeader(BuildContext context, String label) {
@@ -318,6 +826,360 @@ class _CollectionDetailScreenState
         ),
       ),
     );
+  }
+
+  Collection _collectionSnapshot() {
+    final collections = ref.read(collectionsProvider);
+    return collections.firstWhere((c) => c.uid == widget.uid);
+  }
+
+  int? _requestIndex(Collection c, String requestUid, String? folderUid) {
+    if (folderUid == null) {
+      final i = c.requests.indexWhere((r) => r.uid == requestUid);
+      return i >= 0 ? i : null;
+    }
+    final f = _findFolderByUid(c.folders, folderUid);
+    if (f == null) return null;
+    final i = f.requests.indexWhere((r) => r.uid == requestUid);
+    return i >= 0 ? i : null;
+  }
+
+  int? _folderSiblingIndex(Collection c, String folderUid, String? parentUid) {
+    if (parentUid == null) {
+      final i = c.folders.indexWhere((f) => f.uid == folderUid);
+      return i >= 0 ? i : null;
+    }
+    final p = _findFolderByUid(c.folders, parentUid);
+    if (p == null) return null;
+    final i = p.subFolders.indexWhere((f) => f.uid == folderUid);
+    return i >= 0 ? i : null;
+  }
+
+  Folder? _findFolderByUid(List<Folder> folders, String uid) {
+    for (final f in folders) {
+      if (f.uid == uid) return f;
+      final nested = _findFolderByUid(f.subFolders, uid);
+      if (nested != null) return nested;
+    }
+    return null;
+  }
+
+  bool _folderSubtreeContainsUid(Folder root, String uid) {
+    if (root.uid == uid) return true;
+    for (final s in root.subFolders) {
+      if (_folderSubtreeContainsUid(s, uid)) return true;
+    }
+    return false;
+  }
+
+  bool _isTargetInsideDraggedFolderSubtree(
+    Collection c,
+    String draggedFolderUid,
+    String targetFolderUid,
+  ) {
+    final dragged = _findFolderByUid(c.folders, draggedFolderUid);
+    if (dragged == null) return false;
+    return _folderSubtreeContainsUid(dragged, targetFolderUid);
+  }
+
+  Collection _removeRequestFrom(
+    Collection c,
+    String requestUid,
+    String? folderUid,
+  ) {
+    if (folderUid == null) {
+      return c.copyWith(
+        requests: c.requests.where((r) => r.uid != requestUid).toList(),
+      );
+    }
+    return c.copyWith(
+      folders: _updateFolderInTree(c.folders, folderUid, (f) {
+        return f.copyWith(
+          requests: f.requests.where((r) => r.uid != requestUid).toList(),
+        );
+      }),
+    );
+  }
+
+  Collection _insertRequestAt(
+    Collection c,
+    HttpRequest req,
+    String? folderUid,
+    int index,
+  ) {
+    if (folderUid == null) {
+      final list = [...c.requests];
+      list.insert(index.clamp(0, list.length), req);
+      return c.copyWith(requests: list);
+    }
+    return c.copyWith(
+      folders: _updateFolderInTree(c.folders, folderUid, (f) {
+        final list = [...f.requests];
+        list.insert(index.clamp(0, list.length), req);
+        return f.copyWith(requests: list);
+      }),
+    );
+  }
+
+  (Folder? removed, List<Folder> tree) _pluckFolderRecursive(
+    List<Folder> folders,
+    String uid,
+  ) {
+    for (var i = 0; i < folders.length; i++) {
+      if (folders[i].uid == uid) {
+        final f = folders[i];
+        return (f, [...folders.sublist(0, i), ...folders.sublist(i + 1)]);
+      }
+      final sub = _pluckFolderRecursive(folders[i].subFolders, uid);
+      if (sub.$1 != null) {
+        final updated = folders[i].copyWith(subFolders: sub.$2);
+        return (
+          sub.$1,
+          [...folders.sublist(0, i), updated, ...folders.sublist(i + 1)],
+        );
+      }
+    }
+    return (null, folders);
+  }
+
+  Collection _insertFolderSibling(
+    Collection c,
+    Folder folder,
+    String? parentUid,
+    int index,
+  ) {
+    if (parentUid == null) {
+      final list = [...c.folders];
+      list.insert(index.clamp(0, list.length), folder);
+      return c.copyWith(folders: list);
+    }
+    return c.copyWith(
+      folders: _updateFolderInTree(c.folders, parentUid, (p) {
+        final list = [...p.subFolders];
+        list.insert(index.clamp(0, list.length), folder);
+        return p.copyWith(subFolders: list);
+      }),
+    );
+  }
+
+  Collection _renumberRequestSortOrders(Collection c) {
+    final now = DateTime.now();
+    Folder walk(Folder f) {
+      return f.copyWith(
+        requests: [
+          for (var i = 0; i < f.requests.length; i++)
+            f.requests[i].copyWith(sortOrder: i, updatedAt: now),
+        ],
+        subFolders: f.subFolders.map(walk).toList(),
+        updatedAt: now,
+      );
+    }
+
+    return c.copyWith(
+      requests: [
+        for (var i = 0; i < c.requests.length; i++)
+          c.requests[i].copyWith(sortOrder: i, updatedAt: now),
+      ],
+      folders: c.folders.map(walk).toList(),
+      updatedAt: now,
+    );
+  }
+
+  List<Folder> _renumberFolderSiblingOrders(List<Folder> folders) {
+    final now = DateTime.now();
+    return [
+      for (var i = 0; i < folders.length; i++)
+        folders[i].copyWith(
+          sortOrder: i,
+          updatedAt: now,
+          subFolders: _renumberFolderSiblingOrders(folders[i].subFolders),
+        ),
+    ];
+  }
+
+  Collection _renumberAllFolderOrders(Collection c) {
+    return c.copyWith(folders: _renumberFolderSiblingOrders(c.folders));
+  }
+
+  bool _willAcceptRequestAt(
+    CollectionTreeDragData? data,
+    String? parentFolderUid,
+    int rawSlot,
+  ) {
+    if (data is! CollectionTreeDragRequest) return false;
+    final c = _collectionSnapshot();
+    final oldIdx = _requestIndex(c, data.request.uid, data.fromFolderUid);
+    if (oldIdx == null) return false;
+    if (data.fromFolderUid == parentFolderUid) {
+      if (rawSlot == oldIdx || rawSlot == oldIdx + 1) return false;
+    }
+    return true;
+  }
+
+  bool _willAcceptFolderSibling(
+    CollectionTreeDragData? data,
+    String? parentFolderUid,
+    int rawSlot,
+  ) {
+    if (data is! CollectionTreeDragFolder) return false;
+    final c = _collectionSnapshot();
+    final oldIdx = _folderSiblingIndex(c, data.folder.uid, data.parentFolderUid);
+    if (oldIdx == null) return false;
+    if (data.parentFolderUid == parentFolderUid) {
+      if (rawSlot == oldIdx || rawSlot == oldIdx + 1) return false;
+    }
+    return true;
+  }
+
+  bool _willAcceptRequestIntoFolder(
+    CollectionTreeDragData? data,
+    Folder target,
+  ) {
+    return data is CollectionTreeDragRequest;
+  }
+
+  bool _willAcceptFolderIntoFolder(
+    CollectionTreeDragData? data,
+    Folder target,
+  ) {
+    if (data is! CollectionTreeDragFolder) return false;
+    final d = data;
+    final c = _collectionSnapshot();
+    if (d.folder.uid == target.uid) return false;
+    return !_isTargetInsideDraggedFolderSubtree(c, d.folder.uid, target.uid);
+  }
+
+  Future<void> _relocateRequest(
+    CollectionTreeDragRequest drag,
+    String? toFolderUid,
+    int rawSlot,
+  ) async {
+    var c = _collectionSnapshot();
+    final fromFolder = drag.fromFolderUid;
+    final uid = drag.request.uid;
+
+    final oldIdx = _requestIndex(c, uid, fromFolder);
+    if (oldIdx == null) return;
+
+    final sameParent = fromFolder == toFolderUid;
+    var moved = drag.request.copyWith(
+      folderUid: toFolderUid,
+      collectionUid: c.uid,
+      updatedAt: DateTime.now(),
+    );
+
+    var next = _removeRequestFrom(c, uid, fromFolder);
+
+    var insertAt = rawSlot;
+    if (sameParent) {
+      if (oldIdx < rawSlot) insertAt = rawSlot - 1;
+    }
+    final destLen = toFolderUid == null
+        ? next.requests.length
+        : (_findFolderByUid(next.folders, toFolderUid)?.requests.length ?? 0);
+    insertAt = insertAt.clamp(0, destLen);
+
+    next = _insertRequestAt(next, moved, toFolderUid, insertAt);
+    next = _renumberRequestSortOrders(next);
+
+    if (toFolderUid != null) {
+      setState(() => _expandedFolders.add(toFolderUid));
+    }
+    await ref.read(collectionsProvider.notifier).update(next);
+  }
+
+  Future<void> _relocateRequestIntoFolder(
+    CollectionTreeDragRequest drag,
+    String targetFolderUid,
+  ) async {
+    var c = _collectionSnapshot();
+    final fromFolder = drag.fromFolderUid;
+    final uid = drag.request.uid;
+
+    final oldIdx = _requestIndex(c, uid, fromFolder);
+    if (oldIdx == null) return;
+
+    var next = _removeRequestFrom(c, uid, fromFolder);
+    final host = _findFolderByUid(next.folders, targetFolderUid);
+    if (host == null) return;
+
+    final insertAt = host.requests.length;
+    final moved = drag.request.copyWith(
+      folderUid: targetFolderUid,
+      collectionUid: c.uid,
+      updatedAt: DateTime.now(),
+    );
+
+    next = _insertRequestAt(next, moved, targetFolderUid, insertAt);
+    next = _renumberRequestSortOrders(next);
+
+    setState(() => _expandedFolders.add(targetFolderUid));
+    await ref.read(collectionsProvider.notifier).update(next);
+  }
+
+  Future<void> _relocateFolderSibling(
+    CollectionTreeDragFolder drag,
+    String? newParentUid,
+    int rawSlot,
+  ) async {
+    var c = _collectionSnapshot();
+    final uid = drag.folder.uid;
+    final fromParent = drag.parentFolderUid;
+
+    final oldIdx = _folderSiblingIndex(c, uid, fromParent);
+    if (oldIdx == null) return;
+
+    final plucked = _pluckFolderRecursive(c.folders, uid);
+    if (plucked.$1 == null) return;
+    var next = c.copyWith(folders: plucked.$2);
+    var moved = plucked.$1!.copyWith(
+      parentFolderUid: newParentUid,
+      updatedAt: DateTime.now(),
+    );
+
+    var insertAt = rawSlot;
+    if (fromParent == newParentUid) {
+      if (oldIdx < rawSlot) insertAt = rawSlot - 1;
+    }
+    final destCount = newParentUid == null
+        ? next.folders.length
+        : (_findFolderByUid(next.folders, newParentUid)?.subFolders.length ?? 0);
+    insertAt = insertAt.clamp(0, destCount);
+
+    next = _insertFolderSibling(next, moved, newParentUid, insertAt);
+    next = _renumberAllFolderOrders(next);
+    next = _renumberRequestSortOrders(next);
+
+    await ref.read(collectionsProvider.notifier).update(next);
+  }
+
+  Future<void> _relocateFolderInto(
+    CollectionTreeDragFolder drag,
+    Folder targetFolder,
+  ) async {
+    var c = _collectionSnapshot();
+    final uid = drag.folder.uid;
+    if (uid == targetFolder.uid) return;
+    if (_isTargetInsideDraggedFolderSubtree(c, uid, targetFolder.uid)) return;
+
+    final plucked = _pluckFolderRecursive(c.folders, uid);
+    if (plucked.$1 == null) return;
+    var next = c.copyWith(folders: plucked.$2);
+    final moved = plucked.$1!.copyWith(
+      parentFolderUid: targetFolder.uid,
+      updatedAt: DateTime.now(),
+    );
+
+    final host = _findFolderByUid(next.folders, targetFolder.uid);
+    if (host == null) return;
+    final insertAt = host.subFolders.length;
+
+    next = _insertFolderSibling(next, moved, targetFolder.uid, insertAt);
+    next = _renumberAllFolderOrders(next);
+    next = _renumberRequestSortOrders(next);
+
+    setState(() => _expandedFolders.add(targetFolder.uid));
+    await ref.read(collectionsProvider.notifier).update(next);
   }
 
   // ── Folder CRUD ──────────────────────────────────────────────────────────────
@@ -844,14 +1706,123 @@ class _CollectionDetailScreenState
   }
 }
 
+class _FolderDragFeedbackCard extends StatelessWidget {
+  const _FolderDragFeedbackCard({required this.folder});
+
+  final Folder folder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoColors.secondarySystemGroupedBackground.resolveFrom(
+            context,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x44000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.folder_fill,
+                color: CupertinoTheme.of(context).primaryColor,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  folder.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequestDragFeedbackCard extends StatelessWidget {
+  const _RequestDragFeedbackCard({required this.request});
+
+  final HttpRequest request;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.sizeOf(context).width * 0.88,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: CupertinoColors.secondarySystemGroupedBackground.resolveFrom(
+            context,
+          ),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x44000000),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              MethodBadge(method: request.method.value),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  request.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ── _FolderHeader ─────────────────────────────────────────────────────────────
 
 class _FolderHeader extends StatelessWidget {
   const _FolderHeader({
-    super.key,
     required this.folder,
     required this.isExpanded,
     required this.indent,
+    required this.dragData,
+    required this.onDragStarted,
+    required this.onDragEnd,
+    required this.onDragCanceled,
     required this.onToggle,
     required this.onRename,
     required this.onDelete,
@@ -862,6 +1833,10 @@ class _FolderHeader extends StatelessWidget {
   final Folder folder;
   final bool isExpanded;
   final int indent;
+  final CollectionTreeDragFolder dragData;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDragCanceled;
   final VoidCallback onToggle;
   final VoidCallback onRename;
   final VoidCallback onDelete;
@@ -872,71 +1847,105 @@ class _FolderHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final directCount = folder.requests.length;
     final hasSubFolders = folder.subFolders.isNotEmpty;
-    return GestureDetector(
-      onTap: onToggle,
-      child: Container(
-        color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
-        padding: EdgeInsets.only(
-          left: 16.0 + indent * 20.0,
-          right: 8,
-          top: 10,
-          bottom: 10,
-        ),
-        child: Row(
-          children: [
-            AnimatedRotation(
-              turns: isExpanded ? 0.25 : 0,
-              duration: const Duration(milliseconds: 180),
-              child: Icon(
-                CupertinoIcons.chevron_right,
-                size: 14,
-                color:
-                    CupertinoColors.secondaryLabel.resolveFrom(context),
+    return Container(
+      color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
+      padding: EdgeInsets.only(
+        left: 16.0 + indent * 20.0,
+        right: 8,
+        top: 10,
+        bottom: 10,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onToggle,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    turns: isExpanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 14,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(
+                        context,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    isExpanded
+                        ? CupertinoIcons.folder_open
+                        : CupertinoIcons.folder_fill,
+                    size: 16,
+                    color: CupertinoTheme.of(context).primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      folder.name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (hasSubFolders || directCount > 0)
+                    Text(
+                      hasSubFolders
+                          ? '${folder.subFolders.length}f · ${directCount}r'
+                          : '$directCount',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 8),
-            Icon(
-              isExpanded
-                  ? CupertinoIcons.folder_open
-                  : CupertinoIcons.folder_fill,
-              size: 16,
-              color: CupertinoTheme.of(context).primaryColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                folder.name,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+          ),
+            LongPressDraggable<CollectionTreeDragData>(
+              data: dragData,
+              hapticFeedbackOnStart: true,
+              onDragStarted: onDragStarted,
+              onDragEnd: (_) => onDragEnd(),
+              onDraggableCanceled: (_, __) => onDragCanceled(),
+              feedback: _FolderDragFeedbackCard(folder: folder),
+              childWhenDragging: Padding(
+                padding: const EdgeInsets.only(left: 4, right: 2),
+                child: Icon(
+                  CupertinoIcons.line_horizontal_3,
+                  size: 18,
+                  color: CupertinoColors.tertiaryLabel.resolveFrom(context)
+                      .withValues(alpha: 0.35),
                 ),
               ),
-            ),
-            // Badge: sub-folder count + request count
-            if (hasSubFolders || directCount > 0)
-              Text(
-                hasSubFolders
-                    ? '${folder.subFolders.length}f · ${directCount}r'
-                    : '$directCount',
-                style: TextStyle(
-                  fontSize: 11,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4, right: 2),
+                child: Icon(
+                  CupertinoIcons.line_horizontal_3,
+                  size: 18,
                   color:
-                      CupertinoColors.secondaryLabel.resolveFrom(context),
+                      CupertinoColors.tertiaryLabel.resolveFrom(context),
                 ),
               ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minSize: 36,
-              onPressed: () => _showContextMenu(context),
-              child: Icon(
-                CupertinoIcons.ellipsis_circle,
-                size: 18,
-                color:
-                    CupertinoColors.secondaryLabel.resolveFrom(context),
-              ),
             ),
-          ],
-        ),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(36, 36),
+            onPressed: () => _showContextMenu(context),
+            child: Icon(
+              CupertinoIcons.ellipsis_circle,
+              size: 18,
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -995,12 +2004,20 @@ class _FolderHeader extends StatelessWidget {
               Navigator.pop(ctx);
               onDelete();
             },
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(CupertinoIcons.trash),
-                SizedBox(width: 8),
-                Text('Delete Folder'),
+                Icon(
+                  CupertinoIcons.trash,
+                  color: CupertinoColors.destructiveRed.resolveFrom(ctx),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Delete Folder',
+                  style: TextStyle(
+                    color: CupertinoColors.destructiveRed.resolveFrom(ctx),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1023,6 +2040,10 @@ class _RequestRow extends StatelessWidget {
     required this.collectionUid,
     required this.indent,
     required this.folderUid,
+    required this.dragData,
+    required this.onDragStarted,
+    required this.onDragEnd,
+    required this.onDragCanceled,
     required this.onDelete,
     required this.onDuplicate,
     required this.onRename,
@@ -1033,10 +2054,94 @@ class _RequestRow extends StatelessWidget {
   final String collectionUid;
   final int indent;
   final String? folderUid;
+  final CollectionTreeDragRequest dragData;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDragCanceled;
   final VoidCallback onDelete;
   final VoidCallback onDuplicate;
   final VoidCallback onRename;
   final VoidCallback onMove;
+
+  void _showRequestContextMenu(BuildContext context) {
+    showCupertinoModalPopup<void>(
+      context: context,
+      builder: (ctx) => CupertinoActionSheet(
+        title: Text(request.name),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onRename();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.pencil),
+                SizedBox(width: 8),
+                Text('Rename'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onMove();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.arrow_right_arrow_left),
+                SizedBox(width: 8),
+                Text('Move'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onDuplicate();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.doc_on_doc),
+                SizedBox(width: 8),
+                Text('Duplicate'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () {
+              Navigator.pop(ctx);
+              onDelete();
+            },
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  CupertinoIcons.trash,
+                  color: CupertinoColors.destructiveRed.resolveFrom(ctx),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Delete',
+                  style: TextStyle(
+                    color: CupertinoColors.destructiveRed.resolveFrom(ctx),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1044,96 +2149,149 @@ class _RequestRow extends StatelessWidget {
       key: ValueKey(request.uid),
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
-        extentRatio: 0.72,
+        extentRatio: 0.94,
         children: [
           SlidableAction(
             onPressed: (_) => onRename(),
             backgroundColor: CupertinoColors.systemBlue,
             foregroundColor: CupertinoColors.white,
             icon: CupertinoIcons.pencil,
+            spacing: 2,
             label: 'Rename',
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           ),
           SlidableAction(
             onPressed: (_) => onMove(),
             backgroundColor: CupertinoColors.systemOrange,
             foregroundColor: CupertinoColors.white,
             icon: CupertinoIcons.arrow_right_arrow_left,
+            spacing: 2,
             label: 'Move',
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           ),
           SlidableAction(
             onPressed: (_) => onDuplicate(),
             backgroundColor: CupertinoColors.systemIndigo,
             foregroundColor: CupertinoColors.white,
             icon: CupertinoIcons.doc_on_doc,
+            spacing: 2,
             label: 'Copy',
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           ),
           SlidableAction(
             onPressed: (_) => onDelete(),
             backgroundColor: CupertinoColors.destructiveRed,
             foregroundColor: CupertinoColors.white,
             icon: CupertinoIcons.trash,
+            spacing: 2,
             label: 'Delete',
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           ),
         ],
       ),
-      child: GestureDetector(
-        onTap: () => context.push(
-          '/collections/$collectionUid/request/${request.uid}',
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 16.0 + indent * 20.0,
+          right: 8,
+          top: 10,
+          bottom: 10,
         ),
-        child: Container(
-          padding: EdgeInsets.only(
-            left: 16.0 + indent * 20.0,
-            right: 16,
-            top: 10,
-            bottom: 10,
-          ),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: CupertinoColors.separator.resolveFrom(context),
-                width: 0.5,
-              ),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: CupertinoColors.separator.resolveFrom(context),
+              width: 0.5,
             ),
           ),
-          child: Row(
-            children: [
-              MethodBadge(method: request.method.value),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => context.push(
+                  '/collections/$collectionUid/request/${request.uid}',
+                ),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
                   children: [
-                    Text(
-                      request.name,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                    MethodBadge(method: request.method.value),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            request.name,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (request.url.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              request.url,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'JetBrainsMono',
+                                fontSize: 11,
+                                color: CupertinoColors.secondaryLabel
+                                    .resolveFrom(context),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (request.url.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        request.url,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'JetBrainsMono',
-                          fontSize: 11,
-                          color: CupertinoColors.secondaryLabel
-                              .resolveFrom(context),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                size: 14,
-                color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+            ),
+            LongPressDraggable<CollectionTreeDragData>(
+              data: dragData,
+              hapticFeedbackOnStart: true,
+              onDragStarted: onDragStarted,
+              onDragEnd: (_) => onDragEnd(),
+              onDraggableCanceled: (_, __) => onDragCanceled(),
+              feedback: _RequestDragFeedbackCard(request: request),
+              childWhenDragging: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(
+                  CupertinoIcons.line_horizontal_3,
+                  size: 18,
+                  color: CupertinoColors.tertiaryLabel
+                      .resolveFrom(context)
+                      .withValues(alpha: 0.35),
+                ),
               ),
-            ],
-          ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Icon(
+                  CupertinoIcons.line_horizontal_3,
+                  size: 18,
+                  color:
+                      CupertinoColors.tertiaryLabel.resolveFrom(context),
+                ),
+              ),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(36, 36),
+              onPressed: () => _showRequestContextMenu(context),
+              child: Icon(
+                CupertinoIcons.ellipsis_circle,
+                size: 18,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+            ),
+          ],
         ),
       ),
     );

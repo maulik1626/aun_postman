@@ -12,6 +12,11 @@ _$HistoryEntryImpl _$$HistoryEntryImplFromJson(Map<String, dynamic> json) =>
       request: HttpRequest.fromJson(json['request'] as Map<String, dynamic>),
       response: HttpResponse.fromJson(json['response'] as Map<String, dynamic>),
       executedAt: DateTime.parse(json['executedAt'] as String),
+      variableSnapshot:
+          (json['variableSnapshot'] as Map<String, dynamic>?)?.map(
+            (k, e) => MapEntry(k, e as String),
+          ) ??
+          const {},
     );
 
 Map<String, dynamic> _$$HistoryEntryImplToJson(_$HistoryEntryImpl instance) =>
@@ -20,4 +25,5 @@ Map<String, dynamic> _$$HistoryEntryImplToJson(_$HistoryEntryImpl instance) =>
       'request': instance.request,
       'response': instance.response,
       'executedAt': instance.executedAt.toIso8601String(),
+      'variableSnapshot': instance.variableSnapshot,
     };

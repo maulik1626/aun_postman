@@ -1,4 +1,5 @@
 import 'package:aun_postman/domain/enums/ws_message_direction.dart';
+import 'package:aun_postman/domain/enums/ws_payload_kind.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'websocket_message.freezed.dart';
@@ -11,6 +12,8 @@ class WebSocketMessage with _$WebSocketMessage {
     required String content,
     required WsMessageDirection direction,
     required DateTime timestamp,
+    @Default(WsPayloadKind.text) WsPayloadKind payloadKind,
+    int? byteLength,
   }) = _WebSocketMessage;
 
   factory WebSocketMessage.fromJson(Map<String, dynamic> json) =>

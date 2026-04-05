@@ -1,3 +1,4 @@
+import 'package:aun_postman/app/widgets/app_gradient_button.dart';
 import 'package:aun_postman/core/utils/assertion_runner.dart';
 import 'package:aun_postman/domain/models/test_assertion.dart';
 import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
@@ -19,7 +20,6 @@ class TestsTab extends ConsumerWidget {
         // Results summary bar (shows after execution)
         if (results != null) _ResultsSummary(results: results),
 
-        // Add assertion button
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Row(
@@ -40,9 +40,11 @@ class TestsTab extends ConsumerWidget {
                 onPressed: () => _showAddSheet(context, ref, assertions),
                 child: Row(
                   children: [
-                    Icon(CupertinoIcons.add_circled,
-                        size: 16,
-                        color: CupertinoTheme.of(context).primaryColor),
+                    Icon(
+                      CupertinoIcons.add_circled,
+                      size: 16,
+                      color: CupertinoTheme.of(context).primaryColor,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'Add',
@@ -67,27 +69,36 @@ class TestsTab extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(CupertinoIcons.checkmark_shield,
-                      size: 48,
-                      color: CupertinoColors.tertiaryLabel
-                          .resolveFrom(context)),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No assertions',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: CupertinoColors.secondaryLabel
-                          .resolveFrom(context),
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: CupertinoTheme.of(context)
+                          .primaryColor
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(
+                      CupertinoIcons.checkmark_shield,
+                      size: 40,
+                      color: CupertinoTheme.of(context).primaryColor,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'No Assertions',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     'Add assertions to verify responses',
                     style: TextStyle(
-                      fontSize: 13,
-                      color:
-                          CupertinoColors.tertiaryLabel.resolveFrom(context),
+                      fontSize: 15,
+                      color: CupertinoColors.secondaryLabel
+                          .resolveFrom(context),
                     ),
                   ),
                 ],
@@ -97,6 +108,8 @@ class TestsTab extends ConsumerWidget {
         else
           Expanded(
             child: ListView.separated(
+              primary: false,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: const EdgeInsets.only(bottom: 32),
               itemCount: assertions.length,
               separatorBuilder: (_, __) => Container(
@@ -313,45 +326,75 @@ class TestsTab extends ConsumerWidget {
                       ],
 
                       const SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        child: CupertinoButton.filled(
-                          onPressed: () {
-                            final property = propertyCtrl.text.trim();
-                            final needsProperty =
-                                target == AssertionTarget.headerExists ||
-                                    target == AssertionTarget.headerEquals;
-                            if (needsProperty && property.isEmpty) {
-                              // Flash the header name field with a hint
-                              showCupertinoDialog<void>(
-                                context: ctx,
-                                builder: (_) => CupertinoAlertDialog(
-                                  title: const Text('Header name required'),
-                                  content: const Text(
-                                      'Enter the header name to check.'),
-                                  actions: [
-                                    CupertinoDialogAction(
-                                      isDefaultAction: true,
-                                      onPressed: () => Navigator.pop(ctx),
-                                      child: const Text('OK'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              return;
-                            }
-                            final assertion = TestAssertion(
-                              target: target,
-                              op: op,
-                              property: property,
-                              expected: expectedCtrl.text.trim(),
+                      AppGradientButton(
+                        fullWidth: true,
+                        onPressed: () {
+                          final property = propertyCtrl.text.trim();
+                          final needsProperty =
+                              target == AssertionTarget.headerExists ||
+                                  target == AssertionTarget.headerEquals;
+                          if (needsProperty && property.isEmpty) {
+                            showCupertinoDialog<void>(
+                              context: ctx,
+                              builder: (dialogContext) => CupertinoAlertDialog(
+                                title: const Text('Header name required'),
+                                content: const Text(
+                                    'Enter the header name to check.'),
+                                actions: [
+                                  CupertinoDialogAction(
+                                    isDefaultAction: true,
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
                             );
-                            ref
-                                .read(requestBuilderProvider.notifier)
-                                .setAssertions([...current, assertion]);
-                            Navigator.pop(ctx);
-                          },
-                          child: const Text('Add Assertion'),
+                            return;
+                          }
+                          final needsExpected =
+                              target != AssertionTarget.headerExists;
+                          final expected = expectedCtrl.text.trim();
+                          if (needsExpected && expected.isEmpty) {
+                            showCupertinoDialog<void>(
+                              context: ctx,
+                              builder: (dialogContext) => CupertinoAlertDialog(
+                                title: const Text('Expected value required'),
+                                content: const Text(
+                                  'Enter the value to assert against (e.g. status code, '
+                                  'response time in ms, body text, or header value).',
+                                ),
+                                actions: [
+                                  CupertinoDialogAction(
+                                    isDefaultAction: true,
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            return;
+                          }
+                          final assertion = TestAssertion(
+                            target: target,
+                            op: op,
+                            property: property,
+                            expected: expected,
+                          );
+                          ref
+                              .read(requestBuilderProvider.notifier)
+                              .setAssertions([...current, assertion]);
+                          Navigator.pop(ctx);
+                        },
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(CupertinoIcons.add, size: 18),
+                            SizedBox(width: 6),
+                            Text('Add Assertion'),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 8),

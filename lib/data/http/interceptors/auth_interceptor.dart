@@ -1,8 +1,8 @@
-import 'dart:convert';
-
+import 'package:aun_postman/core/utils/aws_sigv4_signer.dart';
 import 'package:aun_postman/domain/enums/auth_type.dart';
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:dio/dio.dart';
+import 'dart:convert';
 
 class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._auth);
@@ -31,6 +31,33 @@ class AuthInterceptor extends Interceptor {
           } else {
             options.queryParameters[key] = value;
           }
+        }
+      case OAuth2Auth(:final accessToken, :final tokenType):
+        if (accessToken.isNotEmpty) {
+          final prefix =
+              tokenType.trim().isEmpty ? 'Bearer' : tokenType.trim();
+          options.headers['Authorization'] = '$prefix $accessToken';
+        }
+      case DigestAuth():
+        break;
+      case AwsSigV4Auth(
+          :final accessKeyId,
+          :final secretAccessKey,
+          :final sessionToken,
+          :final region,
+          :final service,
+        ):
+        try {
+          AwsSigV4Signer.apply(
+            options,
+            accessKeyId: accessKeyId,
+            secretAccessKey: secretAccessKey,
+            region: region.trim().isEmpty ? 'us-east-1' : region.trim(),
+            service: service.trim().isEmpty ? 'execute-api' : service.trim(),
+            sessionToken: sessionToken,
+          );
+        } on UnsupportedError catch (_) {
+          // Leave unsigned; server will reject with a clear error.
         }
     }
     handler.next(options);

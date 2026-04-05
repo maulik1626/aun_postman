@@ -3,13 +3,17 @@ import 'dart:io';
 import 'package:aun_postman/core/constants/app_constants.dart';
 import 'package:aun_postman/core/errors/error_handler.dart';
 import 'package:aun_postman/data/http/interceptors/auth_interceptor.dart';
+import 'package:aun_postman/data/http/interceptors/digest_auth_interceptor.dart';
 import 'package:aun_postman/data/http/interceptors/timing_interceptor.dart';
+import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/http_response.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
 import 'package:aun_postman/domain/models/response_cookie.dart';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:mime/mime.dart';
 
 class DioClient {
@@ -18,6 +22,9 @@ class DioClient {
     CancelToken? cancelToken,
     int timeoutSeconds = AppConstants.defaultTimeoutSeconds,
     bool followRedirects = true,
+    bool verifySsl = true,
+    String httpProxy = '',
+    List<RequestHeader> defaultHeaders = const [],
   }) async {
     final dio = Dio(
       BaseOptions(
@@ -30,9 +37,37 @@ class DioClient {
       ),
     );
 
+    if (!kIsWeb) {
+      final adapter = dio.httpClientAdapter;
+      if (adapter is IOHttpClientAdapter) {
+        final proxy = httpProxy.trim();
+        adapter.createHttpClient = () {
+          final client = HttpClient();
+          if (!verifySsl) {
+            client.badCertificateCallback = (cert, host, port) => true;
+          }
+          if (proxy.isNotEmpty) {
+            client.findProxy = (_) {
+              if (proxy.toUpperCase() == 'DIRECT') return 'DIRECT';
+              if (proxy.contains('://')) {
+                final u = Uri.parse(proxy);
+                final h = u.host;
+                final p = u.hasPort ? u.port : 8080;
+                return 'PROXY $h:$p';
+              }
+              return 'PROXY $proxy';
+            };
+          }
+          return client;
+        };
+      }
+    }
+
     dio.interceptors.addAll([
       TimingInterceptor(),
       AuthInterceptor(request.auth),
+      if (request.auth case final DigestAuth d)
+        DigestAuthInterceptor(dio, d),
     ]);
 
     // Build URL with enabled params
@@ -51,11 +86,16 @@ class DioClient {
       }
     }
 
-    // Build headers
-    final headers = <String, String>{
-      for (final h in request.headers.where((h) => h.isEnabled))
-        h.key: h.value,
-    };
+    // Build headers: app defaults first, then request (request overwrites same key).
+    final headers = <String, String>{};
+    for (final d in defaultHeaders.where((h) => h.isEnabled)) {
+      final k = d.key.trim();
+      if (k.isEmpty) continue;
+      headers[k] = d.value;
+    }
+    for (final h in request.headers.where((x) => x.isEnabled)) {
+      headers[h.key] = h.value;
+    }
 
     // Build body
     dynamic data;

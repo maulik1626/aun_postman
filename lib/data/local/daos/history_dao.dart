@@ -24,6 +24,7 @@ class HistoryDao {
       'request': entry.request.toJson(),
       'response': entry.response.toJson(),
       'executedAt': entry.executedAt.toIso8601String(),
+      'variableSnapshot': entry.variableSnapshot,
     };
     await _box.put(entry.uid, jsonEncode(map));
 
@@ -49,6 +50,14 @@ class HistoryDao {
       response:
           HttpResponse.fromJson(json['response'] as Map<String, dynamic>),
       executedAt: DateTime.parse(json['executedAt'] as String),
+      variableSnapshot: _readStringMap(json['variableSnapshot']),
+    );
+  }
+
+  static Map<String, String> _readStringMap(dynamic raw) {
+    if (raw is! Map) return {};
+    return raw.map(
+      (k, v) => MapEntry(k.toString(), v?.toString() ?? ''),
     );
   }
 }
