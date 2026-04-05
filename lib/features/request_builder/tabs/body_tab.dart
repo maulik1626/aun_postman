@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:aun_postman/core/notifications/user_notification.dart';
+import 'package:aun_postman/core/utils/json_auto_repair.dart';
+import 'package:aun_postman/core/utils/json_comment_stripper.dart';
 import 'package:aun_postman/domain/enums/body_type.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
@@ -29,55 +31,143 @@ class _BodyTabState extends ConsumerState<BodyTab> {
   static const double _kMinEditorComfortHeight = 72;
 
   late TextEditingController _bodyController;
+  late final UndoHistoryController _bodyUndoController;
   bool _syntaxHighlight = false;
+
+  void _onBodyUndoHistoryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onBodyControllerChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    _bodyUndoController = UndoHistoryController();
+    _bodyUndoController.addListener(_onBodyUndoHistoryChanged);
     final body = ref.read(requestBuilderProvider).body;
     _bodyController = TextEditingController(text: _rawContent(body));
+    _bodyController.addListener(_onBodyControllerChanged);
   }
 
   @override
   void dispose() {
+    _bodyController.removeListener(_onBodyControllerChanged);
+    _bodyUndoController.removeListener(_onBodyUndoHistoryChanged);
+    _bodyUndoController.dispose();
     _bodyController.dispose();
     super.dispose();
   }
 
   String _rawContent(RequestBody body) => switch (body) {
-        RawJsonBody(:final content) => content,
-        RawXmlBody(:final content) => content,
-        RawTextBody(:final content) => content,
-        RawHtmlBody(:final content) => content,
-        _ => '',
-      };
+    RawJsonBody(:final content) => content,
+    RawXmlBody(:final content) => content,
+    RawTextBody(:final content) => content,
+    RawHtmlBody(:final content) => content,
+    _ => '',
+  };
 
   BodyType _currentType(RequestBody body) => switch (body) {
-        NoBody() => BodyType.none,
-        RawJsonBody() => BodyType.rawJson,
-        RawXmlBody() => BodyType.rawXml,
-        RawTextBody() => BodyType.rawText,
-        RawHtmlBody() => BodyType.rawHtml,
-        FormDataBody() => BodyType.formData,
-        UrlEncodedBody() => BodyType.urlEncoded,
-        BinaryBody() => BodyType.binary,
-      };
+    NoBody() => BodyType.none,
+    RawJsonBody() => BodyType.rawJson,
+    RawXmlBody() => BodyType.rawXml,
+    RawTextBody() => BodyType.rawText,
+    RawHtmlBody() => BodyType.rawHtml,
+    FormDataBody() => BodyType.formData,
+    UrlEncodedBody() => BodyType.urlEncoded,
+    BinaryBody() => BodyType.binary,
+  };
 
-  void _formatJson(BuildContext context) {
+  Future<void> _formatJson(BuildContext context) async {
+    if (!context.mounted) return;
+    if (jsonHasLineComments(_bodyController.text)) {
+      final proceed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Pretty print'),
+          content: const Text(
+            'Lines that start with // (comments) will be removed. '
+            'They cannot be kept in formatted JSON.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Pretty print'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !context.mounted) return;
+    }
+
     try {
-      final decoded = jsonDecode(_bodyController.text);
+      final decoded = jsonDecode(
+        stripJsonLineComments(_bodyController.text).trim(),
+      );
       final formatted = const JsonEncoder.withIndent('  ').convert(decoded);
       _bodyController.text = formatted;
       ref
           .read(requestBuilderProvider.notifier)
           .setBody(RawJsonBody(content: formatted));
     } catch (_) {
+      if (!context.mounted) return;
       UserNotification.show(
         context: context,
         title: 'Body',
         body: 'Invalid JSON — cannot format',
       );
     }
+  }
+
+  Future<void> _repairJson(BuildContext context) async {
+    if (!context.mounted) return;
+    if (jsonRepairMayRemoveComments(_bodyController.text)) {
+      final proceed = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('Auto repair'),
+          content: const Text(
+            'Line comments (//) and block comments (/* */) will be removed '
+            'if present. Missing commas between properties or array items, '
+            'trailing commas, and a leading BOM will be fixed when possible.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Repair'),
+            ),
+          ],
+        ),
+      );
+      if (proceed != true || !context.mounted) return;
+    }
+
+    final repaired = tryAutoRepairJson(_bodyController.text);
+    if (repaired == null) {
+      if (!context.mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Body',
+        body: 'Could not repair JSON',
+      );
+      return;
+    }
+    _bodyController.text = repaired;
+    ref
+        .read(requestBuilderProvider.notifier)
+        .setBody(RawJsonBody(content: repaired));
   }
 
   void _onTypeChanged(BodyType type) {
@@ -101,16 +191,16 @@ class _BodyTabState extends ConsumerState<BodyTab> {
   @override
   Widget build(BuildContext context) {
     // Sync controller when a saved request is loaded from a collection.
-    ref.listen(
-      requestBuilderProvider.select((s) => s.loadedRequestUid),
-      (_, __) {
-        final body = ref.read(requestBuilderProvider).body;
-        final newContent = _rawContent(body);
-        if (_bodyController.text != newContent) {
-          _bodyController.text = newContent;
-        }
-      },
-    );
+    ref.listen(requestBuilderProvider.select((s) => s.loadedRequestUid), (
+      _,
+      __,
+    ) {
+      final body = ref.read(requestBuilderProvider).body;
+      final newContent = _rawContent(body);
+      if (_bodyController.text != newContent) {
+        _bodyController.text = newContent;
+      }
+    });
 
     final body = ref.watch(requestBuilderProvider.select((s) => s.body));
     final currentType = _currentType(body);
@@ -118,7 +208,8 @@ class _BodyTabState extends ConsumerState<BodyTab> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxH = constraints.maxHeight;
-        final squeezed = maxH.isFinite &&
+        final squeezed =
+            maxH.isFinite &&
             maxH < _kTypeStripApproxHeight + _kMinEditorComfortHeight;
 
         final strip = _buildTypeStrip(context, currentType);
@@ -154,12 +245,7 @@ class _BodyTabState extends ConsumerState<BodyTab> {
             strip,
             divider,
             Expanded(
-              child: _buildEditor(
-                context,
-                body,
-                currentType,
-                squeezed: false,
-              ),
+              child: _buildEditor(context, body, currentType, squeezed: false),
             ),
           ],
         );
@@ -179,8 +265,10 @@ class _BodyTabState extends ConsumerState<BodyTab> {
             child: GestureDetector(
               onTap: () => _onTypeChanged(type),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: selected
                       ? CupertinoTheme.of(context).primaryColor
@@ -253,6 +341,9 @@ class _BodyTabState extends ConsumerState<BodyTab> {
           BodyType.rawHtml => 'html',
           _ => 'plaintext',
         };
+        final jsonInvalid =
+            type == BodyType.rawJson &&
+            !isValidJsonBodyContent(_bodyController.text);
 
         final Widget editorChrome;
         if (_syntaxHighlight) {
@@ -281,6 +372,7 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         } else {
           final textField = CupertinoTextField(
             controller: _bodyController,
+            undoController: _bodyUndoController,
             expands: !squeezed,
             maxLines: null,
             minLines: null,
@@ -307,115 +399,256 @@ class _BodyTabState extends ConsumerState<BodyTab> {
               ref.read(requestBuilderProvider.notifier).setBody(updated);
             },
           );
-          editorChrome = ColoredBox(
-            color: editorBg,
-            child: textField,
-          );
+          editorChrome = ColoredBox(color: editorBg, child: textField);
         }
 
         return Column(
           children: [
             // Toolbar
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color:
-                    CupertinoColors.tertiarySystemFill.resolveFrom(context),
+                color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
                 border: Border(
                   bottom: BorderSide(
-                    color:
-                        CupertinoColors.separator.resolveFrom(context),
+                    color: CupertinoColors.separator.resolveFrom(context),
                     width: 0.5,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  Text(
-                    typeLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.6,
-                      color: CupertinoColors.secondaryLabel
-                          .resolveFrom(context),
-                    ),
-                  ),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      FocusManager.instance.primaryFocus?.unfocus();
-                      setState(() => _syntaxHighlight = !_syntaxHighlight);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _syntaxHighlight
-                            ? CupertinoTheme.of(context)
-                                .primaryColor
-                                .withValues(alpha: 0.22)
-                            : CupertinoColors.tertiarySystemFill
-                                .resolveFrom(context),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+                  Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          typeLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.6,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        ),
+                        if (jsonInvalid) ...[
+                          const SizedBox(width: 8),
                           Icon(
-                            CupertinoIcons.color_filter,
-                            size: 13,
-                            color: CupertinoTheme.of(context).primaryColor,
+                            CupertinoIcons.exclamationmark_circle_fill,
+                            size: 14,
+                            color: CupertinoColors.destructiveRed.resolveFrom(
+                              context,
+                            ),
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            _syntaxHighlight ? 'Edit' : 'Highlight',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: CupertinoTheme.of(context).primaryColor,
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 96),
+                            child: Text(
+                              'Invalid JSON',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: CupertinoColors.destructiveRed
+                                    .resolveFrom(context),
+                              ),
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  if (type == BodyType.rawJson) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _formatJson(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: CupertinoTheme.of(context)
-                              .primaryColor
-                              .withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(CupertinoIcons.textformat,
-                                size: 13,
-                                color:
-                                    CupertinoTheme.of(context).primaryColor),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Pretty Print',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color:
-                                    CupertinoTheme.of(context).primaryColor,
-                              ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          reverse: true,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: constraints.maxWidth,
                             ),
-                          ],
-                        ),
-                      ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!_syntaxHighlight) ...[
+                                  if (_bodyUndoController.value.canUndo)
+                                    GestureDetector(
+                                      onTap: () => _bodyUndoController.undo(),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Icon(
+                                          CupertinoIcons.arrow_uturn_left,
+                                          size: 18,
+                                          color: CupertinoTheme.of(
+                                            context,
+                                          ).primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  if (_bodyUndoController.value.canRedo)
+                                    GestureDetector(
+                                      onTap: () => _bodyUndoController.redo(),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Icon(
+                                          CupertinoIcons.arrow_uturn_right,
+                                          size: 18,
+                                          color: CupertinoTheme.of(
+                                            context,
+                                          ).primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                  if (_bodyUndoController.value.canUndo ||
+                                      _bodyUndoController.value.canRedo)
+                                    const SizedBox(width: 4),
+                                ],
+                                if (type == BodyType.rawJson &&
+                                    jsonInvalid) ...[
+                                  GestureDetector(
+                                    onTap: () => _repairJson(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: CupertinoTheme.of(
+                                          context,
+                                        ).primaryColor.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            CupertinoIcons.wrench,
+                                            size: 13,
+                                            color: CupertinoTheme.of(
+                                              context,
+                                            ).primaryColor,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Repair',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: CupertinoTheme.of(
+                                                context,
+                                              ).primaryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                GestureDetector(
+                                  onTap: () {
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+                                    setState(
+                                      () =>
+                                          _syntaxHighlight = !_syntaxHighlight,
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _syntaxHighlight
+                                          ? CupertinoTheme.of(context)
+                                                .primaryColor
+                                                .withValues(alpha: 0.22)
+                                          : CupertinoColors.tertiarySystemFill
+                                                .resolveFrom(context),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.color_filter,
+                                          size: 13,
+                                          color: CupertinoTheme.of(
+                                            context,
+                                          ).primaryColor,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          _syntaxHighlight
+                                              ? 'Edit'
+                                              : 'Highlight',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: CupertinoTheme.of(
+                                              context,
+                                            ).primaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                if (type == BodyType.rawJson) ...[
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () => _formatJson(context),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: CupertinoTheme.of(
+                                          context,
+                                        ).primaryColor.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            CupertinoIcons.textformat,
+                                            size: 13,
+                                            color: CupertinoTheme.of(
+                                              context,
+                                            ).primaryColor,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Pretty Print',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: CupertinoTheme.of(
+                                                context,
+                                              ).primaryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -427,10 +660,12 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         );
 
       case BodyType.formData:
-        final fields =
-            body is FormDataBody ? body.fields : const <FormDataField>[];
-        final loadedUid =
-            ref.watch(requestBuilderProvider.select((s) => s.loadedRequestUid));
+        final fields = body is FormDataBody
+            ? body.fields
+            : const <FormDataField>[];
+        final loadedUid = ref.watch(
+          requestBuilderProvider.select((s) => s.loadedRequestUid),
+        );
         final formEditor = FormDataFieldsEditor(
           key: ValueKey('${loadedUid ?? 'new'}-formdata'),
           shrinkWrap: squeezed,
@@ -450,18 +685,20 @@ class _BodyTabState extends ConsumerState<BodyTab> {
         return formEditor;
 
       case BodyType.urlEncoded:
-        final fields =
-            body is UrlEncodedBody ? body.fields : const <KeyValuePair>[];
+        final fields = body is UrlEncodedBody
+            ? body.fields
+            : const <KeyValuePair>[];
         final urlEditor = KeyValueEditor(
           shrinkWrap: squeezed,
           rows: fields
-              .map((f) =>
-                  (key: f.key, value: f.value, isEnabled: f.isEnabled))
+              .map((f) => (key: f.key, value: f.value, isEnabled: f.isEnabled))
               .toList(),
           keyPlaceholder: 'Field name',
           valuePlaceholder: 'Value',
           onChanged: (rows) {
-            ref.read(requestBuilderProvider.notifier).setBody(
+            ref
+                .read(requestBuilderProvider.notifier)
+                .setBody(
                   UrlEncodedBody(
                     fields: rows
                         .map(
@@ -493,9 +730,9 @@ class _BodyTabState extends ConsumerState<BodyTab> {
               Icon(
                 CupertinoIcons.doc,
                 size: 48,
-                color: CupertinoTheme.of(context)
-                    .primaryColor
-                    .withValues(alpha: 0.5),
+                color: CupertinoTheme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 12),
               Text(
@@ -503,7 +740,9 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                     ? 'No file selected'
                     : filePath.split('/').last,
                 style: const TextStyle(
-                    fontFamily: 'JetBrainsMono', fontSize: 13),
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 16),
               AppGradientButton(
@@ -513,7 +752,9 @@ class _BodyTabState extends ConsumerState<BodyTab> {
                     allowMultiple: false,
                   );
                   if (result != null && result.files.single.path != null) {
-                    ref.read(requestBuilderProvider.notifier).setBody(
+                    ref
+                        .read(requestBuilderProvider.notifier)
+                        .setBody(
                           BinaryBody(filePath: result.files.single.path!),
                         );
                   }

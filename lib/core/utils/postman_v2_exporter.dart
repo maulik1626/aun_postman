@@ -6,8 +6,11 @@ import 'package:aun_postman/domain/models/environment.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:uuid/uuid.dart';
 
 class PostmanV2Exporter {
+  static const _uuid = Uuid();
+
   static String export(Collection collection) {
     final data = {
       'info': {
@@ -21,6 +24,37 @@ class PostmanV2Exporter {
         ...collection.folders.map(_folderToJson),
         ...collection.requests.map(_requestToJson),
       ],
+    };
+    return const JsonEncoder.withIndent('  ').convert(data);
+  }
+
+  /// One or more folders/requests in display order for a partial v2.1 export.
+  static String exportFragment({
+    required String title,
+    String? description,
+    required List<PostmanV2FragmentEntry> entries,
+  }) {
+    if (entries.isEmpty) {
+      throw ArgumentError('exportFragment requires at least one entry');
+    }
+    final item = <Map<String, dynamic>>[];
+    for (final e in entries) {
+      switch (e) {
+        case PostmanV2FragmentFolder(:final folder):
+          item.add(_folderToJson(folder));
+        case PostmanV2FragmentRequest(:final request):
+          item.add(_requestToJson(request));
+      }
+    }
+    final data = {
+      'info': {
+        '_postman_id': _uuid.v4(),
+        'name': title,
+        'description': description ?? '',
+        'schema':
+            'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+      },
+      'item': item,
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
@@ -204,4 +238,18 @@ class PostmanV2Exporter {
     };
     return const JsonEncoder.withIndent('  ').convert(data);
   }
+}
+
+sealed class PostmanV2FragmentEntry {
+  const PostmanV2FragmentEntry();
+}
+
+final class PostmanV2FragmentFolder extends PostmanV2FragmentEntry {
+  const PostmanV2FragmentFolder(this.folder);
+  final Folder folder;
+}
+
+final class PostmanV2FragmentRequest extends PostmanV2FragmentEntry {
+  const PostmanV2FragmentRequest(this.request);
+  final HttpRequest request;
 }

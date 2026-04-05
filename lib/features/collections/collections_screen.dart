@@ -1,11 +1,18 @@
+import 'dart:io';
+
 import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/core/notifications/user_notification.dart';
+import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
+import 'package:aun_postman/domain/models/collection.dart';
 import 'package:aun_postman/features/collections/dialogs/create_collection_dialog.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CollectionsScreen extends ConsumerWidget {
   const CollectionsScreen({super.key});
@@ -94,6 +101,25 @@ class CollectionsScreen extends ConsumerWidget {
                               );
                           return Slidable(
                             key: ValueKey(collection.uid),
+                            startActionPane: ActionPane(
+                              motion: const DrawerMotion(),
+                              extentRatio: 0.22,
+                              children: [
+                                SlidableAction(
+                                  onPressed: (ctx) =>
+                                      _shareCollection(ctx, collection),
+                                  backgroundColor: CupertinoColors.systemBlue,
+                                  foregroundColor: CupertinoColors.white,
+                                  icon: CupertinoIcons.share_up,
+                                  spacing: 2,
+                                  label: 'Share',
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 2,
+                                    vertical: 4,
+                                  ),
+                                ),
+                              ],
+                            ),
                             endActionPane: ActionPane(
                               motion: const DrawerMotion(),
                               extentRatio: 0.48,
@@ -233,6 +259,49 @@ class CollectionsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  static Rect _shareAnchorRect(BuildContext anchorContext) {
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      final topLeft = box.localToGlobal(Offset.zero);
+      return topLeft & box.size;
+    }
+    final size = MediaQuery.sizeOf(anchorContext);
+    return Rect.fromCenter(
+      center: size.center(Offset.zero),
+      width: 2,
+      height: 2,
+    );
+  }
+
+  static Future<void> _shareCollection(
+    BuildContext context,
+    Collection collection,
+  ) async {
+    try {
+      final json = PostmanV2Exporter.export(collection);
+      final dir = await getTemporaryDirectory();
+      final safe = collection.name
+          .replaceAll(RegExp(r'[^\w\s.-]'), '_')
+          .replaceAll(RegExp(r'\s+'), '_');
+      final file = File('${dir.path}/$safe.json');
+      await file.writeAsString(json);
+      if (!context.mounted) return;
+      final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: '${collection.name} — Postman',
+        sharePositionOrigin: origin,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Share',
+        body: e.toString(),
+      );
+    }
   }
 
   Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {

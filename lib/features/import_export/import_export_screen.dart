@@ -111,8 +111,8 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                       Text(
                         'Export or restore collections, environments, request history, '
                         'and saved WebSocket composer messages. '
-                        'Global settings (timeout, proxy, default headers, etc.) and '
-                        'saved WebSocket connection sessions are not included. '
+                        'Global settings (timeout, proxy, default headers, etc.) are not included. '
+                        'WebSocket tab URLs and headers stay on this device (secure storage) and are not in this backup file. '
                         'Restore replaces all current data of those types.'
                         '${Platform.isIOS ? ' On iPhone and iPad you can also save and restore the same backup via iCloud.' : ''}',
                         style: TextStyle(

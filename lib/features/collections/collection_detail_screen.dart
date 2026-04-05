@@ -1,16 +1,27 @@
+import 'dart:io';
+
 import 'package:aun_postman/app/router/app_routes.dart';
 import 'package:aun_postman/app/widgets/app_gradient_button.dart';
+import 'package:aun_postman/core/notifications/user_notification.dart';
 import 'package:aun_postman/core/utils/app_haptics.dart';
+import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
+import 'package:aun_postman/core/utils/postman_v2_importer.dart';
 import 'package:aun_postman/domain/models/collection.dart';
+import 'package:aun_postman/domain/models/environment.dart';
+import 'package:aun_postman/domain/models/environment_variable.dart';
 import 'package:aun_postman/domain/models/folder.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_postman/features/environments/providers/environments_provider.dart';
 import 'package:aun_postman/features/collections/widgets/collection_tree_dnd.dart';
 import 'package:aun_postman/features/collections/widgets/method_badge.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 // Destination entry for the Move picker
@@ -33,6 +44,405 @@ class _CollectionDetailScreenState
   final Set<String> _expandedFolders = {};
 
   CollectionTreeDragData? _draggingData;
+
+  bool _selectionMode = false;
+
+  /// Selection order for export (`true` = folder uid, `false` = request uid).
+  final List<(bool isFolder, String uid)> _selectionOrder = [];
+
+  void _exitSelectionMode() {
+    setState(() {
+      _selectionMode = false;
+      _selectionOrder.clear();
+    });
+  }
+
+  void _toggleSelectFolder(String uid) {
+    setState(() {
+      final i = _selectionOrder.indexWhere((e) => e.$1 && e.$2 == uid);
+      if (i >= 0) {
+        _selectionOrder.removeAt(i);
+      } else {
+        _selectionOrder.add((true, uid));
+      }
+    });
+  }
+
+  void _toggleSelectRequest(String uid) {
+    setState(() {
+      final i = _selectionOrder.indexWhere((e) => !e.$1 && e.$2 == uid);
+      if (i >= 0) {
+        _selectionOrder.removeAt(i);
+      } else {
+        _selectionOrder.add((false, uid));
+      }
+    });
+  }
+
+  void _longPressEnterSelectionForFolder(String uid) {
+    AppHaptics.medium();
+    setState(() {
+      _selectionMode = true;
+      _draggingData = null;
+      if (!_selectionOrder.any((e) => e.$1 && e.$2 == uid)) {
+        _selectionOrder.add((true, uid));
+      }
+    });
+  }
+
+  void _longPressEnterSelectionForRequest(String uid) {
+    AppHaptics.medium();
+    setState(() {
+      _selectionMode = true;
+      _draggingData = null;
+      if (!_selectionOrder.any((e) => !e.$1 && e.$2 == uid)) {
+        _selectionOrder.add((false, uid));
+      }
+    });
+  }
+
+  Set<String> _selectedFolderUids() =>
+      {for (final e in _selectionOrder) if (e.$1) e.$2};
+
+  Set<String> _selectedRequestUids() =>
+      {for (final e in _selectionOrder) if (!e.$1) e.$2};
+
+  bool _folderHasSelectedAncestor(Collection c, String folderUid) {
+    final sel = _selectedFolderUids();
+    final f = _findFolderByUid(c.folders, folderUid);
+    if (f == null) return false;
+    String? p = f.parentFolderUid;
+    while (p != null) {
+      if (sel.contains(p)) return true;
+      final parent = _findFolderByUid(c.folders, p);
+      p = parent?.parentFolderUid;
+    }
+    return false;
+  }
+
+  bool _requestCoveredBySelectedFolder(Collection c, HttpRequest req) {
+    final sel = _selectedFolderUids();
+    String? u = req.folderUid;
+    while (u != null) {
+      if (sel.contains(u)) return true;
+      final fold = _findFolderByUid(c.folders, u);
+      u = fold?.parentFolderUid;
+    }
+    return false;
+  }
+
+  HttpRequest? _findRequestByUid(Collection c, String uid) {
+    for (final r in c.requests) {
+      if (r.uid == uid) return r;
+    }
+    for (final f in c.folders) {
+      final found = _findRequestInFolderSubtree(f, uid);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  HttpRequest? _findRequestInFolderSubtree(Folder folder, String uid) {
+    for (final r in folder.requests) {
+      if (r.uid == uid) return r;
+    }
+    for (final sf in folder.subFolders) {
+      final x = _findRequestInFolderSubtree(sf, uid);
+      if (x != null) return x;
+    }
+    return null;
+  }
+
+  /// Same inclusion rules as export: folder subtree dedupe, requests inside a
+  /// selected folder omitted.
+  void _forEachEffectiveSelection(
+    Collection c, {
+    required void Function(Folder folder) onFolder,
+    required void Function(HttpRequest request) onRequest,
+  }) {
+    final selFolders = _selectedFolderUids();
+    final selReqs = _selectedRequestUids();
+    for (final (isFolder, uid) in _selectionOrder) {
+      if (isFolder) {
+        if (!selFolders.contains(uid)) continue;
+        if (_folderHasSelectedAncestor(c, uid)) continue;
+        final f = _findFolderByUid(c.folders, uid);
+        if (f != null) onFolder(f);
+      } else {
+        if (!selReqs.contains(uid)) continue;
+        final r = _findRequestByUid(c, uid);
+        if (r == null) continue;
+        if (_requestCoveredBySelectedFolder(c, r)) continue;
+        onRequest(r);
+      }
+    }
+  }
+
+  List<PostmanV2FragmentEntry> _buildFragmentExportEntries(Collection c) {
+    final out = <PostmanV2FragmentEntry>[];
+    _forEachEffectiveSelection(
+      c,
+      onFolder: (f) => out.add(PostmanV2FragmentFolder(f)),
+      onRequest: (r) => out.add(PostmanV2FragmentRequest(r)),
+    );
+    return out;
+  }
+
+  Rect _shareAnchorRect(BuildContext anchorContext) {
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      final topLeft = box.localToGlobal(Offset.zero);
+      return topLeft & box.size;
+    }
+    final size = MediaQuery.sizeOf(anchorContext);
+    return Rect.fromCenter(
+      center: size.center(Offset.zero),
+      width: 2,
+      height: 2,
+    );
+  }
+
+  Future<void> _exportSelectedFragment(Collection collection) async {
+    final entries = _buildFragmentExportEntries(collection);
+    if (entries.isEmpty) return;
+    final title = entries.length == 1
+        ? switch (entries.first) {
+            PostmanV2FragmentFolder(:final folder) => folder.name,
+            PostmanV2FragmentRequest(:final request) => request.name,
+          }
+        : '${collection.name} (${entries.length} items)';
+    try {
+      final json = PostmanV2Exporter.exportFragment(
+        title: title,
+        description: 'Exported from ${collection.name}',
+        entries: entries,
+      );
+      final dir = await getTemporaryDirectory();
+      final safe =
+          title.replaceAll(RegExp(r'[^\w\s.-]'), '_').replaceAll(RegExp(r'\s+'), '_');
+      final file = File('${dir.path}/$safe.json');
+      await file.writeAsString(json);
+      if (!mounted) return;
+      final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: '$title — Postman',
+        sharePositionOrigin: origin,
+      );
+      _exitSelectionMode();
+    } catch (e) {
+      if (!mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Export',
+        body: e.toString(),
+      );
+    }
+  }
+
+  Future<void> _confirmAndDeleteSelection(Collection collection) async {
+    final folders = <Folder>[];
+    final requests = <HttpRequest>[];
+    _forEachEffectiveSelection(
+      collection,
+      onFolder: folders.add,
+      onRequest: requests.add,
+    );
+    if (folders.isEmpty && requests.isEmpty) return;
+
+    final nFolders = folders.length;
+    var reqsInsideFolders = 0;
+    for (final f in folders) {
+      reqsInsideFolders += _countRequests(f);
+    }
+    final nLoose = requests.length;
+
+    late final String body;
+    if (nFolders > 0 && nLoose > 0) {
+      body =
+          'Delete $nFolders folder(s) ($reqsInsideFolders request(s) inside) '
+          'and $nLoose other request(s)? This cannot be undone.';
+    } else if (nFolders > 0) {
+      body = nFolders == 1
+          ? 'Delete "${folders.first.name}" and $reqsInsideFolders request(s)? '
+              'This cannot be undone.'
+          : 'Delete $nFolders folders ($reqsInsideFolders request(s) inside)? '
+              'This cannot be undone.';
+    } else if (nLoose == 1) {
+      body = 'Delete "${requests.first.name}"? This cannot be undone.';
+    } else {
+      body = 'Delete $nLoose requests? This cannot be undone.';
+    }
+
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: const Text('Delete selected'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(body),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    var updated = collection;
+    for (final r in requests) {
+      updated = _removeRequestFrom(updated, r.uid, r.folderUid);
+    }
+    for (final f in folders) {
+      updated = updated.copyWith(
+        folders: _removeFolderFromTree(updated.folders, f.uid),
+      );
+    }
+
+    await ref.read(collectionsProvider.notifier).update(updated);
+    if (!mounted) return;
+    setState(() {
+      for (final f in folders) {
+        _expandedFolders.remove(f.uid);
+      }
+    });
+    _exitSelectionMode();
+  }
+
+  Future<void> _exportSingleFolder(Collection collection, Folder folder) async {
+    try {
+      final json = PostmanV2Exporter.exportFragment(
+        title: folder.name,
+        description: 'Exported from ${collection.name}',
+        entries: [PostmanV2FragmentFolder(folder)],
+      );
+      final dir = await getTemporaryDirectory();
+      final safe = folder.name
+          .replaceAll(RegExp(r'[^\w\s.-]'), '_')
+          .replaceAll(RegExp(r'\s+'), '_');
+      final file = File('${dir.path}/$safe.json');
+      await file.writeAsString(json);
+      if (!mounted) return;
+      final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: '${folder.name} — Postman',
+        sharePositionOrigin: origin,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Export',
+        body: e.toString(),
+      );
+    }
+  }
+
+  Future<void> _exportSingleRequest(Collection collection, HttpRequest request) async {
+    try {
+      final json = PostmanV2Exporter.exportFragment(
+        title: request.name,
+        description: 'Exported from ${collection.name}',
+        entries: [PostmanV2FragmentRequest(request)],
+      );
+      final dir = await getTemporaryDirectory();
+      final safe = request.name
+          .replaceAll(RegExp(r'[^\w\s.-]'), '_')
+          .replaceAll(RegExp(r'\s+'), '_');
+      final file = File('${dir.path}/$safe.json');
+      await file.writeAsString(json);
+      if (!mounted) return;
+      final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: '${request.name} — Postman',
+        sharePositionOrigin: origin,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Export',
+        body: e.toString(),
+      );
+    }
+  }
+
+  Future<void> _importPostmanFragment(
+    Collection collection, {
+    required String? parentFolderUid,
+  }) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      allowMultiple: false,
+    );
+    if (result == null || result.files.single.path == null) return;
+    try {
+      final content = await File(result.files.single.path!).readAsString();
+      final fragment = PostmanV2Importer.importFragment(content);
+      await ref.read(collectionsProvider.notifier).mergePostmanFragment(
+            collectionUid: collection.uid,
+            parentFolderUid: parentFolderUid,
+            folders: fragment.folders,
+            rootRequests: fragment.rootRequests,
+          );
+      final varNames = PostmanV2Importer.extractVariableNames(content);
+      if (varNames.isNotEmpty) {
+        final now = DateTime.now();
+        final environment = Environment(
+          uid: _uuid.v4(),
+          name: '${fragment.name} Variables',
+          variables: varNames
+              .map(
+                (k) => EnvironmentVariable(
+                  uid: _uuid.v4(),
+                  key: k,
+                  value: '',
+                ),
+              )
+              .toList(),
+          createdAt: now,
+          updatedAt: now,
+        );
+        await ref
+            .read(environmentsProvider.notifier)
+            .importEnvironment(environment);
+        if (mounted) {
+          UserNotification.show(
+            context: context,
+            title: 'Import',
+            body:
+                'Merged ${fragment.folders.length} folder(s), ${fragment.rootRequests.length} request(s). '
+                'Created environment with ${varNames.length} variables.',
+          );
+        }
+      } else if (mounted) {
+        UserNotification.show(
+          context: context,
+          title: 'Import',
+          body:
+              'Merged ${fragment.folders.length} folder(s), ${fragment.rootRequests.length} request(s).',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Import',
+        body: e.toString(),
+      );
+    }
+  }
 
   void _endTreeDragSession() {
     if (!mounted) return;
@@ -62,6 +472,37 @@ class _CollectionDetailScreenState
         .toList();
   }
 
+  List<Widget> _collectionTreeListChildren(
+    BuildContext context,
+    Collection collection,
+  ) {
+    return [
+      if (collection.requests.isNotEmpty) ...[
+        _sectionHeader(context, 'REQUESTS'),
+        ...List.generate(
+          collection.requests.length,
+          (i) => _rootRequestTile(context, collection, i),
+        ),
+      ] else if (collection.folders.isNotEmpty &&
+          _draggingData is CollectionTreeDragRequest &&
+          (_draggingData! as CollectionTreeDragRequest).fromFolderUid !=
+              null) ...[
+        _sectionHeader(context, 'REQUESTS'),
+        _emptyRootRequestsDropStrip(context),
+      ],
+      if (collection.folders.isNotEmpty) ...[
+        _sectionHeader(context, 'FOLDERS'),
+        _buildFolderDnDList(
+          context,
+          collection,
+          collection.folders,
+          indent: 0,
+          parentFolderUid: null,
+        ),
+      ],
+    ];
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
@@ -84,50 +525,128 @@ class _CollectionDetailScreenState
     final isEmpty =
         collection.requests.isEmpty && collection.folders.isEmpty;
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final effectiveSelectionCount = _selectionMode
+        ? _buildFragmentExportEntries(collection).length
+        : 0;
 
     return CupertinoPageScaffold(
-      child: CustomScrollView(
-        physics: const NeverScrollableScrollPhysics(),
-        slivers: [
-          CupertinoSliverNavigationBar(
-            largeTitle: Text(collection.name),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minSize: 44,
-                  onPressed: () => _showCreateFolderDialog(context, collection,
-                      parentUid: null),
-                  child: const Icon(CupertinoIcons.folder_badge_plus, size: 22),
+      child: Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              physics: const NeverScrollableScrollPhysics(),
+              slivers: [
+                CupertinoSliverNavigationBar(
+                  largeTitle: Text(collection.name),
+                  leading: _selectionMode
+                      ? CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: _exitSelectionMode,
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_selectionMode)
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: effectiveSelectionCount == 0
+                              ? null
+                              : () => _confirmAndDeleteSelection(collection),
+                          child: Text(
+                            'Delete',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w600,
+                              color: effectiveSelectionCount == 0
+                                  ? CupertinoColors.tertiaryLabel
+                                      .resolveFrom(context)
+                                  : CupertinoColors.destructiveRed
+                                      .resolveFrom(context),
+                            ),
+                          ),
+                        )
+                      else ...[
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: () => setState(() {
+                            _selectionMode = true;
+                            _draggingData = null;
+                          }),
+                          child: const Icon(
+                            CupertinoIcons.check_mark_circled,
+                            size: 22,
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: () => _importPostmanFragment(
+                            collection,
+                            parentFolderUid: null,
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.arrow_down_doc,
+                            size: 22,
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: () => _showCreateFolderDialog(
+                            context,
+                            collection,
+                            parentUid: null,
+                          ),
+                          child: const Icon(
+                            CupertinoIcons.folder_badge_plus,
+                            size: 22,
+                          ),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: () => context.push(
+                            '${AppRoutes.collections}/${widget.uid}/auth',
+                          ),
+                          child: const Icon(CupertinoIcons.lock_shield, size: 22),
+                        ),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minSize: 44,
+                          onPressed: () => context.push(
+                            '/collections/${widget.uid}/request/new',
+                          ),
+                          child: const Icon(CupertinoIcons.add),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minSize: 44,
-                  onPressed: () =>
-                      context.push('${AppRoutes.collections}/${widget.uid}/auth'),
-                  child: const Icon(CupertinoIcons.lock_shield, size: 22),
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minSize: 44,
-                  onPressed: () =>
-                      context.push('/collections/${widget.uid}/request/new'),
-                  child: const Icon(CupertinoIcons.add),
-                ),
-              ],
-            ),
-          ),
           if (descriptionText != null && descriptionText.isNotEmpty)
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Text(
-                  descriptionText,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.35,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _selectionMode ? _exitSelectionMode : null,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                  child: Text(
+                    descriptionText,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.35,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
                   ),
                 ),
               ),
@@ -217,6 +736,26 @@ class _CollectionDetailScreenState
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(height: 12),
+                                  AppGradientButton.secondary(
+                                    fullWidth: true,
+                                    onPressed: () => _importPostmanFragment(
+                                      collection,
+                                      parentFolderUid: null,
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          CupertinoIcons.arrow_down_doc,
+                                          size: 18,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text('Import Postman JSON'),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -237,51 +776,124 @@ class _CollectionDetailScreenState
                 children: [
                   Expanded(
                     child: CollectionTreeDnDScope(
-                      dragging: _draggingData,
+                      dragging: _selectionMode ? null : _draggingData,
                       child: Builder(
                         builder: (scopedContext) {
-                          return ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              if (collection.requests.isNotEmpty) ...[
-                                _sectionHeader(scopedContext, 'REQUESTS'),
-                                ...List.generate(
-                                  collection.requests.length,
-                                  (i) => _rootRequestTile(
-                                    scopedContext,
-                                    collection,
-                                    i,
+                          final children =
+                              _collectionTreeListChildren(scopedContext, collection);
+                          if (_selectionMode) {
+                            return Stack(
+                              fit: StackFit.expand,
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned.fill(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: _exitSelectionMode,
+                                    child: const SizedBox.expand(),
                                   ),
                                 ),
-                              ] else if (collection.folders.isNotEmpty &&
-                                  _draggingData is CollectionTreeDragRequest &&
-                                  (_draggingData! as CollectionTreeDragRequest)
-                                          .fromFolderUid !=
-                                      null) ...[
-                                _sectionHeader(scopedContext, 'REQUESTS'),
-                                _emptyRootRequestsDropStrip(scopedContext),
-                              ],
-                              if (collection.folders.isNotEmpty) ...[
-                                _sectionHeader(scopedContext, 'FOLDERS'),
-                                _buildFolderDnDList(
-                                  scopedContext,
-                                  collection,
-                                  collection.folders,
-                                  indent: 0,
-                                  parentFolderUid: null,
+                                ListView(
+                                  shrinkWrap: true,
+                                  primary: false,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: EdgeInsets.zero,
+                                  children: children,
                                 ),
                               ],
-                            ],
+                            );
+                          }
+                          return ListView(
+                            padding: EdgeInsets.zero,
+                            children: children,
                           );
                         },
                       ),
                     ),
                   ),
-                  SizedBox(height: bottomInset + 8),
+                  // Safe-area gap for home indicator when no toolbar; with selection
+                  // toolbar, the bar handles inset — this spacer only wastes list height.
+                  SizedBox(
+                    height: _selectionMode ? 0 : bottomInset + 8,
+                  ),
                 ],
               ),
             ),
+              ],
+            ),
+          ),
+          if (_selectionMode)
+            _selectionBottomBar(context, collection, bottomInset),
         ],
+      ),
+    );
+  }
+
+  Widget _selectionBottomBar(
+    BuildContext context,
+    Collection collection,
+    double bottomInset,
+  ) {
+    final effective = _buildFragmentExportEntries(collection).length;
+    final sep = CupertinoColors.separator.resolveFrom(context);
+    // Column gives this child unbounded max height; Row + Expanded must not use
+    // SizedBox.expand() (infinite cross-axis). Fixed inner height bounds the Row.
+    const barContentHeight = 52.0;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(12, 6, 12, bottomInset + 8),
+      decoration: BoxDecoration(
+        color: CupertinoTheme.of(context).barBackgroundColor,
+        border: Border(top: BorderSide(color: sep, width: 0.5)),
+      ),
+      child: SizedBox(
+        height: barContentHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _exitSelectionMode,
+                child: const ColoredBox(color: Color(0x00000000)),
+              ),
+            ),
+            Align(
+              alignment: Alignment.center,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _exitSelectionMode,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4, right: 2),
+                  child: Text(
+                    '${_selectionOrder.length} selected',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Align(
+              alignment: Alignment.center,
+              child: effective == 0
+                  ? AppGradientButton.secondary(
+                      onPressed: null,
+                      child: const Text('Export'),
+                    )
+                  : AppGradientButton(
+                      onPressed: () => _exportSelectedFragment(collection),
+                      child: Text(
+                        effective == 1 ? 'Export' : 'Export ($effective)',
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -310,6 +922,9 @@ class _CollectionDetailScreenState
           folder: folder,
           isExpanded: isExpanded,
           indent: indent,
+          selectionMode: _selectionMode,
+          isSelected: _selectedFolderUids().contains(folder.uid),
+          onToggleSelect: () => _toggleSelectFolder(folder.uid),
           dragData: CollectionTreeDragFolder(
             collectionUid: widget.uid,
             folder: folder,
@@ -343,6 +958,13 @@ class _CollectionDetailScreenState
             collection,
             parentUid: folder.uid,
           ),
+          onImportPostman: () => _importPostmanFragment(
+            collection,
+            parentFolderUid: folder.uid,
+          ),
+          onExportFolder: () => _exportSingleFolder(collection, folder),
+          onLongPressSelect: () =>
+              _longPressEnterSelectionForFolder(folder.uid),
         );
 
         final expandedBody = isExpanded
@@ -542,6 +1164,9 @@ class _CollectionDetailScreenState
         collectionUid: widget.uid,
         indent: 0,
         folderUid: null,
+        selectionMode: _selectionMode,
+        isSelected: _selectedRequestUids().contains(request.uid),
+        onToggleSelect: () => _toggleSelectRequest(request.uid),
         dragData: CollectionTreeDragRequest(
           collectionUid: widget.uid,
           request: request,
@@ -561,6 +1186,9 @@ class _CollectionDetailScreenState
         onRename: () =>
             _showRenameRequestDialog(context, collection, request, null),
         onMove: () => _showMoveDialog(collection, request, null),
+        onExportPostman: () => _exportSingleRequest(collection, request),
+        onLongPressSelect: () =>
+            _longPressEnterSelectionForRequest(request.uid),
       ),
     );
   }
@@ -584,6 +1212,9 @@ class _CollectionDetailScreenState
         collectionUid: widget.uid,
         indent: indent,
         folderUid: folder.uid,
+        selectionMode: _selectionMode,
+        isSelected: _selectedRequestUids().contains(request.uid),
+        onToggleSelect: () => _toggleSelectRequest(request.uid),
         dragData: CollectionTreeDragRequest(
           collectionUid: widget.uid,
           request: request,
@@ -603,6 +1234,9 @@ class _CollectionDetailScreenState
         onRename: () =>
             _showRenameRequestDialog(context, collection, request, folder.uid),
         onMove: () => _showMoveDialog(collection, request, folder.uid),
+        onExportPostman: () => _exportSingleRequest(collection, request),
+        onLongPressSelect: () =>
+            _longPressEnterSelectionForRequest(request.uid),
       ),
     );
   }
@@ -1819,6 +2453,9 @@ class _FolderHeader extends StatelessWidget {
     required this.folder,
     required this.isExpanded,
     required this.indent,
+    required this.selectionMode,
+    required this.isSelected,
+    required this.onToggleSelect,
     required this.dragData,
     required this.onDragStarted,
     required this.onDragEnd,
@@ -1828,11 +2465,17 @@ class _FolderHeader extends StatelessWidget {
     required this.onDelete,
     required this.onAddRequest,
     required this.onAddSubFolder,
+    required this.onImportPostman,
+    required this.onExportFolder,
+    required this.onLongPressSelect,
   });
 
   final Folder folder;
   final bool isExpanded;
   final int indent;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback onToggleSelect;
   final CollectionTreeDragFolder dragData;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnd;
@@ -1842,11 +2485,15 @@ class _FolderHeader extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onAddRequest;
   final VoidCallback onAddSubFolder;
+  final VoidCallback onImportPostman;
+  final VoidCallback onExportFolder;
+  final VoidCallback onLongPressSelect;
 
   @override
   Widget build(BuildContext context) {
     final directCount = folder.requests.length;
     final hasSubFolders = folder.subFolders.isNotEmpty;
+    final secondary = CupertinoColors.secondaryLabel.resolveFrom(context);
     return Container(
       color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
       padding: EdgeInsets.only(
@@ -1858,57 +2505,123 @@ class _FolderHeader extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onToggle,
-              behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.25 : 0,
-                    duration: const Duration(milliseconds: 180),
-                    child: Icon(
-                      CupertinoIcons.chevron_right,
-                      size: 14,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    isExpanded
-                        ? CupertinoIcons.folder_open
-                        : CupertinoIcons.folder_fill,
-                    size: 16,
-                    color: CupertinoTheme.of(context).primaryColor,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      folder.name,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (hasSubFolders || directCount > 0)
-                    Text(
-                      hasSubFolders
-                          ? '${folder.subFolders.length}f · ${directCount}r'
-                          : '$directCount',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: CupertinoColors.secondaryLabel.resolveFrom(
-                          context,
-                        ),
-                      ),
-                    ),
-                ],
+          if (selectionMode) ...[
+            CupertinoButton(
+              padding: const EdgeInsets.only(right: 2),
+              minimumSize: const Size(36, 36),
+              onPressed: onToggleSelect,
+              child: Icon(
+                isSelected
+                    ? CupertinoIcons.check_mark_circled_solid
+                    : CupertinoIcons.circle,
+                size: 22,
+                color: isSelected
+                    ? CupertinoTheme.of(context).primaryColor
+                    : secondary,
               ),
             ),
+          ],
+          Expanded(
+            child: selectionMode
+                ? GestureDetector(
+                    onTap: onToggleSelect,
+                    onLongPress: onLongPressSelect,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(28, 32),
+                          onPressed: onToggle,
+                          child: AnimatedRotation(
+                            turns: isExpanded ? 0.25 : 0,
+                            duration: const Duration(milliseconds: 180),
+                            child: Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 14,
+                              color: secondary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          isExpanded
+                              ? CupertinoIcons.folder_open
+                              : CupertinoIcons.folder_fill,
+                          size: 16,
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            folder.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (hasSubFolders || directCount > 0)
+                          Text(
+                            hasSubFolders
+                                ? '${folder.subFolders.length}f · ${directCount}r'
+                                : '$directCount',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: secondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: onToggle,
+                    onLongPress: onLongPressSelect,
+                    behavior: HitTestBehavior.opaque,
+                    child: Row(
+                      children: [
+                        AnimatedRotation(
+                          turns: isExpanded ? 0.25 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          child: Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 14,
+                            color: secondary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          isExpanded
+                              ? CupertinoIcons.folder_open
+                              : CupertinoIcons.folder_fill,
+                          size: 16,
+                          color: CupertinoTheme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            folder.name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (hasSubFolders || directCount > 0)
+                          Text(
+                            hasSubFolders
+                                ? '${folder.subFolders.length}f · ${directCount}r'
+                                : '$directCount',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: secondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
           ),
+          if (!selectionMode)
             LongPressDraggable<CollectionTreeDragData>(
               data: dragData,
               hapticFeedbackOnStart: true,
@@ -1921,7 +2634,8 @@ class _FolderHeader extends StatelessWidget {
                 child: Icon(
                   CupertinoIcons.line_horizontal_3,
                   size: 18,
-                  color: CupertinoColors.tertiaryLabel.resolveFrom(context)
+                  color: CupertinoColors.tertiaryLabel
+                      .resolveFrom(context)
                       .withValues(alpha: 0.35),
                 ),
               ),
@@ -1930,21 +2644,21 @@ class _FolderHeader extends StatelessWidget {
                 child: Icon(
                   CupertinoIcons.line_horizontal_3,
                   size: 18,
-                  color:
-                      CupertinoColors.tertiaryLabel.resolveFrom(context),
+                  color: CupertinoColors.tertiaryLabel.resolveFrom(context),
                 ),
               ),
             ),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(36, 36),
-            onPressed: () => _showContextMenu(context),
-            child: Icon(
-              CupertinoIcons.ellipsis_circle,
-              size: 18,
-              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          if (!selectionMode)
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(36, 36),
+              onPressed: () => _showContextMenu(context),
+              child: Icon(
+                CupertinoIcons.ellipsis_circle,
+                size: 18,
+                color: secondary,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -1999,6 +2713,34 @@ class _FolderHeader extends StatelessWidget {
             ),
           ),
           CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onImportPostman();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.arrow_down_doc),
+                SizedBox(width: 8),
+                Text('Import Postman JSON…'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onExportFolder();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.share_up),
+                SizedBox(width: 8),
+                Text('Export Postman JSON…'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(ctx);
@@ -2040,6 +2782,9 @@ class _RequestRow extends StatelessWidget {
     required this.collectionUid,
     required this.indent,
     required this.folderUid,
+    required this.selectionMode,
+    required this.isSelected,
+    required this.onToggleSelect,
     required this.dragData,
     required this.onDragStarted,
     required this.onDragEnd,
@@ -2048,12 +2793,17 @@ class _RequestRow extends StatelessWidget {
     required this.onDuplicate,
     required this.onRename,
     required this.onMove,
+    required this.onExportPostman,
+    required this.onLongPressSelect,
   });
 
   final HttpRequest request;
   final String collectionUid;
   final int indent;
   final String? folderUid;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback onToggleSelect;
   final CollectionTreeDragRequest dragData;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnd;
@@ -2062,6 +2812,8 @@ class _RequestRow extends StatelessWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onRename;
   final VoidCallback onMove;
+  final VoidCallback onExportPostman;
+  final VoidCallback onLongPressSelect;
 
   void _showRequestContextMenu(BuildContext context) {
     showCupertinoModalPopup<void>(
@@ -2112,6 +2864,20 @@ class _RequestRow extends StatelessWidget {
             ),
           ),
           CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onExportPostman();
+            },
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(CupertinoIcons.share_up),
+                SizedBox(width: 8),
+                Text('Export Postman JSON…'),
+              ],
+            ),
+          ),
+          CupertinoActionSheetAction(
             isDestructiveAction: true,
             onPressed: () {
               Navigator.pop(ctx);
@@ -2145,8 +2911,10 @@ class _RequestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final secondary = CupertinoColors.secondaryLabel.resolveFrom(context);
     return Slidable(
       key: ValueKey(request.uid),
+      enabled: !selectionMode,
       endActionPane: ActionPane(
         motion: const DrawerMotion(),
         extentRatio: 0.94,
@@ -2207,11 +2975,29 @@ class _RequestRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (selectionMode)
+              CupertinoButton(
+                padding: const EdgeInsets.only(right: 2),
+                minimumSize: const Size(36, 36),
+                onPressed: onToggleSelect,
+                child: Icon(
+                  isSelected
+                      ? CupertinoIcons.check_mark_circled_solid
+                      : CupertinoIcons.circle,
+                  size: 22,
+                  color: isSelected
+                      ? CupertinoTheme.of(context).primaryColor
+                      : secondary,
+                ),
+              ),
             Expanded(
               child: GestureDetector(
-                onTap: () => context.push(
-                  '/collections/$collectionUid/request/${request.uid}',
-                ),
+                onTap: selectionMode
+                    ? onToggleSelect
+                    : () => context.push(
+                          '/collections/$collectionUid/request/${request.uid}',
+                        ),
+                onLongPress: onLongPressSelect,
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   children: [
@@ -2237,8 +3023,7 @@ class _RequestRow extends StatelessWidget {
                               style: TextStyle(
                                 fontFamily: 'JetBrainsMono',
                                 fontSize: 11,
-                                color: CupertinoColors.secondaryLabel
-                                    .resolveFrom(context),
+                                color: secondary,
                               ),
                             ),
                           ],
@@ -2249,48 +3034,50 @@ class _RequestRow extends StatelessWidget {
                 ),
               ),
             ),
-            LongPressDraggable<CollectionTreeDragData>(
-              data: dragData,
-              hapticFeedbackOnStart: true,
-              onDragStarted: onDragStarted,
-              onDragEnd: (_) => onDragEnd(),
-              onDraggableCanceled: (_, __) => onDragCanceled(),
-              feedback: _RequestDragFeedbackCard(request: request),
-              childWhenDragging: Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Icon(
-                  CupertinoIcons.line_horizontal_3,
-                  size: 18,
-                  color: CupertinoColors.tertiaryLabel
-                      .resolveFrom(context)
-                      .withValues(alpha: 0.35),
+            if (!selectionMode)
+              LongPressDraggable<CollectionTreeDragData>(
+                data: dragData,
+                hapticFeedbackOnStart: true,
+                onDragStarted: onDragStarted,
+                onDragEnd: (_) => onDragEnd(),
+                onDraggableCanceled: (_, __) => onDragCanceled(),
+                feedback: _RequestDragFeedbackCard(request: request),
+                childWhenDragging: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    CupertinoIcons.line_horizontal_3,
+                    size: 18,
+                    color: CupertinoColors.tertiaryLabel
+                        .resolveFrom(context)
+                        .withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    CupertinoIcons.line_horizontal_3,
+                    size: 18,
+                    color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+                  ),
                 ),
               ),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 4),
+            if (!selectionMode)
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(36, 36),
+                onPressed: () => _showRequestContextMenu(context),
                 child: Icon(
-                  CupertinoIcons.line_horizontal_3,
+                  CupertinoIcons.ellipsis_circle,
                   size: 18,
-                  color:
-                      CupertinoColors.tertiaryLabel.resolveFrom(context),
+                  color: secondary,
                 ),
               ),
-            ),
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(36, 36),
-              onPressed: () => _showRequestContextMenu(context),
-              child: Icon(
-                CupertinoIcons.ellipsis_circle,
-                size: 18,
-                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            if (!selectionMode)
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 14,
+                color: CupertinoColors.tertiaryLabel.resolveFrom(context),
               ),
-            ),
-            Icon(
-              CupertinoIcons.chevron_right,
-              size: 14,
-              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
-            ),
           ],
         ),
       ),

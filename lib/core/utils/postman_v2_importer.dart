@@ -13,50 +13,96 @@ import 'package:aun_postman/domain/models/key_value_pair.dart';
 import 'package:aun_postman/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
+/// Top-level folders and root requests parsed from a Postman v2.1 `item` array.
+class PostmanFragmentImport {
+  const PostmanFragmentImport({
+    required this.name,
+    this.description,
+    required this.folders,
+    required this.rootRequests,
+  });
+
+  final String name;
+  final String? description;
+  final List<Folder> folders;
+  final List<HttpRequest> rootRequests;
+}
+
 class PostmanV2Importer {
   static const _uuid = Uuid();
 
   static Collection import(String jsonString) {
     try {
-      final Map<String, dynamic> json = jsonDecode(jsonString);
-      final info = json['info'] as Map<String, dynamic>? ?? {};
-      final name = (info['name'] as String?) ?? 'Imported Collection';
-      final description = info['description'] as String?;
-      final items = json['item'] as List<dynamic>? ?? [];
-
+      final parsed = _parseTopLevelItems(jsonString);
       final now = DateTime.now();
       final collectionUid = _uuid.v4();
-
-      final folders = <Folder>[];
-      final requests = <HttpRequest>[];
-      int sortOrder = 0;
-
-      for (final item in items) {
-        final map = item as Map<String, dynamic>;
-        if (map.containsKey('item')) {
-          // It's a folder
-          folders.add(
-            _parseFolder(map, collectionUid, null, sortOrder++),
-          );
-        } else {
-          requests.add(
-            _parseRequest(map, collectionUid, null, sortOrder++),
-          );
-        }
-      }
-
       return Collection(
         uid: collectionUid,
-        name: name,
-        description: description,
-        folders: folders,
-        requests: requests,
+        name: parsed.name,
+        description: parsed.description,
+        folders: parsed.folders,
+        requests: parsed.rootRequests,
         createdAt: now,
         updatedAt: now,
       );
     } catch (e) {
       throw ImportException('Invalid Postman collection: $e');
     }
+  }
+
+  /// Parses any Postman v2.1 collection JSON into top-level folders and requests.
+  /// UIDs are placeholders; callers that merge into an existing collection must remap.
+  static PostmanFragmentImport importFragment(String jsonString) {
+    try {
+      final parsed = _parseTopLevelItems(jsonString);
+      if (parsed.folders.isEmpty && parsed.rootRequests.isEmpty) {
+        throw ImportException('Postman collection has no requests or folders');
+      }
+      return PostmanFragmentImport(
+        name: parsed.name,
+        description: parsed.description,
+        folders: parsed.folders,
+        rootRequests: parsed.rootRequests,
+      );
+    } on ImportException {
+      rethrow;
+    } catch (e) {
+      throw ImportException('Invalid Postman collection: $e');
+    }
+  }
+
+  static ({
+    String name,
+    String? description,
+    List<Folder> folders,
+    List<HttpRequest> rootRequests,
+  }) _parseTopLevelItems(String jsonString) {
+    final Map<String, dynamic> json = jsonDecode(jsonString) as Map<String, dynamic>;
+    final info = json['info'] as Map<String, dynamic>? ?? {};
+    final name = (info['name'] as String?) ?? 'Imported Collection';
+    final description = info['description'] as String?;
+    final items = json['item'] as List<dynamic>? ?? [];
+
+    final collectionUid = _uuid.v4();
+    final folders = <Folder>[];
+    final requests = <HttpRequest>[];
+    var sortOrder = 0;
+
+    for (final item in items) {
+      final map = item as Map<String, dynamic>;
+      if (map.containsKey('item')) {
+        folders.add(_parseFolder(map, collectionUid, null, sortOrder++));
+      } else {
+        requests.add(_parseRequest(map, collectionUid, null, sortOrder++));
+      }
+    }
+
+    return (
+      name: name,
+      description: description,
+      folders: folders,
+      rootRequests: requests,
+    );
   }
 
   static Folder _parseFolder(

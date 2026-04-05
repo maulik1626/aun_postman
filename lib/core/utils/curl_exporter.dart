@@ -1,3 +1,4 @@
+import 'package:aun_postman/core/utils/json_comment_stripper.dart';
 import 'package:aun_postman/domain/models/auth_config.dart';
 import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/domain/models/key_value_pair.dart';
@@ -67,7 +68,8 @@ class CurlExporter {
     switch (request.body) {
       case RawJsonBody(:final content):
         parts.add("-H 'Content-Type: application/json'");
-        parts.add("--data-raw '${_escapeSingleQuoted(content)}'");
+        parts.add(
+            "--data-raw '${_escapeSingleQuoted(stripJsonLineComments(content))}'");
       case RawXmlBody(:final content):
         parts.add("-H 'Content-Type: application/xml'");
         parts.add("--data-raw '${_escapeSingleQuoted(content)}'");

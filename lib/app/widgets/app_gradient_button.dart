@@ -86,7 +86,8 @@ class AppGradientButton extends StatelessWidget {
       borderRadius: radius,
       onPressed: onPressed,
       child: Opacity(
-        opacity: isDisabled ? 0.5 : 1.0,
+        // Softer than 0.5 so the brand gradient stays recognizable when disabled.
+        opacity: isDisabled ? 0.72 : 1.0,
         child: Container(
           width: fullWidth ? double.infinity : null,
           alignment: fullWidth ? Alignment.center : null,

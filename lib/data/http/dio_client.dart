@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:aun_postman/core/constants/app_constants.dart';
+import 'package:aun_postman/core/utils/json_comment_stripper.dart';
 import 'package:aun_postman/core/errors/error_handler.dart';
 import 'package:aun_postman/data/http/interceptors/auth_interceptor.dart';
 import 'package:aun_postman/data/http/interceptors/digest_auth_interceptor.dart';
@@ -171,7 +172,7 @@ class DioClient {
 
     return switch (body) {
       NoBody() => null,
-      RawJsonBody(:final content) => content,
+      RawJsonBody(:final content) => stripJsonLineComments(content),
       RawXmlBody(:final content) => content,
       RawTextBody(:final content) => content,
       RawHtmlBody(:final content) => content,

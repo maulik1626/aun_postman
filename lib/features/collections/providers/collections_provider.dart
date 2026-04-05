@@ -1,5 +1,6 @@
 import 'package:aun_postman/domain/models/collection.dart';
 import 'package:aun_postman/domain/models/folder.dart';
+import 'package:aun_postman/domain/models/http_request.dart';
 import 'package:aun_postman/infrastructure/collection_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -91,6 +92,58 @@ class Collections extends _$Collections {
     await ref.read(collectionRepositoryProvider).save(duplicated);
     ref.invalidateSelf();
   }
+
+  /// Merges Postman top-level folders and root requests into [collectionUid],
+  /// either at collection root or inside [parentFolderUid].
+  Future<void> mergePostmanFragment({
+    required String collectionUid,
+    String? parentFolderUid,
+    required List<Folder> folders,
+    required List<HttpRequest> rootRequests,
+  }) async {
+    final src = state.firstWhere((c) => c.uid == collectionUid);
+    final now = DateTime.now();
+
+    if (parentFolderUid == null) {
+      var nextFolderOrder = src.folders.length;
+      var nextReqOrder = src.requests.length;
+      final appendedFolders = folders.map((f) {
+        final copy =
+            _deepCopyFolder(f, collectionUid, null, now).copyWith(sortOrder: nextFolderOrder);
+        nextFolderOrder++;
+        return copy;
+      }).toList();
+      final appendedReqs = rootRequests.map((r) {
+        final copy = _remapRequestForMerge(
+          r,
+          collectionUid,
+          null,
+          now,
+          nextReqOrder,
+        );
+        nextReqOrder++;
+        return copy;
+      }).toList();
+
+      await update(
+        src.copyWith(
+          folders: [...src.folders, ...appendedFolders],
+          requests: [...src.requests, ...appendedReqs],
+          updatedAt: now,
+        ),
+      );
+      return;
+    }
+
+    final merged = _insertPostmanFragmentIntoFolder(
+      src,
+      parentFolderUid,
+      folders,
+      rootRequests,
+      now,
+    );
+    await update(merged);
+  }
 }
 
 Folder _deepCopyFolder(
@@ -119,4 +172,87 @@ Folder _deepCopyFolder(
         .map((sf) => _deepCopyFolder(sf, newCollectionUid, newFolderUid, now))
         .toList(),
   );
+}
+
+HttpRequest _remapRequestForMerge(
+  HttpRequest r,
+  String collectionUid,
+  String? folderUid,
+  DateTime now,
+  int sortOrder,
+) {
+  return r.copyWith(
+    uid: const Uuid().v4(),
+    collectionUid: collectionUid,
+    folderUid: folderUid,
+    sortOrder: sortOrder,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+Collection _insertPostmanFragmentIntoFolder(
+  Collection c,
+  String parentFolderUid,
+  List<Folder> folders,
+  List<HttpRequest> rootRequests,
+  DateTime now,
+) {
+  return c.copyWith(
+    folders: _mergePostmanIntoFolderBranch(
+      c.folders,
+      parentFolderUid,
+      folders,
+      rootRequests,
+      now,
+      c.uid,
+    ),
+    updatedAt: now,
+  );
+}
+
+List<Folder> _mergePostmanIntoFolderBranch(
+  List<Folder> folders,
+  String targetUid,
+  List<Folder> toAddFolders,
+  List<HttpRequest> toAddReqs,
+  DateTime now,
+  String collectionUid,
+) {
+  return folders.map((f) {
+    if (f.uid == targetUid) {
+      var fo = f.subFolders.length;
+      var ro = f.requests.length;
+      final newSubs = [
+        ...f.subFolders,
+        ...toAddFolders.map((x) {
+          final copy = _deepCopyFolder(x, collectionUid, targetUid, now)
+              .copyWith(sortOrder: fo);
+          fo++;
+          return copy;
+        }),
+      ];
+      final newReqs = [
+        ...f.requests,
+        ...toAddReqs.map((r) {
+          final copy =
+              _remapRequestForMerge(r, collectionUid, targetUid, now, ro);
+          ro++;
+          return copy;
+        }),
+      ];
+      return f.copyWith(subFolders: newSubs, requests: newReqs);
+    }
+    if (f.subFolders.isEmpty) return f;
+    return f.copyWith(
+      subFolders: _mergePostmanIntoFolderBranch(
+        f.subFolders,
+        targetUid,
+        toAddFolders,
+        toAddReqs,
+        now,
+        collectionUid,
+      ),
+    );
+  }).toList();
 }

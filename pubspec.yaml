@@ -53,6 +53,7 @@ dependencies:
   share_plus: ^10.1.4
   flutter_secure_storage: ^9.2.4
   flutter_local_notifications: ^21.0.0
+  socket_io_client: ^3.1.4
 
 # 2.6+ uses package:objective_c (native assets); Simulator can fail to load
 # objective_c.framework. 2.5.x uses the classic iOS plugin without it.
