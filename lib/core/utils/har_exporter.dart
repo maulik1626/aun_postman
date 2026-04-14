@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/http_response.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 
 /// Minimal HAR 1.2 for a single HTTP exchange (Chrome-compatible subset).
 class HarExporter {
@@ -15,7 +15,7 @@ class HarExporter {
       'log': {
         'version': '1.2',
         'creator': {
-          'name': 'Aun Postman',
+          'name': 'AUN - ReqStudio',
           'version': '1.0.0',
         },
         'entries': [

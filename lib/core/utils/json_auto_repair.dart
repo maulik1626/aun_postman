@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/utils/json_comment_stripper.dart';
+import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
 
 /// True if [raw] may lose `//` or `/* */` content when [tryAutoRepairJson] runs.
 bool jsonRepairMayRemoveComments(String raw) {

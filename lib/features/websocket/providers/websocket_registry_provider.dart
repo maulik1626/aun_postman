@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:aun_postman/data/local/ws_session_storage.dart';
-import 'package:aun_postman/domain/enums/ws_connection_mode.dart';
-import 'package:aun_postman/domain/models/ws_registry_state.dart';
-import 'package:aun_postman/features/websocket/providers/websocket_session_provider.dart';
+import 'package:aun_reqstudio/data/local/ws_session_storage.dart';
+import 'package:aun_reqstudio/domain/enums/ws_connection_mode.dart';
+import 'package:aun_reqstudio/domain/models/ws_registry_state.dart';
+import 'package:aun_reqstudio/features/websocket/providers/websocket_session_provider.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
-export 'package:aun_postman/domain/models/ws_registry_state.dart'
+export 'package:aun_reqstudio/domain/models/ws_registry_state.dart'
     show WebSocketRegistryState, WebSocketSessionTab;
 
 part 'websocket_registry_provider.g.dart';

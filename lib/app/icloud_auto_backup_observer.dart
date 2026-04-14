@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:aun_postman/core/platform/icloud_backup_channel.dart';
-import 'package:aun_postman/core/utils/full_backup_json.dart';
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/core/platform/icloud_backup_channel.dart';
+import 'package:aun_reqstudio/core/utils/full_backup_json.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -73,7 +73,7 @@ class _IcloudAutoBackupObserverState extends ConsumerState<IcloudAutoBackupObser
       final json = await buildFullBackupJson(ref);
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/aun_postman_autosave_${now.millisecondsSinceEpoch}.json',
+        '${dir.path}/aun_reqstudio_autosave_${now.millisecondsSinceEpoch}.json',
       );
       await file.writeAsString(json);
       await IcloudBackupChannel.copyFileToICloud(file.path);

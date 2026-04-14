@@ -1,0 +1,31 @@
+---
+description: iOS = Cupertino UI; Android = Material 3 UI — strict separation by file and route
+alwaysApply: true
+---
+
+# Platform UI split (strict)
+
+This app ships **two UI stacks**. Do not mix Cupertino and Material inside the same screen file.
+
+## iOS (`defaultTargetPlatform == iOS`)
+
+- Use **Cupertino** from `package:flutter/cupertino.dart` for screens and widgets that paint UI (`*_screen.dart` without `_material` suffix, shared chrome).
+- **Do not** add `package:flutter/material.dart` to non–`*_material.dart` files under `lib/features/` (enforced by `test/no_material_import_test.dart`).
+
+## Android (`AppPlatform.isAndroid` — see `lib/app/platform.dart`)
+
+- Use **Material 3** from `package:flutter/material.dart` in **`*_material.dart`** files only (screens/widgets dedicated to Android).
+- **Do not** import `package:flutter/cupertino.dart` in `*_material.dart` (enforced by `test/no_cupertino_in_material_test.dart`).
+
+## Routing
+
+- `lib/app/router/app_router.dart` must pick `*ScreenMaterial` vs `*Screen` with `AppPlatform.isAndroid` / `isIOS` so each platform only builds its widgets.
+- `lib/app/app.dart`: `MaterialApp.router` on Android, `CupertinoApp.router` on iOS.
+
+## Shared logic
+
+- Providers, repositories, models: **no** Flutter UI imports for platform choice; keep logic platform-agnostic.
+
+## Tracker
+
+- Status and audit checklist: `MATERIAL_ANDROID_TRACKER.md`.

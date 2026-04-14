@@ -1,13 +1,13 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/utils/postman_v2_importer.dart';
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_importer.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('PostmanV2Importer', () {
+  group('CollectionV21Importer', () {
     test('imports collection name and description', () {
       final json = jsonEncode({
         'info': {
@@ -18,7 +18,7 @@ void main() {
         'item': [],
       });
 
-      final collection = PostmanV2Importer.import(json);
+      final collection = CollectionV21Importer.import(json);
       expect(collection.name, 'My API');
       expect(collection.description, 'Test collection');
     });
@@ -38,7 +38,7 @@ void main() {
         ],
       });
 
-      final collection = PostmanV2Importer.import(json);
+      final collection = CollectionV21Importer.import(json);
       expect(collection.requests.length, 1);
       expect(collection.requests.first.name, 'Get Users');
       expect(collection.requests.first.method, HttpMethod.get);
@@ -65,7 +65,7 @@ void main() {
         ],
       });
 
-      final collection = PostmanV2Importer.import(json);
+      final collection = CollectionV21Importer.import(json);
       expect(collection.folders.length, 1);
       expect(collection.folders.first.name, 'Users');
       expect(collection.folders.first.requests.length, 1);
@@ -92,7 +92,7 @@ void main() {
         ],
       });
 
-      final collection = PostmanV2Importer.import(json);
+      final collection = CollectionV21Importer.import(json);
       final auth = collection.requests.first.auth;
       expect(auth, isA<BearerAuth>());
       expect((auth as BearerAuth).token, 'mytoken123');
@@ -120,13 +120,13 @@ void main() {
         ],
       });
 
-      final collection = PostmanV2Importer.import(json);
+      final collection = CollectionV21Importer.import(json);
       expect(collection.requests.first.body, isA<RawJsonBody>());
     });
 
     test('throws ImportException on invalid JSON', () {
       expect(
-        () => PostmanV2Importer.import('not valid json'),
+        () => CollectionV21Importer.import('not valid json'),
         throwsA(anything),
       );
     });

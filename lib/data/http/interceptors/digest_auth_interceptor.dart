@@ -1,5 +1,5 @@
-import 'package:aun_postman/core/utils/digest_auth_header.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/core/utils/digest_auth_header.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
 import 'package:dio/dio.dart';
 
 /// On 401 + `WWW-Authenticate: Digest`, retries once with a computed Digest header.

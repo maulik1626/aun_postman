@@ -1,6 +1,6 @@
-import 'package:aun_postman/core/utils/app_backup.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
+import 'package:aun_reqstudio/core/utils/app_backup.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -44,5 +44,16 @@ void main() {
       () => AppBackup.parse('{"format":"other"}'),
       throwsA(isA<FormatException>()),
     );
+  });
+
+  test('parse accepts legacy backup format string', () {
+    final json = AppBackup.buildJson(
+      collections: const [],
+      environments: const [],
+      history: const [],
+      wsSavedCompose: const [],
+    ).replaceFirst('"${AppBackup.format}"', '"${AppBackup.legacyFormat}"');
+    final data = AppBackup.parse(json);
+    expect(data.collections, isEmpty);
   });
 }

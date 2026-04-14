@@ -3,12 +3,12 @@ import UIKit
 import UserNotifications
 import flutter_local_notifications
 
-// MARK: - iCloud Documents backup (MethodChannel com.aun_postman/icloud_backup)
+// MARK: - iCloud Documents backup (MethodChannel com.aun.reqstudio/icloud_backup)
 
 private enum IcloudBackupPlugin {
-  static let channelName = "com.aun_postman/icloud_backup"
-  static let containerId = "iCloud.com.aunCreations.aunPostman"
-  static let backupFileName = "aun_postman_iCloud_backup.json"
+  static let channelName = "com.aun.reqstudio/icloud_backup"
+  static let containerId = "iCloud.com.aunCreations.aunReqStudio"
+  static let backupFileName = "aun_reqstudio_iCloud_backup.json"
 
   static func register(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)

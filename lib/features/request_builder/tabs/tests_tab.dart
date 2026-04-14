@@ -1,8 +1,8 @@
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/core/utils/assertion_runner.dart';
-import 'package:aun_postman/domain/models/test_assertion.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
-import 'package:aun_postman/features/request_builder/providers/test_results_provider.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/utils/assertion_runner.dart';
+import 'package:aun_reqstudio/domain/models/test_assertion.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/test_results_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

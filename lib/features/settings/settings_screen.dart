@@ -1,16 +1,16 @@
 import 'dart:io' show Platform;
 
-import 'package:aun_postman/app/router/app_routes.dart';
-import 'package:aun_postman/app/widgets/scaled_cupertino_switch.dart';
-import 'package:aun_postman/app/theme/app_theme_provider.dart';
-import 'package:aun_postman/app/widgets/cupertino_licenses_page.dart';
-import 'package:aun_postman/core/constants/legal_urls.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/domain/enums/theme_preference.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
-import 'package:aun_postman/features/environments/providers/environments_provider.dart';
-import 'package:aun_postman/features/history/providers/history_provider.dart';
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/widgets/scaled_cupertino_switch.dart';
+import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
+import 'package:aun_reqstudio/app/widgets/cupertino_licenses_page.dart';
+import 'package:aun_reqstudio/core/constants/legal_urls.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -353,7 +353,7 @@ class SettingsScreen extends ConsumerWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Postman files, cURL, full backup',
+                                    'Collection files, cURL, full backup',
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: CupertinoColors.secondaryLabel
@@ -520,7 +520,7 @@ class SettingsScreen extends ConsumerWidget {
                                 ),
                               ),
                               Text(
-                                info?.appName ?? 'Postman',
+                                info?.appName ?? 'AUN - ReqStudio',
                                 style: TextStyle(
                                   fontSize: 15,
                                   color: CupertinoColors.secondaryLabel

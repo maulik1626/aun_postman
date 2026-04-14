@@ -1,6 +1,6 @@
-# Aun Postman — Product Roadmap & Implementation Tracker
+# AUN - ReqStudio — Product Roadmap & Implementation Tracker
 
-> Last updated: **2026-04-05** (+ **4.8** partial Postman JSON: multi-select export, per-request/folder export & import, `PostmanV2Exporter.exportFragment` / `importFragment` / `mergePostmanFragment`) · Primary color: #DB952C  
+> Last updated: **2026-04-09** (rebrand + package `aun_reqstudio`; collection v2.1 via `CollectionV21Exporter` / `CollectionV21Importer` / `mergeCollectionFragment`) · Primary color: #DB952C  
 > Status legend: ✅ Done · 🔨 In Progress · ⚠️ Partial · ❌ Not Started · 🐛 Bug
 
 This file is maintained against the **actual repo** (`lib/`). If something drifts, re-audit or update rows here.
@@ -34,7 +34,7 @@ This file is maintained against the **actual repo** (`lib/`). If something drift
 
 ---
 
-## Phase 2 — Core Postman Features (P1)
+## Phase 2 — Core API client features (P1)
 
 
 | #    | Feature                                                    | Status | Notes                                                                                                                                         |
@@ -49,7 +49,7 @@ This file is maintained against the **actual repo** (`lib/`). If something drift
 | 2.8  | Response share / save to Files                             | ✅      | `Share.shareXFiles` in `response_viewer_sheet.dart`                                                                                           |
 | 2.9  | Nested folders UI (sub-folders)                            | ✅      | Recursive tree + CRUD                                                                                                                         |
 | 2.10 | Collection-level auth (inheritable)                        | ✅      | `mergeRequestAndCollectionAuth`; **Collection auth** screen + nav from collection detail (`collection_auth_screen.dart`, `collection_dao`)    |
-| 2.11 | Environment import/export                                  | ✅      | Import (Import/Export + collection vars) + **Share** on env detail → `PostmanV2Exporter.exportEnvironment`                                    |
+| 2.11 | Environment import/export                                  | ✅      | Import (Import/Export + collection vars) + **Share** on env detail → `CollectionV21Exporter.exportEnvironment`                                    |
 | 2.12 | Duplicate request                                          | ✅      | Swipe in collection detail                                                                                                                    |
 | 2.13 | Duplicate collection                                       | ✅      | Swipe **Duplicate** on `collections_screen.dart` → `Collections.duplicate`                                                                    |
 
@@ -90,7 +90,7 @@ This file is maintained against the **actual repo** (`lib/`). If something drift
 | 4.5 | Collection description visible                         | ✅      | List row + detail under nav bar (`collections_screen.dart`, `collection_detail_screen.dart`)                                                                                                                                                                                                                                         |
 | 4.6 | Request method badge inline in list                    | ✅      | `MethodBadge`                                                                                                                                                                                                                                                                                                                        |
 | 4.7 | Long-press context menu (rename/delete/duplicate/move) | ✅      | Request row long-press → sheet (same as swipe); folder row long-press → existing folder sheet                                                                                                                                                                                                                                        |
-| 4.8 | Partial Postman import/export (requests & folders)     | ✅      | **Select** mode + multi-select → one v2.1 JSON; single **Export/Import Postman JSON…** on request/folder **⋯**; nav **↓** + empty state import → merge at root; folder import merges into that folder; dedupe when folder subtree selected; `mergePostmanFragment` (`collections_provider.dart`); tests `postman_fragment_test.dart` |
+| 4.8 | Partial collection import/export (requests & folders)     | ✅      | **Select** mode + multi-select → one v2.1 JSON; **Export/Import collection JSON…** on request/folder **⋯**; nav **↓** + empty state import → merge at root; folder import merges into that folder; dedupe when folder subtree selected; `mergeCollectionFragment` (`collections_provider.dart`); tests `collection_fragment_test.dart` |
 
 
 ---
@@ -126,7 +126,7 @@ This file is maintained against the **actual repo** (`lib/`). If something drift
 | 6.4  | Default headers (every request)        | ✅      | Settings → **Default Headers**; secure JSON; merged in `DioClient` before request headers                                                                                                                                                                                                                                                                            |
 | 6.5  | Proxy configuration                    | ✅      | Settings → **HTTP Proxy**; `httpProxy` in `AppSettings` + `DioClient` (IO)                                                                                                                                                                                                                                                                                           |
 | 6.6  | Clear all data / reset app             | ✅      | Settings → Danger Zone                                                                                                                                                                                                                                                                                                                                               |
-| 6.7  | iCloud / backup & restore              | ✅      | **Full backup** JSON + file restore (Import/Export). **iOS:** iCloud Documents container `iCloud.com.aunCreations.aunPostman` — **Save/Restore from iCloud** + Settings **iCloud auto-backup** (debounced on background); `AppDelegate` MethodChannel `com.aun_postman/icloud_backup`; enable **iCloud → Cloud Documents** on the App ID in Apple Developer / Xcode. |
+| 6.7  | iCloud / backup & restore              | ✅      | **Full backup** JSON + file restore (Import/Export). **iOS:** iCloud Documents container `iCloud.com.aunCreations.aunReqStudio` — **Save/Restore from iCloud** + Settings **iCloud auto-backup** (debounced on background); `AppDelegate` MethodChannel `com.aun.reqstudio/icloud_backup`; enable **iCloud → Cloud Documents** on the App ID in Apple Developer / Xcode. |
 | 6.8  | Haptic feedback                        | ✅      | `AppHaptics` — Send, Save, copy cURL, WS Connect (`app_haptics.dart`)                                                                                                                                                                                                                                                                                                |
 | 6.9  | Keyboard shortcuts (external keyboard) | ✅      | **⌘/Ctrl+Enter** Send/cancel; **⌘/Ctrl+S** Save; **⌘/Ctrl+1–5** tabs — `request_builder_screen.dart`                                                                                                                                                                                                                                                                 |
 | 6.10 | Auto-save request drafts (local)       | ✅      | **On** by default; Hive drafts per route scope; restore when reopening same request; cleared on Save — Settings + `request_builder_draft_`*                                                                                                                                                                                                                          |

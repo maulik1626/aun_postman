@@ -2,9 +2,7 @@
 	"info": {
 		"_postman_id": "7f004e8c-95f1-4668-899e-703334af8850",
 		"name": "Aun-Pets-Service",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "21459276",
-		"_collection_link": "https://lively-station-476587.postman.co/workspace/Aun-Company~75eeb39c-ef09-4bf7-8f93-fd29a953cd1b/collection/21459276-7f004e8c-95f1-4668-899e-703334af8850?action=share&source=collection_link&creator=21459276"
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{

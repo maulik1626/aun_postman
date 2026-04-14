@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/infrastructure/environment_repository.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/infrastructure/environment_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'active_environment_provider.g.dart';

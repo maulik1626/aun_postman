@@ -1,17 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:aun_postman/app/theme/app_colors.dart';
-import 'package:aun_postman/app/widgets/scaled_cupertino_switch.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/har_exporter.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/http_response.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/widgets/scaled_cupertino_switch.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/har_exporter.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/response_viewer_syntax.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
-import 'package:highlight/highlight.dart' show highlight, Node;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
@@ -39,130 +39,37 @@ import 'package:xml/xml.dart';
   return (raw, 'plaintext');
 }
 
-int _lineCountForDisplay(String text) {
-  if (text.isEmpty) return 1;
-  return text.split('\n').length;
-}
-
 double _lineNumberGutterWidth(int lineCount) {
   final digits = lineCount.toString().length;
   return (digits * 8.5 + 12).clamp(30.0, 56.0);
 }
 
-/// Converts highlight [Node] tree to a flat list of [TextSpan]s using [theme].
-List<TextSpan> _buildHighlightSpans(
-  List<Node> nodes,
-  Map<String, TextStyle> theme,
-) {
-  final spans = <TextSpan>[];
-  var currentSpans = spans;
-  final stack = <List<TextSpan>>[];
-
-  void traverse(Node node) {
-    if (node.value != null) {
-      currentSpans.add(
-        node.className == null
-            ? TextSpan(text: node.value)
-            : TextSpan(
-                text: node.value,
-                style: theme[node.className!],
-              ),
-      );
-    } else if (node.children != null) {
-      final tmp = <TextSpan>[];
-      currentSpans.add(
-        TextSpan(
-          children: tmp,
-          style: theme[node.className!],
-        ),
-      );
-      stack.add(currentSpans);
-      currentSpans = tmp;
-
-      for (final n in node.children!) {
-        traverse(n);
-        if (n == node.children!.last) {
-          currentSpans = stack.isEmpty ? spans : stack.removeLast();
-        }
-      }
-    }
-  }
-
-  for (final node in nodes) {
-    traverse(node);
-  }
-  return spans;
-}
-
-/// Flattens a [TextSpan] tree and splits it into per-logical-line span lists.
-///
-/// Leaf styles are resolved against [baseStyle] so each returned span is
-/// self-contained (no implicit inheritance needed from a parent TextSpan).
-List<List<TextSpan>> _splitSpansByNewline(
-  List<TextSpan> spans,
-  TextStyle baseStyle,
-) {
-  final lines = <List<TextSpan>>[[]];
-
-  void visit(TextSpan span, TextStyle inherited) {
-    final effective =
-        span.style == null ? inherited : inherited.merge(span.style!);
-    final children = span.children;
-    if (children != null && children.isNotEmpty) {
-      for (final child in children) {
-        if (child is TextSpan) visit(child, effective);
-      }
-    } else if (span.text != null) {
-      final parts = span.text!.split('\n');
-      for (var i = 0; i < parts.length; i++) {
-        if (i > 0) lines.add([]);
-        if (parts[i].isNotEmpty) {
-          lines.last.add(TextSpan(text: parts[i], style: effective));
-        }
-      }
-    }
-  }
-
-  for (final span in spans) {
-    visit(span, baseStyle);
-  }
-  return lines;
-}
-
 /// Pretty / raw body: monospace line index column + bordered content.
 ///
-/// When [softWrap] is true and [lineWidgets] is provided, each logical line is
-/// rendered as its own Row so that wrapped lines keep their line number
-/// aligned. When [softWrap] is false, [child] is used with a horizontal
-/// scroll view (the gutter stays aligned because nothing wraps).
+/// [lines] is built lazily via [ListView.builder] so very large responses do
+/// not create tens of thousands of widgets at once.
 class _LineNumberedBody extends StatelessWidget {
   const _LineNumberedBody({
-    required this.sourceText,
+    required this.lines,
     required this.scrollController,
     required this.softWrap,
-    this.child,
-    this.lineWidgets,
+    required this.buildLine,
     this.softWrapLineContentBackground,
   });
 
-  final String sourceText;
+  final List<String> lines;
   final ScrollController scrollController;
   final bool softWrap;
 
-  /// Used when [softWrap] is false (or as fallback).
-  final Widget? child;
+  /// One highlighted / raw line per index.
+  final Widget Function(BuildContext context, int index, String line) buildLine;
 
-  /// One widget per logical line of [sourceText]; used when [softWrap] is true.
-  final List<Widget>? lineWidgets;
-
-  /// When [softWrap] and [lineWidgets] are used, fills only the content column
-  /// (not the line-number gutter) — matches non-soft-wrap pretty view where
-  /// the gutter sits on the sheet and the code block has its own background.
+  /// When [softWrap] is true, fills only the content column (not the gutter).
   final Color? softWrapLineContentBackground;
 
   @override
   Widget build(BuildContext context) {
-    final lineCount = _lineCountForDisplay(sourceText);
+    final lineCount = lines.isEmpty ? 1 : lines.length;
     final gutterW = _lineNumberGutterWidth(lineCount);
     final sep = CupertinoColors.separator.resolveFrom(context);
     final numStyle = TextStyle(
@@ -173,18 +80,68 @@ class _LineNumberedBody extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    // Soft-wrap per-row mode: each logical line gets its own Row so that
-    // wrapped lines expand the row height and keep the number aligned.
-    if (softWrap && lineWidgets != null) {
-      const outerPad = 12.0;
-      const gap = 8.0;
-      final widgets = lineWidgets!;
-      return SingleChildScrollView(
+    const outerPad = 12.0;
+    const gap = 8.0;
+
+    if (softWrap) {
+      return ListView.builder(
         controller: scrollController,
         padding: const EdgeInsets.all(outerPad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: List.generate(widgets.length, (i) {
+        itemCount: lines.length,
+        itemBuilder: (context, i) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectionContainer.disabled(
+                child: SizedBox(
+                  width: gutterW,
+                  child: Text(
+                    '${i + 1}',
+                    textAlign: TextAlign.right,
+                    style: numStyle,
+                  ),
+                ),
+              ),
+              SizedBox(width: gap),
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: sep, width: 1),
+                    ),
+                  ),
+                  child: softWrapLineContentBackground != null
+                      ? ColoredBox(
+                          color: softWrapLineContentBackground!,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: buildLine(context, i, lines[i]),
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: buildLine(context, i, lines[i]),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerMaxW = constraints.maxWidth - outerPad * 2;
+        final contentW =
+            (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
+        final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
+
+        return ListView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.all(outerPad),
+          itemCount: lines.length,
+          itemBuilder: (context, i) {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -199,141 +156,31 @@ class _LineNumberedBody extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: gap),
-                Expanded(
+                SizedBox(
+                  width: contentW,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       border: Border(
                         left: BorderSide(color: sep, width: 1),
                       ),
                     ),
-                    child: softWrapLineContentBackground != null
-                        ? ColoredBox(
-                            color: softWrapLineContentBackground!,
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 10),
-                              child: widgets[i],
-                            ),
-                          )
-                        : Padding(
-                            padding: const EdgeInsets.only(left: 10),
-                            child: widgets[i],
-                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 10),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minWidth: innerMinW),
+                          child: buildLine(context, i, lines[i]),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             );
-          }),
-        ),
-      );
-    }
-
-    // Non-soft-wrap: single content widget with horizontal scroll; the gutter
-    // stays aligned because no line ever wraps visually.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const outerPad = 12.0;
-        const gap = 8.0;
-        final innerMaxW = constraints.maxWidth - outerPad * 2;
-        final contentW = (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
-
-        final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
-        final content = SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: innerMinW),
-            child: child!,
-          ),
-        );
-
-        return SingleChildScrollView(
-          controller: scrollController,
-          padding: const EdgeInsets.all(outerPad),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: gutterW,
-                child: Text(
-                  List.generate(lineCount, (i) => '${i + 1}').join('\n'),
-                  textAlign: TextAlign.right,
-                  style: numStyle,
-                ),
-              ),
-              SizedBox(width: gap),
-              SizedBox(
-                width: contentW,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: sep, width: 1),
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: content,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          },
         );
       },
-    );
-  }
-}
-
-/// Like [HighlightView] but exposes [softWrap] for JSON body viewing.
-///
-/// Uses [Text.rich] (not [RichText]) so a parent [SelectableRegion] can make
-/// the content selectable.
-class _SoftWrapHighlightView extends StatelessWidget {
-  const _SoftWrapHighlightView({
-    required this.source,
-    required this.language,
-    required this.theme,
-    required this.softWrap,
-    this.textStyle,
-  });
-
-  static const _rootKey = 'root';
-  static const _defaultFontColor = Color(0xff000000);
-  static const _defaultBackgroundColor = Color(0xffffffff);
-  static const _tabSize = 8;
-
-  final String source;
-  final String? language;
-  final Map<String, TextStyle> theme;
-  final TextStyle? textStyle;
-  final bool softWrap;
-
-  @override
-  Widget build(BuildContext context) {
-    var merged = TextStyle(
-      fontFamily: 'monospace',
-      color: theme[_rootKey]?.color ?? _defaultFontColor,
-    );
-    if (textStyle != null) {
-      merged = merged.merge(textStyle!);
-    }
-
-    final normalized = source.replaceAll('\t', ' ' * _tabSize);
-    final parsed = highlight.parse(normalized, language: language);
-    final nodes = parsed.nodes;
-    var children = nodes == null ? <TextSpan>[] : _buildHighlightSpans(nodes, theme);
-    if (children.isEmpty) {
-      children = [TextSpan(text: normalized, style: merged)];
-    }
-
-    return Container(
-      color: theme[_rootKey]?.backgroundColor ?? _defaultBackgroundColor,
-      child: Text.rich(
-        TextSpan(
-          style: merged,
-          children: children,
-        ),
-        softWrap: softWrap,
-        overflow: softWrap ? TextOverflow.clip : TextOverflow.visible,
-      ),
     );
   }
 }
@@ -377,13 +224,40 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   late final ScrollController _scrollController;
   late final TextEditingController _bodySearchController;
 
+  /// Cached [jsonDecode] result for the current [HttpResponse.body].
+  bool? _cachedBodyIsJson;
+  String? _cachedBodyFingerprint;
+
+  /// Cached [prettifyResponseBody] for search + Pretty tab.
+  (String, String)? _prettyCache;
+  String? _prettyCacheBodyFingerprint;
+  bool? _prettyCacheUnwrap;
+
   bool get _prettyBodyIsJson {
-    try {
-      jsonDecode(widget.response.body);
-      return true;
-    } catch (_) {
-      return false;
+    final b = widget.response.body;
+    if (_cachedBodyFingerprint != b) {
+      _cachedBodyFingerprint = b;
+      try {
+        jsonDecode(b);
+        _cachedBodyIsJson = true;
+      } catch (_) {
+        _cachedBodyIsJson = false;
+      }
     }
+    return _cachedBodyIsJson ?? false;
+  }
+
+  void _syncPrettyCache() {
+    final raw = widget.response.body;
+    final unwrap = _prettyBodyIsJson && _jsonUnwrap;
+    if (_prettyCacheBodyFingerprint == raw &&
+        _prettyCacheUnwrap == unwrap &&
+        _prettyCache != null) {
+      return;
+    }
+    _prettyCacheBodyFingerprint = raw;
+    _prettyCacheUnwrap = unwrap;
+    _prettyCache = prettifyResponseBody(raw, unwrapJson: unwrap);
   }
 
   @override
@@ -391,6 +265,15 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     super.initState();
     _scrollController = ScrollController();
     _bodySearchController = TextEditingController();
+  }
+
+  @override
+  void didUpdateWidget(ResponseViewerSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.response.body != widget.response.body) {
+      _cachedBodyFingerprint = null;
+      _prettyCacheBodyFingerprint = null;
+    }
   }
 
   @override
@@ -403,10 +286,8 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   String get _bodySearchHaystack {
     final raw = widget.response.body;
     if (_selectedTab == 0) {
-      return prettifyResponseBody(
-        raw,
-        unwrapJson: _prettyBodyIsJson && _jsonUnwrap,
-      ).$1;
+      _syncPrettyCache();
+      return _prettyCache!.$1;
     }
     return raw;
   }
@@ -483,11 +364,13 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   @override
   Widget build(BuildContext context) {
     final response = widget.response;
+    _syncPrettyCache();
     final canExportHar =
         widget.harRequest != null && widget.harStartedAt != null;
     final isDark =
         CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final statusColor = AppColors.statusColor(response.statusCode);
+    final prettyPair = _prettyCache!;
 
     return Column(
       children: [
@@ -533,7 +416,7 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
                   Clipboard.setData(ClipboardData(text: response.body));
                   UserNotification.show(
                     context: context,
-                    title: 'Aun Postman',
+                    title: 'AUN - ReqStudio',
                     body: 'Response copied',
                   );
                 },
@@ -707,12 +590,12 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
             index: _selectedTab,
             children: [
               _PrettyTab(
-                body: response.body,
+                prettyBody: prettyPair.$1,
+                language: prettyPair.$2,
                 isDark: isDark,
                 scrollController: _scrollController,
                 searchQuery: _bodySearchController.text,
                 softWrap: _prettyBodyIsJson ? _jsonSoftWrap : true,
-                unwrapJson: _prettyBodyIsJson && _jsonUnwrap,
               ),
               _RawTab(
                 body: response.body,
@@ -753,19 +636,20 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
 
 class _PrettyTab extends StatelessWidget {
   const _PrettyTab({
-    required this.body,
+    required this.prettyBody,
+    required this.language,
     required this.isDark,
     required this.scrollController,
     required this.searchQuery,
     required this.softWrap,
-    required this.unwrapJson,
   });
-  final String body;
+
+  final String prettyBody;
+  final String language;
   final bool isDark;
   final ScrollController scrollController;
   final String searchQuery;
   final bool softWrap;
-  final bool unwrapJson;
 
   static const _mono = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -775,68 +659,25 @@ class _PrettyTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (prettyBody, language) =
-        prettifyResponseBody(body, unwrapJson: unwrapJson);
     final theme = isDark ? atomOneDarkTheme : atomOneLightTheme;
+    final lines = prettyBody.split('\n');
+    final softWrapBg =
+        theme['root']?.backgroundColor ?? const Color(0xffffffff);
 
     if (searchQuery.trim().isEmpty) {
-      if (softWrap) {
-        final normalized =
-            prettyBody.replaceAll('\t', ' ' * _SoftWrapHighlightView._tabSize);
-        final parsed = highlight.parse(normalized, language: language);
-        final nodes = parsed.nodes;
-        var rootSpans =
-            nodes == null ? <TextSpan>[] : _buildHighlightSpans(nodes, theme);
-
-        final baseStyle = TextStyle(
-          fontFamily: 'monospace',
-          color: theme[_SoftWrapHighlightView._rootKey]?.color ??
-              _SoftWrapHighlightView._defaultFontColor,
-        ).merge(_mono);
-
-        if (rootSpans.isEmpty) {
-          rootSpans = [TextSpan(text: normalized, style: baseStyle)];
-        }
-
-        final perLineSpans = _splitSpansByNewline(rootSpans, baseStyle);
-
-        final lineWidgets = perLineSpans.map((spans) {
-          return Text.rich(
-            TextSpan(
-              children: spans.isEmpty
-                  ? [TextSpan(text: '', style: baseStyle)]
-                  : spans,
-            ),
-            softWrap: true,
-          );
-        }).toList();
-
-        return SelectableRegion(
-          selectionControls: cupertinoTextSelectionControls,
-          child: _LineNumberedBody(
-            sourceText: normalized,
-            scrollController: scrollController,
-            softWrap: true,
-            lineWidgets: lineWidgets,
-            softWrapLineContentBackground:
-                theme[_SoftWrapHighlightView._rootKey]?.backgroundColor ??
-                    _SoftWrapHighlightView._defaultBackgroundColor,
-          ),
-        );
-      }
-
-      return _LineNumberedBody(
-        sourceText: prettyBody,
-        scrollController: scrollController,
-        softWrap: false,
-        child: SelectableRegion(
-          selectionControls: cupertinoTextSelectionControls,
-          child: _SoftWrapHighlightView(
-            source: prettyBody,
+      return SelectableRegion(
+        selectionControls: cupertinoTextSelectionControls,
+        child: _LineNumberedBody(
+          lines: lines,
+          scrollController: scrollController,
+          softWrap: softWrap,
+          softWrapLineContentBackground: softWrap ? softWrapBg : null,
+          buildLine: (context, index, line) => HighlightedLineWidget(
+            line: line,
             language: language,
             theme: theme,
-            softWrap: false,
             textStyle: _mono,
+            softWrap: softWrap,
           ),
         ),
       );
@@ -868,17 +709,15 @@ class _RawTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lines = body.split('\n');
     if (searchQuery.trim().isEmpty) {
-      final lines = body.split('\n');
-      final lineWidgets =
-          lines.map((l) => Text(l, style: _textStyle)).toList();
       return SelectableRegion(
         selectionControls: cupertinoTextSelectionControls,
         child: _LineNumberedBody(
-          sourceText: body,
+          lines: lines,
           scrollController: scrollController,
           softWrap: true,
-          lineWidgets: lineWidgets,
+          buildLine: (_, __, line) => Text(line, style: _textStyle),
         ),
       );
     }
@@ -948,65 +787,17 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
     final highlightBg = CupertinoColors.systemYellow.resolveFrom(context);
+    final lines = text.split('\n');
 
-    if (softWrap) {
-      final lines = text.split('\n');
-      final lineWidgets = lines.map((line) {
-        return Text.rich(
+    return SelectableRegion(
+      selectionControls: cupertinoTextSelectionControls,
+      child: _LineNumberedBody(
+        lines: lines,
+        scrollController: scrollController,
+        softWrap: softWrap,
+        buildLine: (context, index, line) => Text.rich(
           TextSpan(children: _spansForLine(line, q, highlightBg)),
-          softWrap: true,
-        );
-      }).toList();
-
-      return SelectableRegion(
-        selectionControls: cupertinoTextSelectionControls,
-        child: _LineNumberedBody(
-          sourceText: text,
-          scrollController: scrollController,
-          softWrap: true,
-          lineWidgets: lineWidgets,
-        ),
-      );
-    }
-
-    final spans = <InlineSpan>[];
-    if (q.isEmpty) {
-      spans.add(TextSpan(text: text, style: _base));
-    } else {
-      final lower = text.toLowerCase();
-      final nq = q.toLowerCase();
-      var start = 0;
-      var i = lower.indexOf(nq);
-      while (i >= 0) {
-        if (i > start) {
-          spans.add(TextSpan(text: text.substring(start, i), style: _base));
-        }
-        spans.add(
-          TextSpan(
-            text: text.substring(i, i + q.length),
-            style: _base.copyWith(
-              backgroundColor: highlightBg.withValues(alpha: 0.45),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        );
-        start = i + q.length;
-        i = lower.indexOf(nq, start);
-      }
-      if (start < text.length) {
-        spans.add(TextSpan(text: text.substring(start), style: _base));
-      }
-    }
-
-    return _LineNumberedBody(
-      sourceText: text,
-      scrollController: scrollController,
-      softWrap: false,
-      child: SelectableRegion(
-        selectionControls: cupertinoTextSelectionControls,
-        child: Text.rich(
-          TextSpan(children: spans),
-          softWrap: false,
+          softWrap: softWrap,
         ),
       ),
     );

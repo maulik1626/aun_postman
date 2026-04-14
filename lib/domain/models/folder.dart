@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'folder.freezed.dart';

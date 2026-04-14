@@ -1,9 +1,9 @@
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
-import 'package:aun_postman/domain/models/test_assertion.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/test_assertion.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
 
 /// JSON for persisting [RequestBuilderState] (local drafts only).
 class RequestBuilderDraftCodec {

@@ -1,17 +1,18 @@
 import 'dart:io';
 
-import 'package:aun_postman/core/constants/app_constants.dart';
-import 'package:aun_postman/core/utils/json_comment_stripper.dart';
-import 'package:aun_postman/core/errors/error_handler.dart';
-import 'package:aun_postman/data/http/interceptors/auth_interceptor.dart';
-import 'package:aun_postman/data/http/interceptors/digest_auth_interceptor.dart';
-import 'package:aun_postman/data/http/interceptors/timing_interceptor.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/http_response.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
-import 'package:aun_postman/domain/models/response_cookie.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
+import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
+import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
+import 'package:aun_reqstudio/core/errors/error_handler.dart';
+import 'package:aun_reqstudio/data/http/interceptors/auth_interceptor.dart';
+import 'package:aun_reqstudio/data/http/interceptors/digest_auth_interceptor.dart';
+import 'package:aun_reqstudio/data/http/interceptors/timing_interceptor.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/response_cookie.dart';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -71,21 +72,8 @@ class DioClient {
         DigestAuthInterceptor(dio, d),
     ]);
 
-    // Build URL with enabled params
-    var url = request.url;
-    final enabledParams = request.params.where((p) => p.isEnabled).toList();
-    if (enabledParams.isNotEmpty) {
-      final uri = Uri.tryParse(url);
-      if (uri != null) {
-        final queryParams = Map<String, String>.fromEntries(
-          enabledParams.map((p) => MapEntry(p.key, p.value)),
-        );
-        url = uri.replace(queryParameters: {
-          ...uri.queryParameters,
-          ...queryParams,
-        }).toString();
-      }
-    }
+    // Query string comes only from enabled params (URL bar and Params tab stay in sync).
+    final url = UrlQuerySync.urlForHttpCall(request.url, request.params);
 
     // Build headers: app defaults first, then request (request overwrites same key).
     final headers = <String, String>{};

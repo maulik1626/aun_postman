@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'request_body.freezed.dart';

@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'environment.freezed.dart';

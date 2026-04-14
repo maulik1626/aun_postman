@@ -1,24 +1,24 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/platform/icloud_backup_channel.dart';
-import 'package:aun_postman/core/utils/app_backup.dart';
-import 'package:aun_postman/core/utils/full_backup_json.dart';
-import 'package:aun_postman/core/utils/curl_parser.dart';
-import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
-import 'package:aun_postman/core/utils/postman_v2_importer.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/environment_variable.dart';
-import 'package:aun_postman/app/router/app_routes.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
-import 'package:aun_postman/features/environments/providers/active_environment_provider.dart';
-import 'package:aun_postman/features/environments/providers/environments_provider.dart';
-import 'package:aun_postman/features/history/providers/history_provider.dart';
-import 'package:aun_postman/features/websocket/providers/ws_saved_compose_provider.dart';
-import 'package:aun_postman/infrastructure/history_repository.dart';
-import 'package:aun_postman/infrastructure/ws_saved_compose_repository.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/platform/icloud_backup_channel.dart';
+import 'package:aun_reqstudio/core/utils/app_backup.dart';
+import 'package:aun_reqstudio/core/utils/full_backup_json.dart';
+import 'package:aun_reqstudio/core/utils/curl_parser.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_importer.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/active_environment_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/websocket/providers/ws_saved_compose_provider.dart';
+import 'package:aun_reqstudio/infrastructure/history_repository.dart';
+import 'package:aun_reqstudio/infrastructure/ws_saved_compose_repository.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
@@ -281,17 +281,17 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
                       _OptionCard(
                         icon: CupertinoIcons.doc_text,
-                        title: 'Postman Collection v2.1',
+                        title: 'Collection JSON (v2.1)',
                         subtitle:
                             'Import requests + auto-create variable environment',
-                        onTap: _importPostmanFile,
+                        onTap: _importCollectionFile,
                       ),
                       const SizedBox(height: 8),
                       _OptionCard(
                         icon: CupertinoIcons.globe,
-                        title: 'Postman Environment',
-                        subtitle: 'Import a .postman_environment.json file',
-                        onTap: _importPostmanEnvironment,
+                        title: 'Environment JSON',
+                        subtitle: 'Import a v2.x environment export JSON file',
+                        onTap: _importCollectionEnvironment,
                       ),
                       const SizedBox(height: 8),
                       _OptionCard(
@@ -325,7 +325,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                               builder: (cardContext) => _OptionCard(
                                 icon: CupertinoIcons.folder_fill,
                                 title: col.name,
-                                subtitle: 'Export as Postman v2.1 JSON',
+                                subtitle: 'Export as collection v2.1 JSON',
                                 onTap: () => _exportCollection(
                                   col.uid,
                                   sharePositionOrigin: _shareAnchorRect(
@@ -362,14 +362,14 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       final json = await buildFullBackupJson(ref);
       final dir = await getTemporaryDirectory();
       final stamp = DateTime.now().toIso8601String().split('T').first;
-      final file = File('${dir.path}/aun_postman_backup_$stamp.json');
+      final file = File('${dir.path}/aun_reqstudio_backup_$stamp.json');
       await file.writeAsString(json);
 
       if (!mounted) return;
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: 'Aun Postman — full backup',
+        subject: 'AUN - ReqStudio — full backup',
         sharePositionOrigin: origin,
       );
       if (mounted) {
@@ -442,7 +442,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       final json = await buildFullBackupJson(ref);
       final dir = await getTemporaryDirectory();
       final file = File(
-        '${dir.path}/aun_postman_icloud_${DateTime.now().millisecondsSinceEpoch}.json',
+        '${dir.path}/aun_reqstudio_icloud_${DateTime.now().millisecondsSinceEpoch}.json',
       );
       await file.writeAsString(json);
       await IcloudBackupChannel.copyFileToICloud(file.path);
@@ -555,7 +555,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     ref.invalidate(activeEnvironmentProvider);
   }
 
-  Future<void> _importPostmanFile() async {
+  Future<void> _importCollectionFile() async {
     setState(() => _isLoading = true);
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -567,11 +567,11 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (result == null || result.files.single.path == null) return;
 
       final content = await File(result.files.single.path!).readAsString();
-      final collection = PostmanV2Importer.import(content);
+      final collection = CollectionV21Importer.import(content);
       await ref.read(collectionsProvider.notifier).importCollection(collection);
 
       // Auto-create an environment from every {{variable}} found in the collection.
-      final varNames = PostmanV2Importer.extractVariableNames(content);
+      final varNames = CollectionV21Importer.extractVariableNames(content);
       String? createdEnvUid;
       if (varNames.isNotEmpty) {
         final environment = _buildEnvironmentFromVarNames(
@@ -597,7 +597,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     }
   }
 
-  Future<void> _importPostmanEnvironment() async {
+  Future<void> _importCollectionEnvironment() async {
     setState(() => _isLoading = true);
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -609,7 +609,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (result == null || result.files.single.path == null) return;
 
       final content = await File(result.files.single.path!).readAsString();
-      final env = PostmanV2Importer.importEnvironment(content);
+      final env = CollectionV21Importer.importEnvironment(content);
       await ref.read(environmentsProvider.notifier).importEnvironment(env);
 
       setState(() {
@@ -833,7 +833,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
           .read(collectionsProvider)
           .firstWhere((c) => c.uid == uid);
 
-      final json = PostmanV2Exporter.export(collection);
+      final json = CollectionV21Exporter.export(collection);
       final dir = await getTemporaryDirectory();
       final file = File(
         '${dir.path}/${collection.name.replaceAll(RegExp(r'[^\w\s]'), '_')}.json',
@@ -847,7 +847,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
 
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: '${collection.name} — Postman Collection',
+        subject: '${collection.name} — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
 

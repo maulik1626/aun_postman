@@ -1,6 +1,6 @@
-import 'package:aun_postman/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
 
-/// Request auth wins when set; otherwise collection default applies (Postman-style).
+/// Request auth wins when set; otherwise collection default applies.
 AuthConfig mergeRequestAndCollectionAuth(
   AuthConfig requestAuth,
   AuthConfig collectionAuth,

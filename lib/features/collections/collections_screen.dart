@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:aun_postman/app/router/app_routes.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/features/collections/dialogs/create_collection_dialog.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/features/collections/dialogs/create_collection_dialog.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -280,7 +280,7 @@ class CollectionsScreen extends ConsumerWidget {
     Collection collection,
   ) async {
     try {
-      final json = PostmanV2Exporter.export(collection);
+      final json = CollectionV21Exporter.export(collection);
       final dir = await getTemporaryDirectory();
       final safe = collection.name
           .replaceAll(RegExp(r'[^\w\s.-]'), '_')
@@ -291,7 +291,7 @@ class CollectionsScreen extends ConsumerWidget {
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: '${collection.name} — Postman',
+        subject: '${collection.name} — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
     } catch (e) {

@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:aun_postman/domain/models/ws_saved_compose_message.dart';
+import 'package:aun_reqstudio/domain/models/ws_saved_compose_message.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class WsSavedComposeDao {

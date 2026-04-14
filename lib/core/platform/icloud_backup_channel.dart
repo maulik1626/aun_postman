@@ -4,11 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// iOS iCloud Documents bridge — writes a single full-backup JSON in the app’s
-/// ubiquity container (`com.aun_postman/icloud_backup` MethodChannel).
+/// Ubiquity container (`com.aun.reqstudio/icloud_backup` MethodChannel).
 class IcloudBackupChannel {
   IcloudBackupChannel._();
 
-  static const _name = 'com.aun_postman/icloud_backup';
+  static const _name = 'com.aun.reqstudio/icloud_backup';
   static const MethodChannel _ch = MethodChannel(_name);
 
   static bool get platformSupported => !kIsWeb && Platform.isIOS;

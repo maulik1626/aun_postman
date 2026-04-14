@@ -1,4 +1,4 @@
-import 'package:aun_postman/core/utils/json_comment_stripper.dart';
+import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

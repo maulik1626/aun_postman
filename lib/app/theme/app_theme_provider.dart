@@ -1,5 +1,5 @@
-import 'package:aun_postman/core/constants/app_constants.dart';
-import 'package:aun_postman/domain/enums/theme_preference.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
+import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

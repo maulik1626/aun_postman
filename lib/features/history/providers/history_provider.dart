@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/models/history_entry.dart';
-import 'package:aun_postman/infrastructure/history_repository.dart';
+import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/infrastructure/history_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'history_provider.g.dart';

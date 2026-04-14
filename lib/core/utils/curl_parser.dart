@@ -1,8 +1,9 @@
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
 class CurlParser {
@@ -75,13 +76,14 @@ class CurlParser {
 
       if (url.isEmpty) return null;
 
-      final uri = Uri.tryParse(url);
-      final params = uri?.queryParameters.entries
-              .map((e) => RequestParam(key: e.key, value: e.value))
-              .toList() ??
-          [];
-      final cleanUrl =
-          uri != null ? url.split('?').first : url;
+      final parts = UrlQuerySync.splitUrlParts(url);
+      final params =
+          UrlQuerySync.parseRawQueryToRequestParams(parts.rawQuery);
+      final cleanUrl = UrlQuerySync.joinUrlParts(
+        prefix: parts.prefix,
+        rawQuery: '',
+        fragment: parts.fragment,
+      );
 
       RequestBody body = const NoBody();
       if (bodyContent.isNotEmpty) {

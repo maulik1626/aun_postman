@@ -1,6 +1,6 @@
-import 'package:aun_postman/app/theme/app_colors.dart';
-import 'package:aun_postman/domain/models/history_entry.dart';
-import 'package:aun_postman/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';

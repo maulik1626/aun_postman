@@ -1,5 +1,5 @@
-name: aun_postman
-description: "A production-grade API client for iOS — Postman in your pocket."
+name: aun_reqstudio
+description: "AUN - ReqStudio: a production-grade API client for iOS and Android."
 publish_to: 'none'
 version: 1.0.0+17
 

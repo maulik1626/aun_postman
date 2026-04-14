@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:flutter/cupertino.dart';
 
 /// Payload while dragging an item in the collection tree (detail screen).

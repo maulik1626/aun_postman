@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class EnvironmentDao {

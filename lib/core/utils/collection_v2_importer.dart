@@ -1,21 +1,21 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/errors/app_exception.dart';
-import 'package:aun_postman/domain/enums/auth_type.dart';
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/environment_variable.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/core/errors/app_exception.dart';
+import 'package:aun_reqstudio/domain/enums/auth_type.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
-/// Top-level folders and root requests parsed from a Postman v2.1 `item` array.
-class PostmanFragmentImport {
-  const PostmanFragmentImport({
+/// Top-level folders and root requests parsed from a collection v2.1 `item` array.
+class CollectionFragmentImport {
+  const CollectionFragmentImport({
     required this.name,
     this.description,
     required this.folders,
@@ -28,7 +28,7 @@ class PostmanFragmentImport {
   final List<HttpRequest> rootRequests;
 }
 
-class PostmanV2Importer {
+class CollectionV21Importer {
   static const _uuid = Uuid();
 
   static Collection import(String jsonString) {
@@ -46,19 +46,19 @@ class PostmanV2Importer {
         updatedAt: now,
       );
     } catch (e) {
-      throw ImportException('Invalid Postman collection: $e');
+      throw ImportException('Invalid collection JSON: $e');
     }
   }
 
-  /// Parses any Postman v2.1 collection JSON into top-level folders and requests.
+  /// Parses any collection v2.1 JSON into top-level folders and requests.
   /// UIDs are placeholders; callers that merge into an existing collection must remap.
-  static PostmanFragmentImport importFragment(String jsonString) {
+  static CollectionFragmentImport importFragment(String jsonString) {
     try {
       final parsed = _parseTopLevelItems(jsonString);
       if (parsed.folders.isEmpty && parsed.rootRequests.isEmpty) {
-        throw ImportException('Postman collection has no requests or folders');
+        throw ImportException('Collection has no requests or folders');
       }
-      return PostmanFragmentImport(
+      return CollectionFragmentImport(
         name: parsed.name,
         description: parsed.description,
         folders: parsed.folders,
@@ -67,7 +67,7 @@ class PostmanV2Importer {
     } on ImportException {
       rethrow;
     } catch (e) {
-      throw ImportException('Invalid Postman collection: $e');
+      throw ImportException('Invalid collection JSON: $e');
     }
   }
 
@@ -331,7 +331,7 @@ class PostmanV2Importer {
     }
   }
 
-  /// Scans a raw Postman collection JSON string and returns every unique
+  /// Scans a raw collection JSON string and returns every unique
   /// `{{variable}}` name referenced anywhere (URLs, headers, bodies, auth).
   /// Dynamic built-in vars that start with `$` are excluded.
   static List<String> extractVariableNames(String jsonString) {
@@ -345,7 +345,7 @@ class PostmanV2Importer {
       ..sort();
   }
 
-  /// Parses a Postman environment export JSON string into an [Environment].
+  /// Parses a v2 environment export JSON string into an [Environment].
   /// Supports both v2.0 (`values` array) and v2.1 formats.
   static Environment importEnvironment(String jsonString) {
     try {
@@ -379,7 +379,7 @@ class PostmanV2Importer {
         updatedAt: now,
       );
     } catch (e) {
-      throw ImportException('Invalid Postman environment: $e');
+      throw ImportException('Invalid environment JSON: $e');
     }
   }
 }

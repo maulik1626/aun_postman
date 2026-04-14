@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Rebranded to **AUN - ReqStudio**; Dart package `aun_reqstudio`; updated Android/iOS identifiers, iCloud container, and user-facing copy (no third-party API client trademarks in the product name).
+
 ## [1.0.0] - 2026-04-03
 
 ### Added
@@ -19,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Response status/time/size badges
 - Request history with full re-run capability
 - WebSocket client with connect/disconnect and message log
-- Import/export: Postman v2.1 JSON and cURL
+- Import/export: collection v2.1 JSON and cURL
 - Share collections via iOS Files app and AirDrop
 - Dark / Light / System theme with persistence
 - iOS-native transitions and UI patterns throughout

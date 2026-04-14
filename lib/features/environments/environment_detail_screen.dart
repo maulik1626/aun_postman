@@ -1,13 +1,13 @@
 import 'dart:io';
 
-import 'package:aun_postman/app/theme/app_colors.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/app/widgets/scaled_cupertino_switch.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/environment_variable.dart';
-import 'package:aun_postman/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/app/widgets/scaled_cupertino_switch.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -52,8 +52,7 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     minSize: 44,
-                    onPressed: () =>
-                        _sharePostmanEnvironment(context, env),
+                    onPressed: () => _shareEnvironmentExport(context, env),
                     child: const Icon(CupertinoIcons.share, size: 22),
                   ),
                   CupertinoButton(
@@ -101,8 +100,7 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 24),
                             AppGradientButton(
-                              onPressed: () =>
-                                  _addVariable(context, ref, env),
+                              onPressed: () => _addVariable(context, ref, env),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -156,7 +154,8 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                                         variables: env.variables.map((vv) {
                                           if (vv.uid == variable.uid) {
                                             return vv.copyWith(
-                                                isEnabled: v ?? true);
+                                              isEnabled: v ?? true,
+                                            );
                                           }
                                           return vv;
                                         }).toList(),
@@ -185,16 +184,16 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                                           variable.isSecret
                                               ? '••••••••'
                                               : variable.value.isEmpty
-                                                  ? 'empty'
-                                                  : variable.value,
+                                              ? 'empty'
+                                              : variable.value,
                                           style: TextStyle(
                                             fontFamily: 'JetBrainsMono',
                                             fontSize: 12,
                                             color: variable.value.isEmpty
                                                 ? CupertinoColors.tertiaryLabel
-                                                    .resolveFrom(context)
+                                                      .resolveFrom(context)
                                                 : CupertinoColors.secondaryLabel
-                                                    .resolveFrom(context),
+                                                      .resolveFrom(context),
                                           ),
                                         ),
                                       ],
@@ -204,12 +203,17 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                                     padding: EdgeInsets.zero,
                                     minSize: 36,
                                     onPressed: () => _editVariable(
-                                        context, ref, env, variable),
+                                      context,
+                                      ref,
+                                      env,
+                                      variable,
+                                    ),
                                     child: Icon(
                                       CupertinoIcons.pencil,
                                       size: 18,
-                                      color: CupertinoTheme.of(context)
-                                          .primaryColor,
+                                      color: CupertinoTheme.of(
+                                        context,
+                                      ).primaryColor,
                                     ),
                                   ),
                                   CupertinoButton(
@@ -248,17 +252,16 @@ class EnvironmentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _sharePostmanEnvironment(
+  Future<void> _shareEnvironmentExport(
     BuildContext context,
     Environment env,
   ) async {
     try {
-      final json = PostmanV2Exporter.exportEnvironment(env);
+      final json = CollectionV21Exporter.exportEnvironment(env);
       final dir = await getTemporaryDirectory();
-      final safe =
-          env.name.replaceAll(RegExp(r'[^\w\-]+'), '_').toLowerCase();
+      final safe = env.name.replaceAll(RegExp(r'[^\w\-]+'), '_').toLowerCase();
       final file = File(
-        '${dir.path}/${safe.isEmpty ? 'environment' : safe}.postman_environment.json',
+        '${dir.path}/${safe.isEmpty ? 'environment' : safe}.reqstudio_environment.json',
       );
       await file.writeAsString(json);
       if (!context.mounted) return;
@@ -273,7 +276,7 @@ class EnvironmentDetailScreen extends ConsumerWidget {
           XFile(
             file.path,
             mimeType: 'application/json',
-            name: '${env.name}.postman_environment.json',
+            name: '${env.name}.reqstudio_environment.json',
           ),
         ],
         subject: env.name,
@@ -493,8 +496,9 @@ class EnvironmentDetailScreen extends ConsumerWidget {
                           ),
                           ScaledCupertinoSwitch(
                             value: isSecret,
-                            activeTrackColor:
-                                CupertinoTheme.of(ctx).primaryColor,
+                            activeTrackColor: CupertinoTheme.of(
+                              ctx,
+                            ).primaryColor,
                             onChanged: (v) => setState(() => isSecret = v),
                           ),
                         ],

@@ -1,7 +1,7 @@
-import 'package:aun_postman/app/widgets/auth_config_editor.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/app/widgets/auth_config_editor.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';

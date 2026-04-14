@@ -1,6 +1,6 @@
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'collection.freezed.dart';

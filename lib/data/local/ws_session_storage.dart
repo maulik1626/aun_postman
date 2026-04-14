@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/constants/app_constants.dart';
-import 'package:aun_postman/domain/enums/ws_connection_mode.dart';
-import 'package:aun_postman/domain/models/ws_registry_state.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
+import 'package:aun_reqstudio/domain/enums/ws_connection_mode.dart';
+import 'package:aun_reqstudio/domain/models/ws_registry_state.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:uuid/uuid.dart';
 

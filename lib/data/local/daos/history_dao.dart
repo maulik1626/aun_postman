@@ -1,9 +1,9 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/constants/app_constants.dart';
-import 'package:aun_postman/domain/models/history_entry.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/http_response.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
+import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/http_response.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class HistoryDao {
