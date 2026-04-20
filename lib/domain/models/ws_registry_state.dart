@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/enums/ws_connection_mode.dart';
+import 'package:aun_reqstudio/domain/enums/ws_connection_mode.dart';
 
 /// Persisted WebSocket tab: identity + connection draft (URL, protocols, headers).
 class WebSocketSessionTab {

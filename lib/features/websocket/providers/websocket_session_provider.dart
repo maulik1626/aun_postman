@@ -2,15 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:aun_postman/core/utils/ws_binary_codec.dart';
-import 'package:aun_postman/core/utils/ws_socket_io_url.dart';
-import 'package:aun_postman/domain/enums/ws_composer_format.dart';
-import 'package:aun_postman/domain/enums/ws_connection_mode.dart';
-import 'package:aun_postman/domain/enums/ws_message_direction.dart'
+import 'package:aun_reqstudio/core/utils/ws_binary_codec.dart';
+import 'package:aun_reqstudio/core/utils/ws_socket_io_url.dart';
+import 'package:aun_reqstudio/domain/enums/ws_composer_format.dart';
+import 'package:aun_reqstudio/domain/enums/ws_connection_mode.dart';
+import 'package:aun_reqstudio/domain/enums/ws_message_direction.dart'
     show WsConnectionStatus, WsMessageDirection;
-import 'package:aun_postman/domain/enums/ws_payload_kind.dart';
-import 'package:aun_postman/domain/models/websocket_message.dart';
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/domain/enums/ws_payload_kind.dart';
+import 'package:aun_reqstudio/domain/models/websocket_message.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as sio;

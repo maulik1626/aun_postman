@@ -1,5 +1,5 @@
-import 'package:aun_postman/app/widgets/auth_config_editor.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/app/widgets/auth_config_editor.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

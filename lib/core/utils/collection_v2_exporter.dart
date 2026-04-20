@@ -1,14 +1,14 @@
 import 'dart:convert';
 
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
-class PostmanV2Exporter {
+class CollectionV21Exporter {
   static const _uuid = Uuid();
 
   static String export(Collection collection) {
@@ -32,7 +32,7 @@ class PostmanV2Exporter {
   static String exportFragment({
     required String title,
     String? description,
-    required List<PostmanV2FragmentEntry> entries,
+    required List<CollectionV21FragmentEntry> entries,
   }) {
     if (entries.isEmpty) {
       throw ArgumentError('exportFragment requires at least one entry');
@@ -40,9 +40,9 @@ class PostmanV2Exporter {
     final item = <Map<String, dynamic>>[];
     for (final e in entries) {
       switch (e) {
-        case PostmanV2FragmentFolder(:final folder):
+        case CollectionV21FragmentFolder(:final folder):
           item.add(_folderToJson(folder));
-        case PostmanV2FragmentRequest(:final request):
+        case CollectionV21FragmentRequest(:final request):
           item.add(_requestToJson(request));
       }
     }
@@ -219,7 +219,7 @@ class PostmanV2Exporter {
     };
   }
 
-  /// Postman-compatible environment JSON (importable in Postman / this app).
+  /// Standard v2.1-style environment JSON (interoperable with common API clients).
   static String exportEnvironment(Environment env) {
     final data = {
       'id': env.uid,
@@ -240,16 +240,16 @@ class PostmanV2Exporter {
   }
 }
 
-sealed class PostmanV2FragmentEntry {
-  const PostmanV2FragmentEntry();
+sealed class CollectionV21FragmentEntry {
+  const CollectionV21FragmentEntry();
 }
 
-final class PostmanV2FragmentFolder extends PostmanV2FragmentEntry {
-  const PostmanV2FragmentFolder(this.folder);
+final class CollectionV21FragmentFolder extends CollectionV21FragmentEntry {
+  const CollectionV21FragmentFolder(this.folder);
   final Folder folder;
 }
 
-final class PostmanV2FragmentRequest extends PostmanV2FragmentEntry {
-  const PostmanV2FragmentRequest(this.request);
+final class CollectionV21FragmentRequest extends CollectionV21FragmentEntry {
+  const CollectionV21FragmentRequest(this.request);
   final HttpRequest request;
 }

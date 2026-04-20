@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:aun_postman/data/local/request_builder_draft_codec.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/data/local/request_builder_draft_codec.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 /// Hive-backed drafts for the request builder (one entry per route scope).

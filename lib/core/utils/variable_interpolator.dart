@@ -1,10 +1,10 @@
 import 'dart:math';
 
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:uuid/uuid.dart';
 
 class VariableInterpolator {

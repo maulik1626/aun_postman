@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/models/response_cookie.dart';
+import 'package:aun_reqstudio/domain/models/response_cookie.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'http_response.freezed.dart';

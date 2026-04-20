@@ -11,9 +11,9 @@
 	<true/>
 	<!-- Privacy: required by App Store when photo APIs are referenced -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Aun Postman uses your photo library only when you choose to attach an image or file to a request.</string>
+	<string>AUN - ReqStudio uses your photo library only when you choose to attach an image or file to a request.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Aun Postman saves exported files or images to your photo library only when you choose to do so.</string>
+	<string>AUN - ReqStudio saves exported files or images to your photo library only when you choose to do so.</string>
 	<!-- Allow arbitrary network requests for API testing -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
@@ -23,7 +23,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Aun Postman</string>
+	<string>Aun ReqStudio</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,7 +31,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>aun_postman</string>
+	<string>aun_reqstudio</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

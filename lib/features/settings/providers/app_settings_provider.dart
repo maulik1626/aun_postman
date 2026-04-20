@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:aun_postman/core/constants/app_constants.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';

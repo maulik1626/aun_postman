@@ -1,6 +1,6 @@
-import 'package:aun_postman/domain/enums/ws_composer_format.dart';
-import 'package:aun_postman/domain/models/ws_saved_compose_message.dart';
-import 'package:aun_postman/infrastructure/ws_saved_compose_repository.dart';
+import 'package:aun_reqstudio/domain/enums/ws_composer_format.dart';
+import 'package:aun_reqstudio/domain/models/ws_saved_compose_message.dart';
+import 'package:aun_reqstudio/infrastructure/ws_saved_compose_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 

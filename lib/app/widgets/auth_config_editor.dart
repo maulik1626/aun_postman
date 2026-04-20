@@ -1,6 +1,6 @@
-import 'package:aun_postman/core/utils/oauth2_token_client.dart';
-import 'package:aun_postman/domain/enums/auth_type.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/core/utils/oauth2_token_client.dart';
+import 'package:aun_reqstudio/domain/enums/auth_type.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
 import 'package:flutter/cupertino.dart';
 
 AuthType authTypeFromConfig(AuthConfig auth) => switch (auth) {

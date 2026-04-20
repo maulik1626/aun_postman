@@ -1,14 +1,15 @@
-import 'package:aun_postman/core/utils/request_name_from_url.dart';
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
-import 'package:aun_postman/domain/models/test_assertion.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
-import 'package:aun_postman/infrastructure/collection_repository.dart';
+import 'package:aun_reqstudio/core/utils/request_name_from_url.dart';
+import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/test_assertion.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/infrastructure/collection_repository.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -68,9 +69,12 @@ class RequestBuilder extends _$RequestBuilder {
       state = state.copyWith(method: method, isDirty: true);
 
   void setUrl(String url) {
+    final parts = UrlQuerySync.splitUrlParts(url);
+    final newParams = UrlQuerySync.parseRawQueryToRequestParams(parts.rawQuery);
     final suggested = suggestRequestNameFromUrl(url);
     state = state.copyWith(
       url: url,
+      params: newParams,
       isDirty: true,
       name: state.isRequestNameUserLocked ? state.name : suggested,
     );
@@ -97,8 +101,16 @@ class RequestBuilder extends _$RequestBuilder {
     setName(trimmed);
   }
 
-  void setParams(List<RequestParam> params) =>
-      state = state.copyWith(params: params, isDirty: true);
+  void setParams(List<RequestParam> params) {
+    final parts = UrlQuerySync.splitUrlParts(state.url);
+    final rawQuery = UrlQuerySync.buildEncodedQuery(params);
+    final newUrl = UrlQuerySync.joinUrlParts(
+      prefix: parts.prefix,
+      rawQuery: rawQuery,
+      fragment: parts.fragment,
+    );
+    state = state.copyWith(url: newUrl, params: params, isDirty: true);
+  }
 
   void setHeaders(List<RequestHeader> headers) =>
       state = state.copyWith(headers: headers, isDirty: true);
@@ -120,10 +132,14 @@ class RequestBuilder extends _$RequestBuilder {
 
   /// Replace tab fields from cURL import; clears replay/pre-request maps; new unsaved request.
   void applyImportedHttpRequest(HttpRequest parsed) {
+    final synced = UrlQuerySync.canonicalizeUrlAndParams(
+      parsed.url,
+      parsed.params,
+    );
     state = state.copyWith(
       method: parsed.method,
-      url: parsed.url,
-      params: parsed.params,
+      url: synced.url,
+      params: synced.params,
       headers: parsed.headers,
       body: parsed.body,
       auth: parsed.auth,
@@ -141,10 +157,14 @@ class RequestBuilder extends _$RequestBuilder {
     HttpRequest request, {
     Map<String, String>? replayVariableSnapshot,
   }) {
+    final synced = UrlQuerySync.canonicalizeUrlAndParams(
+      request.url,
+      request.params,
+    );
     state = RequestBuilderState(
       method: request.method,
-      url: request.url,
-      params: request.params,
+      url: synced.url,
+      params: synced.params,
       headers: request.headers,
       body: request.body,
       auth: request.auth,

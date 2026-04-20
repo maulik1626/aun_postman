@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/models/http_response.dart';
-import 'package:aun_postman/domain/models/test_assertion.dart';
+import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/domain/models/test_assertion.dart';
 
 class TestResult {
   const TestResult({

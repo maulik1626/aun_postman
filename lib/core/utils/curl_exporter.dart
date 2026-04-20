@@ -1,8 +1,9 @@
-import 'package:aun_postman/core/utils/json_comment_stripper.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
+import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
+import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
 
 class CurlExporter {
   /// [defaultHeaders] are merged before [request.headers]; the request wins on same name.
@@ -13,14 +14,7 @@ class CurlExporter {
     final parts = <String>['curl'];
     parts.add("-X '${request.method.value}'");
 
-    // URL with params
-    var url = request.url;
-    final enabledParams = request.params.where((p) => p.isEnabled).toList();
-    if (enabledParams.isNotEmpty) {
-      final query =
-          enabledParams.map((p) => '${_enc(p.key)}=${_enc(p.value)}').join('&');
-      url = url.contains('?') ? '$url&$query' : '$url?$query';
-    }
+    final url = UrlQuerySync.urlForHttpCall(request.url, request.params);
     parts.add("'$url'");
 
     // Auth headers

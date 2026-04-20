@@ -1,7 +1,7 @@
-import 'package:aun_postman/core/errors/app_exception.dart';
-import 'package:aun_postman/data/local/daos/ws_saved_compose_dao.dart';
-import 'package:aun_postman/data/local/hive_service.dart';
-import 'package:aun_postman/domain/models/ws_saved_compose_message.dart';
+import 'package:aun_reqstudio/core/errors/app_exception.dart';
+import 'package:aun_reqstudio/data/local/daos/ws_saved_compose_dao.dart';
+import 'package:aun_reqstudio/data/local/hive_service.dart';
+import 'package:aun_reqstudio/domain/models/ws_saved_compose_message.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'ws_saved_compose_repository.g.dart';

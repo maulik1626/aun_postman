@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/enums/ws_composer_format.dart';
+import 'package:aun_reqstudio/domain/enums/ws_composer_format.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'ws_saved_compose_message.freezed.dart';

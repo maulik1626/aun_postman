@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/enums/auth_type.dart';
+import 'package:aun_reqstudio/domain/enums/auth_type.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'auth_config.freezed.dart';

@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/json_auto_repair.dart';
-import 'package:aun_postman/core/utils/json_comment_stripper.dart';
-import 'package:aun_postman/domain/enums/body_type.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/features/request_builder/widgets/form_data_fields_editor.dart';
-import 'package:aun_postman/features/request_builder/widgets/key_value_editor.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/json_auto_repair.dart';
+import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
+import 'package:aun_reqstudio/domain/enums/body_type.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/form_data_fields_editor.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/key_value_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';

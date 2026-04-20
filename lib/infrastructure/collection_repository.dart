@@ -1,7 +1,7 @@
-import 'package:aun_postman/core/errors/app_exception.dart';
-import 'package:aun_postman/data/local/daos/collection_dao.dart';
-import 'package:aun_postman/data/local/hive_service.dart';
-import 'package:aun_postman/domain/models/collection.dart';
+import 'package:aun_reqstudio/core/errors/app_exception.dart';
+import 'package:aun_reqstudio/data/local/daos/collection_dao.dart';
+import 'package:aun_reqstudio/data/local/hive_service.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'collection_repository.g.dart';

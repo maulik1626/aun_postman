@@ -1,15 +1,16 @@
 import 'dart:convert';
 
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/history_entry.dart';
-import 'package:aun_postman/domain/models/ws_saved_compose_message.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/domain/models/ws_saved_compose_message.dart';
 
-/// Single-file backup of local app data (not Postman-compatible).
+/// Single-file backup of local app data (app-native format, not collection v2.1).
 class AppBackup {
   AppBackup._();
 
-  static const format = 'aun_postman_backup';
+  static const format = 'aun_reqstudio_backup';
+  static const legacyFormat = 'aun_postman_backup';
   static const version = 1;
 
   static String buildJson({
@@ -37,8 +38,9 @@ class AppBackup {
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Backup must be a JSON object');
     }
-    if (decoded['format'] != format) {
-      throw const FormatException('Not an Aun Postman backup file');
+    final f = decoded['format'];
+    if (f != format && f != legacyFormat) {
+      throw const FormatException('Not a ReqStudio backup file');
     }
     final v = decoded['version'];
     if (v is! int || v != version) {

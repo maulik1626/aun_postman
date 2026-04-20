@@ -1,7 +1,7 @@
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/infrastructure/collection_repository.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/infrastructure/collection_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -93,9 +93,9 @@ class Collections extends _$Collections {
     ref.invalidateSelf();
   }
 
-  /// Merges Postman top-level folders and root requests into [collectionUid],
+  /// Merges imported top-level folders and root requests into [collectionUid],
   /// either at collection root or inside [parentFolderUid].
-  Future<void> mergePostmanFragment({
+  Future<void> mergeCollectionFragment({
     required String collectionUid,
     String? parentFolderUid,
     required List<Folder> folders,
@@ -135,7 +135,7 @@ class Collections extends _$Collections {
       return;
     }
 
-    final merged = _insertPostmanFragmentIntoFolder(
+    final merged = _insertCollectionFragmentIntoFolder(
       src,
       parentFolderUid,
       folders,
@@ -191,7 +191,7 @@ HttpRequest _remapRequestForMerge(
   );
 }
 
-Collection _insertPostmanFragmentIntoFolder(
+Collection _insertCollectionFragmentIntoFolder(
   Collection c,
   String parentFolderUid,
   List<Folder> folders,
@@ -199,7 +199,7 @@ Collection _insertPostmanFragmentIntoFolder(
   DateTime now,
 ) {
   return c.copyWith(
-    folders: _mergePostmanIntoFolderBranch(
+    folders: _mergeCollectionIntoFolderBranch(
       c.folders,
       parentFolderUid,
       folders,
@@ -211,7 +211,7 @@ Collection _insertPostmanFragmentIntoFolder(
   );
 }
 
-List<Folder> _mergePostmanIntoFolderBranch(
+List<Folder> _mergeCollectionIntoFolderBranch(
   List<Folder> folders,
   String targetUid,
   List<Folder> toAddFolders,
@@ -245,7 +245,7 @@ List<Folder> _mergePostmanIntoFolderBranch(
     }
     if (f.subFolders.isEmpty) return f;
     return f.copyWith(
-      subFolders: _mergePostmanIntoFolderBranch(
+      subFolders: _mergeCollectionIntoFolderBranch(
         f.subFolders,
         targetUid,
         toAddFolders,

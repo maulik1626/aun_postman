@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/enums/ws_message_direction.dart';
-import 'package:aun_postman/domain/enums/ws_payload_kind.dart';
+import 'package:aun_reqstudio/domain/enums/ws_message_direction.dart';
+import 'package:aun_reqstudio/domain/enums/ws_payload_kind.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'websocket_message.freezed.dart';

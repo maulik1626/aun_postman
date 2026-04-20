@@ -1,5 +1,5 @@
-import 'package:aun_postman/domain/enums/auth_type.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/enums/auth_type.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
 import 'package:dio/dio.dart';
 
 /// Fetches OAuth 2.0 access tokens (client credentials or password grant).

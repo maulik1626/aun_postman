@@ -7,7 +7,7 @@ part of 'websocket_session_provider.dart';
 // **************************************************************************
 
 String _$webSocketSessionNotifierHash() =>
-    r'0e62259bcc24a0ea5fbc9199db4e70a5cfd26c92';
+    r'8ce2eb9627799e177a8a876a4343e3b8db3b36ce';
 
 /// Copied from Dart SDK
 class _SystemHash {

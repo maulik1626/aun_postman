@@ -1,6 +1,6 @@
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/features/request_builder/widgets/key_value_editor.dart';
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/key_value_editor.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

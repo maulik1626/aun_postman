@@ -1,20 +1,20 @@
 import 'dart:io';
 
-import 'package:aun_postman/app/router/app_routes.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/app_haptics.dart';
-import 'package:aun_postman/core/utils/postman_v2_exporter.dart';
-import 'package:aun_postman/core/utils/postman_v2_importer.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/environment_variable.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
-import 'package:aun_postman/features/environments/providers/environments_provider.dart';
-import 'package:aun_postman/features/collections/widgets/collection_tree_dnd.dart';
-import 'package:aun_postman/features/collections/widgets/method_badge.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/app_haptics.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
+import 'package:aun_reqstudio/core/utils/collection_v2_importer.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/environment_variable.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/collections/widgets/collection_tree_dnd.dart';
+import 'package:aun_reqstudio/features/collections/widgets/method_badge.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -178,12 +178,12 @@ class _CollectionDetailScreenState
     }
   }
 
-  List<PostmanV2FragmentEntry> _buildFragmentExportEntries(Collection c) {
-    final out = <PostmanV2FragmentEntry>[];
+  List<CollectionV21FragmentEntry> _buildFragmentExportEntries(Collection c) {
+    final out = <CollectionV21FragmentEntry>[];
     _forEachEffectiveSelection(
       c,
-      onFolder: (f) => out.add(PostmanV2FragmentFolder(f)),
-      onRequest: (r) => out.add(PostmanV2FragmentRequest(r)),
+      onFolder: (f) => out.add(CollectionV21FragmentFolder(f)),
+      onRequest: (r) => out.add(CollectionV21FragmentRequest(r)),
     );
     return out;
   }
@@ -207,12 +207,12 @@ class _CollectionDetailScreenState
     if (entries.isEmpty) return;
     final title = entries.length == 1
         ? switch (entries.first) {
-            PostmanV2FragmentFolder(:final folder) => folder.name,
-            PostmanV2FragmentRequest(:final request) => request.name,
+            CollectionV21FragmentFolder(:final folder) => folder.name,
+            CollectionV21FragmentRequest(:final request) => request.name,
           }
         : '${collection.name} (${entries.length} items)';
     try {
-      final json = PostmanV2Exporter.exportFragment(
+      final json = CollectionV21Exporter.exportFragment(
         title: title,
         description: 'Exported from ${collection.name}',
         entries: entries,
@@ -226,7 +226,7 @@ class _CollectionDetailScreenState
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: '$title — Postman',
+        subject: '$title — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
       _exitSelectionMode();
@@ -319,10 +319,10 @@ class _CollectionDetailScreenState
 
   Future<void> _exportSingleFolder(Collection collection, Folder folder) async {
     try {
-      final json = PostmanV2Exporter.exportFragment(
+      final json = CollectionV21Exporter.exportFragment(
         title: folder.name,
         description: 'Exported from ${collection.name}',
-        entries: [PostmanV2FragmentFolder(folder)],
+        entries: [CollectionV21FragmentFolder(folder)],
       );
       final dir = await getTemporaryDirectory();
       final safe = folder.name
@@ -334,7 +334,7 @@ class _CollectionDetailScreenState
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: '${folder.name} — Postman',
+        subject: '${folder.name} — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
     } catch (e) {
@@ -349,10 +349,10 @@ class _CollectionDetailScreenState
 
   Future<void> _exportSingleRequest(Collection collection, HttpRequest request) async {
     try {
-      final json = PostmanV2Exporter.exportFragment(
+      final json = CollectionV21Exporter.exportFragment(
         title: request.name,
         description: 'Exported from ${collection.name}',
-        entries: [PostmanV2FragmentRequest(request)],
+        entries: [CollectionV21FragmentRequest(request)],
       );
       final dir = await getTemporaryDirectory();
       final safe = request.name
@@ -364,7 +364,7 @@ class _CollectionDetailScreenState
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/json')],
-        subject: '${request.name} — Postman',
+        subject: '${request.name} — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
     } catch (e) {
@@ -377,7 +377,7 @@ class _CollectionDetailScreenState
     }
   }
 
-  Future<void> _importPostmanFragment(
+  Future<void> _importCollectionFragment(
     Collection collection, {
     required String? parentFolderUid,
   }) async {
@@ -389,14 +389,14 @@ class _CollectionDetailScreenState
     if (result == null || result.files.single.path == null) return;
     try {
       final content = await File(result.files.single.path!).readAsString();
-      final fragment = PostmanV2Importer.importFragment(content);
-      await ref.read(collectionsProvider.notifier).mergePostmanFragment(
+      final fragment = CollectionV21Importer.importFragment(content);
+      await ref.read(collectionsProvider.notifier).mergeCollectionFragment(
             collectionUid: collection.uid,
             parentFolderUid: parentFolderUid,
             folders: fragment.folders,
             rootRequests: fragment.rootRequests,
           );
-      final varNames = PostmanV2Importer.extractVariableNames(content);
+      final varNames = CollectionV21Importer.extractVariableNames(content);
       if (varNames.isNotEmpty) {
         final now = DateTime.now();
         final environment = Environment(
@@ -591,7 +591,7 @@ class _CollectionDetailScreenState
                         CupertinoButton(
                           padding: EdgeInsets.zero,
                           minSize: 44,
-                          onPressed: () => _importPostmanFragment(
+                          onPressed: () => _importCollectionFragment(
                             collection,
                             parentFolderUid: null,
                           ),
@@ -739,7 +739,7 @@ class _CollectionDetailScreenState
                                   const SizedBox(height: 12),
                                   AppGradientButton.secondary(
                                     fullWidth: true,
-                                    onPressed: () => _importPostmanFragment(
+                                    onPressed: () => _importCollectionFragment(
                                       collection,
                                       parentFolderUid: null,
                                     ),
@@ -752,7 +752,7 @@ class _CollectionDetailScreenState
                                           size: 18,
                                         ),
                                         SizedBox(width: 8),
-                                        Text('Import Postman JSON'),
+                                        Text('Import collection JSON'),
                                       ],
                                     ),
                                   ),
@@ -958,7 +958,7 @@ class _CollectionDetailScreenState
             collection,
             parentUid: folder.uid,
           ),
-          onImportPostman: () => _importPostmanFragment(
+          onImportCollectionJson: () => _importCollectionFragment(
             collection,
             parentFolderUid: folder.uid,
           ),
@@ -1186,7 +1186,7 @@ class _CollectionDetailScreenState
         onRename: () =>
             _showRenameRequestDialog(context, collection, request, null),
         onMove: () => _showMoveDialog(collection, request, null),
-        onExportPostman: () => _exportSingleRequest(collection, request),
+        onExportCollectionJson: () => _exportSingleRequest(collection, request),
         onLongPressSelect: () =>
             _longPressEnterSelectionForRequest(request.uid),
       ),
@@ -1234,7 +1234,7 @@ class _CollectionDetailScreenState
         onRename: () =>
             _showRenameRequestDialog(context, collection, request, folder.uid),
         onMove: () => _showMoveDialog(collection, request, folder.uid),
-        onExportPostman: () => _exportSingleRequest(collection, request),
+        onExportCollectionJson: () => _exportSingleRequest(collection, request),
         onLongPressSelect: () =>
             _longPressEnterSelectionForRequest(request.uid),
       ),
@@ -2465,7 +2465,7 @@ class _FolderHeader extends StatelessWidget {
     required this.onDelete,
     required this.onAddRequest,
     required this.onAddSubFolder,
-    required this.onImportPostman,
+    required this.onImportCollectionJson,
     required this.onExportFolder,
     required this.onLongPressSelect,
   });
@@ -2485,7 +2485,7 @@ class _FolderHeader extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onAddRequest;
   final VoidCallback onAddSubFolder;
-  final VoidCallback onImportPostman;
+  final VoidCallback onImportCollectionJson;
   final VoidCallback onExportFolder;
   final VoidCallback onLongPressSelect;
 
@@ -2715,14 +2715,14 @@ class _FolderHeader extends StatelessWidget {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              onImportPostman();
+              onImportCollectionJson();
             },
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(CupertinoIcons.arrow_down_doc),
                 SizedBox(width: 8),
-                Text('Import Postman JSON…'),
+                Text('Import collection JSON…'),
               ],
             ),
           ),
@@ -2736,7 +2736,7 @@ class _FolderHeader extends StatelessWidget {
               children: [
                 Icon(CupertinoIcons.share_up),
                 SizedBox(width: 8),
-                Text('Export Postman JSON…'),
+                Text('Export collection JSON…'),
               ],
             ),
           ),
@@ -2793,7 +2793,7 @@ class _RequestRow extends StatelessWidget {
     required this.onDuplicate,
     required this.onRename,
     required this.onMove,
-    required this.onExportPostman,
+    required this.onExportCollectionJson,
     required this.onLongPressSelect,
   });
 
@@ -2812,7 +2812,7 @@ class _RequestRow extends StatelessWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onRename;
   final VoidCallback onMove;
-  final VoidCallback onExportPostman;
+  final VoidCallback onExportCollectionJson;
   final VoidCallback onLongPressSelect;
 
   void _showRequestContextMenu(BuildContext context) {
@@ -2866,14 +2866,14 @@ class _RequestRow extends StatelessWidget {
           CupertinoActionSheetAction(
             onPressed: () {
               Navigator.pop(ctx);
-              onExportPostman();
+              onExportCollectionJson();
             },
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(CupertinoIcons.share_up),
                 SizedBox(width: 8),
-                Text('Export Postman JSON…'),
+                Text('Export collection JSON…'),
               ],
             ),
           ),

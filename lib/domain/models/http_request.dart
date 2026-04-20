@@ -1,9 +1,9 @@
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/auth_config.dart';
-import 'package:aun_postman/domain/models/key_value_pair.dart';
-import 'package:aun_postman/domain/models/request_body.dart';
-import 'package:aun_postman/domain/models/http_request_assertions_json.dart';
-import 'package:aun_postman/domain/models/test_assertion.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/auth_config.dart';
+import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
+import 'package:aun_reqstudio/domain/models/request_body.dart';
+import 'package:aun_reqstudio/domain/models/http_request_assertions_json.dart';
+import 'package:aun_reqstudio/domain/models/test_assertion.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'http_request.freezed.dart';

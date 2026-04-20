@@ -1,7 +1,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'Postman';
+  static const String appName = 'AUN - ReqStudio';
   static const String dbName = 'aun_postman_db';
   static const int defaultTimeoutSeconds = 30;
   static const int maxHistoryEntries = 500;

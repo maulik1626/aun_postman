@@ -80,7 +80,7 @@ class UserNotification {
             presentList: true,
             presentSound: true,
             presentBadge: false,
-            threadIdentifier: 'aun_postman_user',
+            threadIdentifier: 'aun_reqstudio_user',
           ),
         ),
       );

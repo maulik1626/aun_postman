@@ -1,4 +1,4 @@
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

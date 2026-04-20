@@ -1,4 +1,4 @@
-import 'package:aun_postman/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
 
 class MethodBadge extends StatelessWidget {

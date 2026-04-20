@@ -1,35 +1,36 @@
 import 'dart:async';
 
-import 'package:aun_postman/app/theme/app_colors.dart';
-import 'package:aun_postman/data/local/hive_service.dart';
-import 'package:aun_postman/data/local/request_builder_draft_storage.dart';
-import 'package:aun_postman/app/widgets/app_gradient_button.dart';
-import 'package:aun_postman/core/notifications/user_notification.dart';
-import 'package:aun_postman/core/utils/app_haptics.dart';
-import 'package:aun_postman/core/utils/curl_exporter.dart';
-import 'package:aun_postman/core/utils/curl_parser.dart';
-import 'package:aun_postman/core/utils/request_name_from_url.dart';
-import 'package:aun_postman/core/utils/variable_interpolator.dart';
-import 'package:aun_postman/domain/enums/http_method.dart';
-import 'package:aun_postman/domain/models/collection.dart';
-import 'package:aun_postman/domain/models/environment.dart';
-import 'package:aun_postman/domain/models/folder.dart';
-import 'package:aun_postman/domain/models/history_entry.dart';
-import 'package:aun_postman/domain/models/http_request.dart';
-import 'package:aun_postman/features/collections/providers/collections_provider.dart';
-import 'package:aun_postman/features/history/providers/history_provider.dart';
-import 'package:aun_postman/features/environments/providers/active_environment_provider.dart';
-import 'package:aun_postman/features/environments/providers/environments_provider.dart';
-import 'package:aun_postman/features/request_builder/providers/request_builder_provider.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/data/local/hive_service.dart';
+import 'package:aun_reqstudio/data/local/request_builder_draft_storage.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/utils/app_haptics.dart';
+import 'package:aun_reqstudio/core/utils/curl_exporter.dart';
+import 'package:aun_reqstudio/core/utils/curl_parser.dart';
+import 'package:aun_reqstudio/core/utils/request_name_from_url.dart';
+import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
+import 'package:aun_reqstudio/core/utils/variable_interpolator.dart';
+import 'package:aun_reqstudio/domain/enums/http_method.dart';
+import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/environment.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
+import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/domain/models/http_request.dart';
+import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/active_environment_provider.dart';
+import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_builder_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:aun_postman/features/request_builder/providers/request_execution_provider.dart';
-import 'package:aun_postman/features/settings/providers/app_settings_provider.dart';
-import 'package:aun_postman/features/request_builder/tabs/auth_tab.dart';
-import 'package:aun_postman/features/request_builder/tabs/body_tab.dart';
-import 'package:aun_postman/features/request_builder/tabs/headers_tab.dart';
-import 'package:aun_postman/features/request_builder/tabs/params_tab.dart';
-import 'package:aun_postman/features/request_builder/tabs/tests_tab.dart';
-import 'package:aun_postman/features/response_viewer/response_viewer_sheet.dart';
+import 'package:aun_reqstudio/features/request_builder/providers/request_execution_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/features/request_builder/tabs/auth_tab.dart';
+import 'package:aun_reqstudio/features/request_builder/tabs/body_tab.dart';
+import 'package:aun_reqstudio/features/request_builder/tabs/headers_tab.dart';
+import 'package:aun_reqstudio/features/request_builder/tabs/params_tab.dart';
+import 'package:aun_reqstudio/features/request_builder/tabs/tests_tab.dart';
+import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,7 +118,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
             toLoad,
             replayVariableSnapshot: snapshot,
           );
-      _urlController.text = opened.request.url;
+      _urlController.text = ref.read(requestBuilderProvider).url;
     });
   }
 
@@ -227,8 +228,16 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
       final restored =
           RequestBuilderDraftStorage.tryLoad(box, _draftScope());
       if (restored != null) {
-        ref.read(requestBuilderProvider.notifier).state = restored;
-        _urlController.text = restored.url;
+        final c = UrlQuerySync.canonicalizeUrlAndParams(
+          restored.url,
+          restored.params,
+        );
+        // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
+        ref.read(requestBuilderProvider.notifier).state = restored.copyWith(
+          url: c.url,
+          params: c.params,
+        );
+        _urlController.text = c.url;
         return;
       }
     }
@@ -258,7 +267,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     if (req == null) return;
 
     ref.read(requestBuilderProvider.notifier).loadFromRequest(req);
-    _urlController.text = req.url;
+    _urlController.text = ref.read(requestBuilderProvider).url;
   }
 
   /// Title for nav bar when replaying history: prefer stored name, else collection
@@ -434,6 +443,13 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     });
     ref.listen(requestBuilderProvider, (prev, next) {
       _scheduleDraftSave(next);
+    });
+    ref.listen(requestBuilderProvider.select((s) => s.url), (prev, next) {
+      if (!mounted) return;
+      if (!_urlFocusNode.hasFocus && _urlController.text != next) {
+        _urlController.text = next;
+        setState(() {});
+      }
     });
 
     _cachedRequestAutoSave = ref.watch(appSettingsProvider).requestAutoSave;
@@ -1582,7 +1598,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     }
     if (!mounted) return;
     ref.read(requestBuilderProvider.notifier).applyImportedHttpRequest(parsed);
-    _urlController.text = parsed.url;
+    _urlController.text = ref.read(requestBuilderProvider).url;
     setState(() {});
     if (!mounted) return;
     await UserNotification.show(

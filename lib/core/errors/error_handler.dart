@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:aun_postman/core/errors/app_exception.dart';
+import 'package:aun_reqstudio/core/errors/app_exception.dart';
 import 'package:dio/dio.dart';
 
 class ErrorHandler {

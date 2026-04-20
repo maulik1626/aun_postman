@@ -1,4 +1,4 @@
-import 'package:aun_postman/domain/enums/ws_composer_format.dart';
+import 'package:aun_reqstudio/domain/enums/ws_composer_format.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'ws_composer_draft_provider.g.dart';
