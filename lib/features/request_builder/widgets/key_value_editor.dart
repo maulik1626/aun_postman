@@ -1,3 +1,4 @@
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
 
 class KeyValueRow {
@@ -103,6 +104,193 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
     _notify();
   }
 
+  String _rowsToBulkText() {
+    return _rows
+        .where((r) =>
+            r.keyController.text.trim().isNotEmpty ||
+            r.valueController.text.trim().isNotEmpty)
+        .map((r) => '${r.keyController.text}:${r.valueController.text}')
+        .join('\n');
+  }
+
+  List<KeyValueRow> _parseBulkRows(String raw) {
+    final parsed = <KeyValueRow>[];
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final tabIndex = trimmed.indexOf('\t');
+      final colonIndex = trimmed.indexOf(':');
+      final eqIndex = trimmed.indexOf('=');
+      var splitAt = -1;
+      if (tabIndex > 0) {
+        splitAt = tabIndex;
+      } else if (colonIndex > 0 && (eqIndex <= 0 || colonIndex < eqIndex)) {
+        splitAt = colonIndex;
+      } else if (eqIndex > 0) {
+        splitAt = eqIndex;
+      }
+      if (splitAt <= 0) {
+        parsed.add(KeyValueRow(key: trimmed));
+        continue;
+      }
+      parsed.add(
+        KeyValueRow(
+          key: trimmed.substring(0, splitAt).trim(),
+          value: trimmed.substring(splitAt + 1).trim(),
+        ),
+      );
+    }
+    return parsed.isEmpty ? [KeyValueRow()] : parsed;
+  }
+
+  Future<void> _showBulkEditor() async {
+    final controller = TextEditingController(text: _rowsToBulkText());
+    final result = await showCupertinoModalPopup<bool>(
+      context: context,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: EdgeInsets.only(
+          top: 20,
+          bottom:
+              MediaQuery.of(ctx).viewInsets.bottom +
+              MediaQuery.of(ctx).padding.bottom +
+              16,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(ctx).unfocus(),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.separator.resolveFrom(ctx),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'Bulk Edit',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: CupertinoTextField(
+                    controller: controller,
+                    maxLines: 12,
+                    minLines: 8,
+                    style: const TextStyle(
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 14,
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    placeholder: 'Content-Type:application/json',
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.tertiarySystemBackground
+                          .resolveFrom(ctx),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Text(
+                    'Use one line per row. Separators: tab, ":" or "=".',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(ctx),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx, true),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.ctaGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Apply',
+                            style: TextStyle(
+                              color: CupertinoColors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              ctx,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.dispose();
+      });
+      return;
+    }
+    if (result == true) {
+      final nextRows = _parseBulkRows(controller.text);
+      final previousRows = _rows;
+      setState(() {
+        _rows = nextRows;
+      });
+      _notify();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final row in previousRows) {
+          row.dispose();
+        }
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+  }
+
   Widget _buildColumnHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -156,28 +344,56 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
   }
 
   Widget _buildAddRowButton(BuildContext context) {
-    return CupertinoButton(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      onPressed: _addRow,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            CupertinoIcons.add_circled,
-            size: 16,
-            color: CupertinoTheme.of(context).primaryColor,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          onPressed: _addRow,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.add_circled,
+                size: 16,
+                color: CupertinoTheme.of(context).primaryColor,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Add Row',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: CupertinoTheme.of(context).primaryColor,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 6),
-          Text(
-            'Add Row',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: CupertinoTheme.of(context).primaryColor,
-            ),
+        ),
+        CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          onPressed: _showBulkEditor,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                CupertinoIcons.pencil,
+                size: 16,
+                color: CupertinoTheme.of(context).primaryColor,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Bulk Edit',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: CupertinoTheme.of(context).primaryColor,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

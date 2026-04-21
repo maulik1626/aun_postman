@@ -51,12 +51,14 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                   const SizedBox(height: 20),
                   const Text(
                     'No Environments',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Create environments to manage variables',
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, color: secondary),
                   ),
                   const SizedBox(height: 28),

@@ -471,6 +471,7 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 20),
           const Text(
             'No Collections',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),

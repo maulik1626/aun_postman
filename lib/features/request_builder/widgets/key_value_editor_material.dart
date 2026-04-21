@@ -1,4 +1,5 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:flutter/material.dart';
 
 class KeyValueRow {
@@ -106,6 +107,155 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
     _notify();
   }
 
+  String _rowsToBulkText() {
+    return _rows
+        .where((r) =>
+            r.keyController.text.trim().isNotEmpty ||
+            r.valueController.text.trim().isNotEmpty)
+        .map((r) => '${r.keyController.text}:${r.valueController.text}')
+        .join('\n');
+  }
+
+  List<KeyValueRow> _parseBulkRows(String raw) {
+    final parsed = <KeyValueRow>[];
+    for (final line in raw.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      final tabIndex = trimmed.indexOf('\t');
+      final colonIndex = trimmed.indexOf(':');
+      final eqIndex = trimmed.indexOf('=');
+      var splitAt = -1;
+      if (tabIndex > 0) {
+        splitAt = tabIndex;
+      } else if (colonIndex > 0 && (eqIndex <= 0 || colonIndex < eqIndex)) {
+        splitAt = colonIndex;
+      } else if (eqIndex > 0) {
+        splitAt = eqIndex;
+      }
+      if (splitAt <= 0) {
+        parsed.add(KeyValueRow(key: trimmed));
+        continue;
+      }
+      parsed.add(
+        KeyValueRow(
+          key: trimmed.substring(0, splitAt).trim(),
+          value: trimmed.substring(splitAt + 1).trim(),
+        ),
+      );
+    }
+    return parsed.isEmpty ? [KeyValueRow()] : parsed;
+  }
+
+  Future<void> _showBulkEditor() async {
+    final controller = TextEditingController(text: _rowsToBulkText());
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: SafeArea(
+          top: false,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(ctx).unfocus(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 4),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    child: Text(
+                      'Bulk Edit',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: controller,
+                      maxLines: 12,
+                      minLines: 8,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 14,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Content-Type:application/json',
+                        labelText: 'Entries',
+                        helperText:
+                            'One line per row. Use tab, ":" or "=" separators.',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppGradientButton.material(
+                          fullWidth: true,
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Apply'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        controller.dispose();
+      });
+      return;
+    }
+    if (result == true) {
+      final nextRows = _parseBulkRows(controller.text);
+      final previousRows = _rows;
+      setState(() {
+        _rows = nextRows;
+      });
+      _notify();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final row in previousRows) {
+          row.dispose();
+        }
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.dispose();
+    });
+  }
+
   Widget _buildColumnHeader(BuildContext context) {
     final secondary = Theme.of(context)
         .colorScheme
@@ -158,17 +308,34 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
   }
 
   Widget _buildAddRowButton(BuildContext context) {
-    return TextButton.icon(
-      onPressed: _addRow,
-      icon: const Icon(Icons.add_circle_outline, size: 16),
-      label: const Text(
-        'Add Row',
-        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      ),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.seedColor,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton.icon(
+          onPressed: _addRow,
+          icon: const Icon(Icons.add_circle_outline, size: 16),
+          label: const Text(
+            'Add Row',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.seedColor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: _showBulkEditor,
+          icon: const Icon(Icons.edit_note, size: 16),
+          label: const Text(
+            'Bulk Edit',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.seedColor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          ),
+        ),
+      ],
     );
   }
 

@@ -94,12 +94,14 @@ class _HistoryScreenMaterialState
                   const SizedBox(height: 20),
                   const Text(
                     'No History',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Send requests to see them here',
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, color: secondary),
                   ),
                 ],
@@ -129,12 +131,14 @@ class _HistoryScreenMaterialState
                   const SizedBox(height: 20),
                   Text(
                     'No results for "$_query"',
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                         fontSize: 22, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Try a different URL, method, or status code',
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 15, color: secondary),
                   ),
                 ],

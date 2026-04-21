@@ -114,10 +114,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.openedFromHistory?.uid != openedUid) return;
-      ref.read(requestBuilderProvider.notifier).loadFromRequest(
-            toLoad,
-            replayVariableSnapshot: snapshot,
-          );
+      ref
+          .read(requestBuilderProvider.notifier)
+          .loadFromRequest(toLoad, replayVariableSnapshot: snapshot);
       _urlController.text = ref.read(requestBuilderProvider).url;
     });
   }
@@ -127,7 +126,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     super.didUpdateWidget(oldWidget);
     if (widget.openedFromHistory == null) {
       _appliedHistoryEntryUid = null;
-    } else if (widget.openedFromHistory?.uid != oldWidget.openedFromHistory?.uid) {
+    } else if (widget.openedFromHistory?.uid !=
+        oldWidget.openedFromHistory?.uid) {
       _appliedHistoryEntryUid = null;
     }
   }
@@ -141,10 +141,10 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
   }
 
   String _draftScope() => RequestBuilderDraftStorage.scopeKey(
-        collectionUid: widget.collectionUid,
-        requestUid: widget.requestUid,
-        folderUid: widget.folderUid,
-      );
+    collectionUid: widget.collectionUid,
+    requestUid: widget.requestUid,
+    folderUid: widget.folderUid,
+  );
 
   Future<void> _persistDraftImmediate() async {
     if (!_cachedRequestAutoSave) return;
@@ -164,7 +164,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
   }
 
   Future<void> _saveToCollectionAndClearDraft(String collectionUid) async {
-    await ref.read(requestBuilderProvider.notifier).saveToCollection(collectionUid);
+    await ref
+        .read(requestBuilderProvider.notifier)
+        .saveToCollection(collectionUid);
     final box = ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
     await RequestBuilderDraftStorage.clear(box, _draftScope());
   }
@@ -225,8 +227,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
 
     if (ref.read(appSettingsProvider).requestAutoSave) {
       final box = ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
-      final restored =
-          RequestBuilderDraftStorage.tryLoad(box, _draftScope());
+      final restored = RequestBuilderDraftStorage.tryLoad(box, _draftScope());
       if (restored != null) {
         final c = UrlQuerySync.canonicalizeUrlAndParams(
           restored.url,
@@ -283,7 +284,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     if (colUid != null && colUid != 'history') {
       final col = collections.where((c) => c.uid == colUid).firstOrNull;
       if (col != null) {
-        final found = col.requests.where((r) => r.uid == request.uid).firstOrNull ??
+        final found =
+            col.requests.where((r) => r.uid == request.uid).firstOrNull ??
             _findInFolders(col.folders, request.uid);
         if (found != null) {
           final cn = found.name.trim();
@@ -328,8 +330,10 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
       env: activeEnv,
     );
     final req = _interpolator.interpolateRequestWithVariables(raw, vars);
-    final defaultHdrs =
-        _interpolator.interpolateHeadersWithVariables(settings.defaultHeaders, vars);
+    final defaultHdrs = _interpolator.interpolateHeadersWithVariables(
+      settings.defaultHeaders,
+      vars,
+    );
     final curl = CurlExporter.toCurl(req, defaultHeaders: defaultHdrs);
     await Clipboard.setData(ClipboardData(text: curl));
     if (!mounted) return;
@@ -491,541 +495,552 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
           behavior: HitTestBehavior.deferToChild,
           onTap: () => FocusScope.of(context).unfocus(),
           child: CustomScrollView(
-          // Toolbar slivers must stay fixed — tab content scrolls internally.
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          slivers: [
-            CupertinoSliverNavigationBar(
-              largeTitle: GestureDetector(
-                onTap: _showRenameDialog,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        state.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        softWrap: false,
+            // Toolbar slivers must stay fixed — tab content scrolls internally.
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              CupertinoSliverNavigationBar(
+                largeTitle: GestureDetector(
+                  onTap: _showRenameDialog,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          state.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          softWrap: false,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      CupertinoIcons.pencil,
-                      size: 16,
-                      color: CupertinoColors.secondaryLabel,
-                    ),
-                  ],
-                ),
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minSize: 44,
-                    onPressed: _copyAsCurl,
-                    child: Icon(
-                      CupertinoIcons.doc_on_clipboard,
-                      size: 22,
-                      color: CupertinoTheme.of(context).primaryColor,
-                    ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        CupertinoIcons.pencil,
+                        size: 16,
+                        color: CupertinoColors.secondaryLabel,
+                      ),
+                    ],
                   ),
-                  if (state.isDirty && state.collectionUid != null)
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       minSize: 44,
-                      onPressed: () {
-                        AppHaptics.light();
-                        unawaited(
-                          _saveToCollectionAndClearDraft(state.collectionUid!),
-                        );
-                      },
-                      child: Text(
-                        'Save',
-                        style: TextStyle(
-                          color: CupertinoTheme.of(context).primaryColor,
-                        ),
+                      onPressed: _copyAsCurl,
+                      child: Icon(
+                        CupertinoIcons.doc_on_clipboard,
+                        size: 22,
+                        color: CupertinoTheme.of(context).primaryColor,
                       ),
                     ),
-                ],
-              ),
-            ),
-
-            // URL Bar (+ history / collection suggestions when focused)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                // Same tap group as [CupertinoTextField] so suggestion taps are not
-                // treated as outside taps (avoids onTapOutside unfocus before onPressed).
-                child: TextFieldTapRegion(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          _MethodSelector(
-                            method: state.method,
-                            onChanged: (m) => ref
-                                .read(requestBuilderProvider.notifier)
-                                .setMethod(m),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: CupertinoTextField(
-                              focusNode: _urlFocusNode,
-                              controller: _urlController,
-                              style: const TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 13,
-                              ),
-                              placeholder: 'https://api.example.com/endpoint',
-                              placeholderStyle: const TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 13,
-                              ),
-                              onTapOutside: (_) =>
-                                  FocusManager.instance.primaryFocus?.unfocus(),
-                              decoration: BoxDecoration(
-                                color: CupertinoColors.tertiarySystemBackground
-                                    .resolveFrom(context),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              suffix: _urlController.text.isNotEmpty
-                                  ? CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      minSize: 24,
-                                      onPressed: () {
-                                        _urlController.clear();
-                                        ref
-                                            .read(
-                                              requestBuilderProvider.notifier,
-                                            )
-                                            .setUrl('');
-                                      },
-                                      child: const Icon(
-                                        CupertinoIcons.clear_circled,
-                                        size: 16,
-                                      ),
-                                    )
-                                  : null,
-                              onChanged: (v) {
-                                ref
-                                    .read(requestBuilderProvider.notifier)
-                                    .setUrl(v);
-                                setState(() {});
-                              },
-                              keyboardType: TextInputType.url,
-                              autocorrect: false,
+                    if (state.isDirty && state.collectionUid != null)
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minSize: 44,
+                        onPressed: () {
+                          AppHaptics.light();
+                          unawaited(
+                            _saveToCollectionAndClearDraft(
+                              state.collectionUid!,
                             ),
+                          );
+                        },
+                        child: Text(
+                          'Save',
+                          style: TextStyle(
+                            color: CupertinoTheme.of(context).primaryColor,
                           ),
-                        ],
+                        ),
                       ),
-                      if (showUrlSuggestions)
-                        Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          constraints: const BoxConstraints(maxHeight: 200),
-                          decoration: BoxDecoration(
-                            color: CupertinoColors
-                                .secondarySystemGroupedBackground
-                                .resolveFrom(context),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: CupertinoColors.separator.resolveFrom(
-                                context,
+                  ],
+                ),
+              ),
+
+              // URL Bar (+ history / collection suggestions when focused)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  // Same tap group as [CupertinoTextField] so suggestion taps are not
+                  // treated as outside taps (avoids onTapOutside unfocus before onPressed).
+                  child: TextFieldTapRegion(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            _MethodSelector(
+                              method: state.method,
+                              onChanged: (m) => ref
+                                  .read(requestBuilderProvider.notifier)
+                                  .setMethod(m),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CupertinoTextField(
+                                focusNode: _urlFocusNode,
+                                controller: _urlController,
+                                style: const TextStyle(
+                                  fontFamily: 'JetBrainsMono',
+                                  fontSize: 13,
+                                ),
+                                placeholder: 'https://api.example.com/endpoint',
+                                placeholderStyle: const TextStyle(
+                                  fontFamily: 'JetBrainsMono',
+                                  fontSize: 13,
+                                ),
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors
+                                      .tertiarySystemBackground
+                                      .resolveFrom(context),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                suffix: _urlController.text.isNotEmpty
+                                    ? CupertinoButton(
+                                        padding: EdgeInsets.zero,
+                                        minSize: 24,
+                                        onPressed: () {
+                                          _urlController.clear();
+                                          ref
+                                              .read(
+                                                requestBuilderProvider.notifier,
+                                              )
+                                              .setUrl('');
+                                        },
+                                        child: const Icon(
+                                          CupertinoIcons.clear_circled,
+                                          size: 16,
+                                        ),
+                                      )
+                                    : null,
+                                onChanged: (v) {
+                                  ref
+                                      .read(requestBuilderProvider.notifier)
+                                      .setUrl(v);
+                                  setState(() {});
+                                },
+                                keyboardType: TextInputType.url,
+                                autocorrect: false,
                               ),
                             ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              padding: EdgeInsets.zero,
-                              itemCount: urlSuggestions.length,
-                              separatorBuilder: (_, __) => Container(
-                                height: 0.5,
+                          ],
+                        ),
+                        if (showUrlSuggestions)
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors
+                                  .secondarySystemGroupedBackground
+                                  .resolveFrom(context),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
                                 color: CupertinoColors.separator.resolveFrom(
                                   context,
                                 ),
                               ),
-                              itemBuilder: (context, i) {
-                                final s = urlSuggestions[i];
-                                return CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: urlSuggestions.length,
+                                separatorBuilder: (_, __) => Container(
+                                  height: 0.5,
+                                  color: CupertinoColors.separator.resolveFrom(
+                                    context,
                                   ),
-                                  alignment: Alignment.centerLeft,
-                                  onPressed: () {
-                                    AppHaptics.light();
-                                    _urlController.text = s;
-                                    ref
-                                        .read(requestBuilderProvider.notifier)
-                                        .setUrl(s);
-                                    _urlFocusNode.unfocus();
-                                    setState(() {});
-                                  },
-                                  child: Text(
-                                    s,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: 'JetBrainsMono',
-                                      fontSize: 12,
+                                ),
+                                itemBuilder: (context, i) {
+                                  final s = urlSuggestions[i];
+                                  return CupertinoButton(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
                                     ),
-                                  ),
-                                );
-                              },
+                                    alignment: Alignment.centerLeft,
+                                    onPressed: () {
+                                      AppHaptics.light();
+                                      _urlController.text = s;
+                                      ref
+                                          .read(requestBuilderProvider.notifier)
+                                          .setUrl(s);
+                                      _urlFocusNode.unfocus();
+                                      setState(() {});
+                                    },
+                                    child: Text(
+                                      s,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Environment pill + undefined var warning
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () =>
-                          _showEnvPicker(context, ref, envs, activeEnv?.uid),
-                      onLongPress: () =>
-                          _showVariablesPreview(context, activeEnv),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: activeEnv != null
-                              ? CupertinoTheme.of(
-                                  context,
-                                ).primaryColor.withValues(alpha: 0.1)
-                              : CupertinoColors.tertiarySystemFill.resolveFrom(
-                                  context,
-                                ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+              // Environment pill + undefined var warning
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () =>
+                            _showEnvPicker(context, ref, envs, activeEnv?.uid),
+                        onLongPress: () =>
+                            _showVariablesPreview(context, activeEnv),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
                             color: activeEnv != null
                                 ? CupertinoTheme.of(
                                     context,
-                                  ).primaryColor.withValues(alpha: 0.3)
-                                : CupertinoColors.separator.resolveFrom(
-                                    context,
-                                  ),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              activeEnv != null
-                                  ? CupertinoIcons.checkmark_circle_fill
-                                  : CupertinoIcons.circle,
-                              size: 12,
+                                  ).primaryColor.withValues(alpha: 0.1)
+                                : CupertinoColors.tertiarySystemFill
+                                      .resolveFrom(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
                               color: activeEnv != null
-                                  ? CupertinoTheme.of(context).primaryColor
-                                  : CupertinoColors.secondaryLabel.resolveFrom(
+                                  ? CupertinoTheme.of(
+                                      context,
+                                    ).primaryColor.withValues(alpha: 0.3)
+                                  : CupertinoColors.separator.resolveFrom(
                                       context,
                                     ),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              activeEnv?.name ?? 'No Environment',
-                              style: TextStyle(
-                                fontSize: 12,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                activeEnv != null
+                                    ? CupertinoIcons.checkmark_circle_fill
+                                    : CupertinoIcons.circle,
+                                size: 12,
                                 color: activeEnv != null
                                     ? CupertinoTheme.of(context).primaryColor
                                     : CupertinoColors.secondaryLabel
                                           .resolveFrom(context),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              CupertinoIcons.chevron_down,
-                              size: 10,
-                              color: activeEnv != null
-                                  ? CupertinoTheme.of(context).primaryColor
-                                  : CupertinoColors.secondaryLabel.resolveFrom(
-                                      context,
-                                    ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.only(left: 4),
-                      minSize: 32,
-                      onPressed: () =>
-                          _showVariablesPreview(context, activeEnv),
-                      child: Icon(
-                        CupertinoIcons.list_bullet_below_rectangle,
-                        size: 20,
-                        color: CupertinoTheme.of(context).primaryColor,
-                      ),
-                    ),
-                    if (undefinedVars.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: CupertinoColors.systemOrange.withValues(
-                              alpha: 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                CupertinoIcons.exclamationmark_triangle,
-                                size: 12,
-                                color: CupertinoColors.systemOrange,
+                              const SizedBox(width: 4),
+                              Text(
+                                activeEnv?.name ?? 'No Environment',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: activeEnv != null
+                                      ? CupertinoTheme.of(context).primaryColor
+                                      : CupertinoColors.secondaryLabel
+                                            .resolveFrom(context),
+                                ),
                               ),
                               const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  'Undefined: ${undefinedVars.join(', ')}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: CupertinoColors.systemOrange,
-                                  ),
-                                ),
+                              Icon(
+                                CupertinoIcons.chevron_down,
+                                size: 10,
+                                color: activeEnv != null
+                                    ? CupertinoTheme.of(context).primaryColor
+                                    : CupertinoColors.secondaryLabel
+                                          .resolveFrom(context),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            if (state.historyVariableSnapshot.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.systemTeal.resolveFrom(context)
-                          .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: CupertinoColors.separator.resolveFrom(context),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          CupertinoIcons.clock_fill,
-                          size: 16,
-                          color: CupertinoColors.systemTeal.resolveFrom(context),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Using ${state.historyVariableSnapshot.length} variable(s) '
-                            'from this history entry. Open the request from a collection '
-                            'to use the active environment instead.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.3,
-                              color: CupertinoColors.label.resolveFrom(context),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
-                child: Row(
-                  children: [
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      minSize: 0,
-                      onPressed: () => _showPreRequestSheet(context),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.slider_horizontal_3,
-                            size: 18,
-                            color: CupertinoTheme.of(context).primaryColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            state.preRequestVariables.isEmpty
-                                ? 'Pre-request vars'
-                                : 'Pre-request (${state.preRequestVariables.length})',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: CupertinoTheme.of(context).primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      minSize: 0,
-                      onPressed: () => _pasteCurlIntoBuilder(context),
-                      child: Text(
-                        'Paste cURL',
-                        style: TextStyle(
-                          fontSize: 13,
+                      CupertinoButton(
+                        padding: const EdgeInsets.only(left: 4),
+                        minSize: 32,
+                        onPressed: () =>
+                            _showVariablesPreview(context, activeEnv),
+                        child: Icon(
+                          CupertinoIcons.list_bullet_below_rectangle,
+                          size: 20,
                           color: CupertinoTheme.of(context).primaryColor,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Send (tap while loading cancels, like a stop control on the same CTA)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: GestureDetector(
-                  onTap: isLoading
-                      ? () => ref
-                          .read(requestExecutionProvider.notifier)
-                          .cancel()
-                      : _sendRequest,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.ctaGradient,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isLoading) ...[
-                          const CupertinoActivityIndicator(
-                            color: CupertinoColors.white,
-                            radius: 9,
-                          ),
-                          const SizedBox(width: 10),
-                        ],
-                        Text(
-                          isLoading ? 'Sending…' : 'Send',
-                          style: const TextStyle(
-                            color: CupertinoColors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                      if (undefinedVars.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.systemOrange.withValues(
+                                alpha: 0.12,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  CupertinoIcons.exclamationmark_triangle,
+                                  size: 12,
+                                  color: CupertinoColors.systemOrange,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Undefined: ${undefinedVars.join(', ')}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: CupertinoColors.systemOrange,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
-            ),
 
-            // Tab bar (segmented control)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                child: CupertinoSlidingSegmentedControl<int>(
-                  groupValue: _selectedTab,
-                  onValueChanged: _onTabSegmentSelected,
-                  children: {
-                    0: const Text('Params'),
-                    1: const Text('Headers'),
-                    2: const Text('Body'),
-                    3: const Text('Auth'),
-                    4: Text(
-                      state.assertions.isEmpty
-                          ? 'Tests'
-                          : 'Tests (${state.assertions.length})',
-                    ),
-                  },
-                ),
-              ),
-            ),
-
-            // Tab content + optional response summary fill remaining viewport.
-            // Keyboard inset: [CupertinoPageScaffold] already pads the body and
-            // clears viewInsets for descendants — do not add viewInsets.bottom
-            // here using [State.context]; it sits above that MediaQuery and would
-            // double-count the keyboard, shoving key/value fields out of view.
-            // hasScrollBody: true — tabs use SingleChildScrollView/ListView; false
-            // triggers intrinsic height on the viewport and crashes (shrink-wrap).
-            // Do not wrap tabs in LayoutBuilder here: SliverFillRemaining measures
-            // child intrinsics and LayoutBuilder cannot participate in that pass.
-            SliverFillRemaining(
-              hasScrollBody: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: PrimaryScrollController.none(
-                      child: PageView(
-                        controller: _tabPageController,
-                        onPageChanged: _onTabPageChanged,
-                        physics: const PageScrollPhysics(
-                          parent: BouncingScrollPhysics(),
+              if (state.historyVariableSnapshot.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: CupertinoColors.systemTeal
+                            .resolveFrom(context)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: CupertinoColors.separator.resolveFrom(context),
+                          width: 0.5,
                         ),
-                        children: const [
-                          ParamsTab(),
-                          HeadersTab(),
-                          BodyTab(),
-                          AuthTab(),
-                          TestsTab(),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            CupertinoIcons.clock_fill,
+                            size: 16,
+                            color: CupertinoColors.systemTeal.resolveFrom(
+                              context,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Using ${state.historyVariableSnapshot.length} variable(s) '
+                              'from this history entry. Open the request from a collection '
+                              'to use the active environment instead.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.3,
+                                color: CupertinoColors.label.resolveFrom(
+                                  context,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  if (executionState.hasValue && executionState.value != null)
-                    _ResponseSummaryBar(
-                      onTap: _showResponseSheet,
-                      statusCode: executionState.value!.statusCode,
-                      durationMs: executionState.value!.durationMs,
-                      sizeBytes: executionState.value!.sizeBytes,
-                    ),
-                ],
+                ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
+                  child: Row(
+                    children: [
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minSize: 0,
+                        onPressed: () => _showPreRequestSheet(context),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.slider_horizontal_3,
+                              size: 18,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              state.preRequestVariables.isEmpty
+                                  ? 'Pre-request vars'
+                                  : 'Pre-request (${state.preRequestVariables.length})',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: CupertinoTheme.of(context).primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minSize: 0,
+                        onPressed: () => _pasteCurlIntoBuilder(context),
+                        child: Text(
+                          'Paste cURL',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: CupertinoTheme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
+
+              // Send (tap while loading cancels, like a stop control on the same CTA)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: GestureDetector(
+                    onTap: isLoading
+                        ? () => ref
+                              .read(requestExecutionProvider.notifier)
+                              .cancel()
+                        : _sendRequest,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.ctaGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isLoading) ...[
+                            const CupertinoActivityIndicator(
+                              color: CupertinoColors.white,
+                              radius: 9,
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Text(
+                            isLoading ? 'Sending…' : 'Send',
+                            style: const TextStyle(
+                              color: CupertinoColors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Tab bar (segmented control)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: CupertinoSlidingSegmentedControl<int>(
+                    groupValue: _selectedTab,
+                    onValueChanged: _onTabSegmentSelected,
+                    children: {
+                      0: const Text('Params'),
+                      1: const Text('Headers'),
+                      2: const Text('Body'),
+                      3: const Text('Auth'),
+                      4: Text(
+                        state.assertions.isEmpty
+                            ? 'Tests'
+                            : 'Tests (${state.assertions.length})',
+                      ),
+                    },
+                  ),
+                ),
+              ),
+
+              // Tab content + optional response summary fill remaining viewport.
+              // Keyboard inset: [CupertinoPageScaffold] already pads the body and
+              // clears viewInsets for descendants — do not add viewInsets.bottom
+              // here using [State.context]; it sits above that MediaQuery and would
+              // double-count the keyboard, shoving key/value fields out of view.
+              // hasScrollBody: true — tabs use SingleChildScrollView/ListView; false
+              // triggers intrinsic height on the viewport and crashes (shrink-wrap).
+              // Do not wrap tabs in LayoutBuilder here: SliverFillRemaining measures
+              // child intrinsics and LayoutBuilder cannot participate in that pass.
+              SliverFillRemaining(
+                hasScrollBody: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: PrimaryScrollController.none(
+                        child: PageView(
+                          controller: _tabPageController,
+                          onPageChanged: _onTabPageChanged,
+                          physics: const PageScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          children: const [
+                            ParamsTab(),
+                            HeadersTab(),
+                            BodyTab(),
+                            AuthTab(),
+                            TestsTab(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (executionState.hasValue && executionState.value != null)
+                      _ResponseSummaryBar(
+                        onTap: _showResponseSheet,
+                        statusCode: executionState.value!.statusCode,
+                        durationMs: executionState.value!.durationMs,
+                        sizeBytes: executionState.value!.sizeBytes,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1175,8 +1190,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
-                      color:
-                          CupertinoColors.secondaryLabel.resolveFrom(ctx),
+                      color: CupertinoColors.secondaryLabel.resolveFrom(ctx),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1186,8 +1200,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                       'or use dynamic variables below.',
                       style: TextStyle(
                         fontSize: 14,
-                        color:
-                            CupertinoColors.secondaryLabel.resolveFrom(ctx),
+                        color: CupertinoColors.secondaryLabel.resolveFrom(ctx),
                       ),
                     )
                   else ...[
@@ -1204,8 +1217,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                         'This environment has no variables yet.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: CupertinoColors.secondaryLabel
-                              .resolveFrom(ctx),
+                          color: CupertinoColors.secondaryLabel.resolveFrom(
+                            ctx,
+                          ),
                         ),
                       )
                     else
@@ -1225,10 +1239,11 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                         fontWeight: FontWeight.w600,
                                         fontFamily: 'JetBrainsMono',
                                         color: v.isEnabled
-                                            ? CupertinoTheme.of(ctx)
-                                                .primaryColor
+                                            ? CupertinoTheme.of(
+                                                ctx,
+                                              ).primaryColor
                                             : CupertinoColors.secondaryLabel
-                                                .resolveFrom(ctx),
+                                                  .resolveFrom(ctx),
                                       ),
                                     ),
                                   ),
@@ -1237,8 +1252,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                       'off',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: CupertinoColors
-                                            .secondaryLabel
+                                        color: CupertinoColors.secondaryLabel
                                             .resolveFrom(ctx),
                                       ),
                                     ),
@@ -1262,9 +1276,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                     child: Icon(
                                       CupertinoIcons.doc_on_clipboard,
                                       size: 18,
-                                      color: CupertinoTheme.of(ctx)
-                                          .primaryColor
-                                          .withValues(alpha: 0.85),
+                                      color: CupertinoTheme.of(
+                                        ctx,
+                                      ).primaryColor.withValues(alpha: 0.85),
                                     ),
                                   ),
                                 ],
@@ -1292,8 +1306,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
-                      color:
-                          CupertinoColors.secondaryLabel.resolveFrom(ctx),
+                      color: CupertinoColors.secondaryLabel.resolveFrom(ctx),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1323,16 +1336,14 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                           CupertinoButton(
                             padding: EdgeInsets.zero,
                             minSize: 32,
-                            onPressed: () => _copyVariablePlaceholder(
-                              ctx,
-                              '{{$name}}',
-                            ),
+                            onPressed: () =>
+                                _copyVariablePlaceholder(ctx, '{{$name}}'),
                             child: Icon(
                               CupertinoIcons.doc_on_clipboard,
                               size: 18,
-                              color: CupertinoTheme.of(ctx)
-                                  .primaryColor
-                                  .withValues(alpha: 0.85),
+                              color: CupertinoTheme.of(
+                                ctx,
+                              ).primaryColor.withValues(alpha: 0.85),
                             ),
                           ),
                         ],
@@ -1361,29 +1372,45 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     );
     final result = await showCupertinoModalPopup<int>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(ctx).bottom +
-              MediaQuery.paddingOf(ctx).bottom,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemBackground.resolveFrom(ctx),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SafeArea(
-            top: false,
+        padding: EdgeInsets.only(
+          top: 20,
+          bottom:
+              MediaQuery.of(ctx).viewInsets.bottom +
+              MediaQuery.of(ctx).padding.bottom +
+              16,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(ctx).unfocus(),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.separator.resolveFrom(ctx),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Pre-request variables',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
                 Padding(
@@ -1405,61 +1432,54 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                     minLines: 5,
                     style: const TextStyle(
                       fontFamily: 'JetBrainsMono',
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     placeholder: 'baseUrl=https://api.example.com',
                     decoration: BoxDecoration(
                       color: CupertinoColors.tertiarySystemBackground
                           .resolveFrom(ctx),
-                      border: Border.all(
-                        color: CupertinoColors.separator.resolveFrom(ctx),
-                        width: 0.5,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
                 Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: CupertinoColors.tertiarySystemFill
-                              .resolveFrom(ctx),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => Navigator.pop(ctx, 0),
-                          child: Text(
-                            'Cancel',
-                            style: TextStyle(
-                              color: CupertinoColors.label.resolveFrom(ctx),
+                      AppGradientButton(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        borderRadius: BorderRadius.circular(12),
+                        onPressed: () => Navigator.pop(ctx, 1),
+                        child: const Text('Apply'),
+                      ),
+                      const SizedBox(height: 8),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        onPressed: () => Navigator.pop(ctx, 2),
+                        child: const Text(
+                          'Clear',
+                          style: TextStyle(
+                            color: CupertinoColors.destructiveRed,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        onPressed: () => Navigator.pop(ctx, 0),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              ctx,
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: CupertinoButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: CupertinoColors.destructiveRed,
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => Navigator.pop(ctx, 2),
-                          child: const Text(
-                            'Clear',
-                            style: TextStyle(color: CupertinoColors.white),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: AppGradientButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => Navigator.pop(ctx, 1),
-                          child: const Text('Apply'),
                         ),
                       ),
                     ],
@@ -1495,83 +1515,106 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     final controller = TextEditingController();
     final curlCommand = await showCupertinoModalPopup<String?>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(ctx).bottom +
-              MediaQuery.paddingOf(ctx).bottom,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: CupertinoColors.systemBackground.resolveFrom(ctx),
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SafeArea(
-            top: false,
+        padding: EdgeInsets.only(
+          top: 20,
+          bottom:
+              MediaQuery.of(ctx).viewInsets.bottom +
+              MediaQuery.of(ctx).padding.bottom +
+              16,
+        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(ctx).unfocus(),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 12),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.separator.resolveFrom(ctx),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Paste cURL',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: CupertinoTextField(
                     controller: controller,
-                    maxLines: 6,
-                    minLines: 4,
+                    maxLines: 8,
+                    minLines: 5,
                     style: const TextStyle(
                       fontFamily: 'JetBrainsMono',
-                      fontSize: 12,
+                      fontSize: 14,
                     ),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     placeholder: "curl -X GET 'https://api.example.com'",
                     decoration: BoxDecoration(
                       color: CupertinoColors.tertiarySystemBackground
                           .resolveFrom(ctx),
-                      border: Border.all(
-                        color: CupertinoColors.separator.resolveFrom(ctx),
-                        width: 0.5,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     autofocus: true,
                   ),
                 ),
+                const SizedBox(height: 20),
                 Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: CupertinoButton(
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx, controller.text.trim()),
+                        child: Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          color: CupertinoColors.tertiarySystemFill
-                              .resolveFrom(ctx),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text(
-                            'Cancel',
+                          decoration: BoxDecoration(
+                            gradient: AppColors.ctaGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'Apply',
                             style: TextStyle(
-                              color: CupertinoColors.label.resolveFrom(ctx),
+                              color: CupertinoColors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: AppGradientButton(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          borderRadius: BorderRadius.circular(12),
-                          onPressed: () =>
-                              Navigator.pop(ctx, controller.text.trim()),
-                          child: const Text('Apply'),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              ctx,
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -1617,7 +1660,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => SizedBox(
-        height: MediaQuery.of(ctx).size.height * 0.75,
+        height: MediaQuery.of(ctx).size.height * 0.85,
         child: Container(
           decoration: BoxDecoration(
             color: CupertinoColors.systemGroupedBackground.resolveFrom(ctx),
@@ -1661,7 +1704,10 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
               CupertinoTextField(
                 controller: controller,
                 autofocus: true,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: CupertinoColors.tertiarySystemBackground.resolveFrom(
                     dialogContext,
@@ -1679,8 +1725,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
           ),
           CupertinoDialogAction(
             isDefaultAction: true,
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text),
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
             child: const Text('Rename'),
           ),
         ],
@@ -1840,4 +1885,3 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-

@@ -1382,86 +1382,101 @@ class _RequestBuilderScreenMaterialState
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(ctx).bottom +
-              MediaQuery.paddingOf(ctx).bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
         ),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Pre-request variables',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-              ),
-              Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                child: Text(
-                  'Applied on Send after the environment (or history snapshot). '
-                  'One line per key=value.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(ctx)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.55),
-                  ),
-                ),
-              ),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: controller,
-                  maxLines: 10,
-                  minLines: 5,
-                  style: const TextStyle(
-                      fontFamily: 'JetBrainsMono', fontSize: 12),
-                  decoration: const InputDecoration(
-                    hintText: 'baseUrl=https://api.example.com',
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, 0),
-                        child: const Text('Cancel'),
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(ctx).unfocus(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 4),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).dividerColor,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    child: Text(
+                      'Pre-request variables',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                    child: Text(
+                      'Applied on Send after the environment (or history snapshot). '
+                      'One line per key=value.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(ctx)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: controller,
+                      maxLines: 10,
+                      minLines: 5,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 14,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'baseUrl=https://api.example.com',
+                        labelText: 'Variables',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppGradientButton.material(
+                          fullWidth: true,
+                          onPressed: () => Navigator.pop(ctx, 1),
+                          child: const Text('Apply'),
                         ),
-                        onPressed: () => Navigator.pop(ctx, 2),
-                        child: const Text('Clear'),
-                      ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 2),
+                          child: Text(
+                            'Clear',
+                            style: TextStyle(
+                              color: Theme.of(ctx).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, 0),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: AppGradientButton.material(
-                        onPressed: () => Navigator.pop(ctx, 1),
-                        child: const Text('Apply'),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1499,63 +1514,80 @@ class _RequestBuilderScreenMaterialState
       isScrollControlled: true,
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(ctx).bottom +
-              MediaQuery.paddingOf(ctx).bottom,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
         ),
         child: SafeArea(
           top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Paste cURL',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: controller,
-                  maxLines: 6,
-                  minLines: 4,
-                  style: const TextStyle(
-                      fontFamily: 'JetBrainsMono', fontSize: 12),
-                  decoration: const InputDecoration(
-                    hintText:
-                        "curl -X GET 'https://api.example.com'",
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusScope.of(ctx).unfocus(),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 4),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Theme.of(ctx).dividerColor,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  autofocus: true,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('Cancel'),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
+                    child: Text(
+                      'Paste cURL',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: AppGradientButton.material(
-                        onPressed: () => Navigator.pop(
-                            ctx, controller.text.trim()),
-                        child: const Text('Apply'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: controller,
+                      maxLines: 8,
+                      minLines: 5,
+                      style: const TextStyle(
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 14,
                       ),
+                      decoration: const InputDecoration(
+                        hintText: "curl -X GET 'https://api.example.com'",
+                        labelText: 'cURL command',
+                      ),
+                      autofocus: true,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppGradientButton.material(
+                          fullWidth: true,
+                          onPressed: () =>
+                              Navigator.pop(ctx, controller.text.trim()),
+                          child: const Text('Apply'),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Cancel'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1599,7 +1631,7 @@ class _RequestBuilderScreenMaterialState
       useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => SizedBox(
-        height: MediaQuery.of(ctx).size.height * 0.75,
+        height: MediaQuery.of(ctx).size.height * 0.85,
         child: ResponseViewerSheetMaterial(
           response: response,
           harRequest: harReq,

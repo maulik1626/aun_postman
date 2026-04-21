@@ -26,6 +26,20 @@ This app ships **two UI stacks**. Do not mix Cupertino and Material inside the s
 
 - Providers, repositories, models: **no** Flutter UI imports for platform choice; keep logic platform-agnostic.
 
+## Delivery standard (mandatory for every task)
+
+- Treat every implementation as **production-grade**: robust behavior, safe state handling, and no known regressions.
+- Build UI as **native-platform dedicated E2E**:
+  - Cupertino path must be fully Cupertino-native.
+  - Material path must be fully Material-native.
+  - Avoid mixed widgets and avoid "single-UI compromise" implementations.
+- For any feature/fix touching UI or flow behavior, verify **end-to-end behavior on both platform paths** (or their dedicated tests/mocks where runtime E2E is unavailable).
+- Before finishing a task, run and pass:
+  - all relevant feature/unit/widget tests for the changed area,
+  - platform guard tests (`test/no_material_import_test.dart`, `test/no_cupertino_in_material_test.dart`),
+  - lint checks for edited files.
+- If gaps are discovered during validation, add or update tests in the same task so the behavior is enforced going forward.
+
 ## Tracker
 
 - Status and audit checklist: `MATERIAL_ANDROID_TRACKER.md`.

@@ -165,9 +165,9 @@ Future<T?> showAppActionSheet<T>({
           ListTile(
             title: Text(
               cancelLabel,
-              style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                ctx,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             onTap: () => Navigator.of(ctx).pop(),
           ),

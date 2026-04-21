@@ -7,6 +7,7 @@ import 'package:aun_reqstudio/app/theme/app_theme.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Root widget — branches to the correct app shell based on platform.
@@ -84,13 +85,30 @@ class _MaterialAppShell extends ConsumerWidget {
       // [maintainBottomViewPadding] keeps bottom inset when the keyboard opens.
       // iOS uses [_CupertinoAppShell] only — this builder runs on Android.
       builder: (context, child) {
-        return SafeArea(
-          top: false,
-          left: false,
-          right: false,
-          bottom: true,
-          maintainBottomViewPadding: true,
-          child: child ?? const SizedBox.shrink(),
+        final theme = Theme.of(context);
+        final systemNavColor =
+            theme.navigationBarTheme.backgroundColor ??
+                theme.scaffoldBackgroundColor;
+        final navBrightness =
+            ThemeData.estimateBrightnessForColor(systemNavColor);
+        final overlayStyle = SystemUiOverlayStyle(
+          systemNavigationBarColor: systemNavColor,
+          systemNavigationBarDividerColor: systemNavColor,
+          systemNavigationBarIconBrightness: navBrightness == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+        );
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: overlayStyle,
+          child: SafeArea(
+            top: false,
+            left: false,
+            right: false,
+            bottom: true,
+            maintainBottomViewPadding: true,
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
       routerConfig: router,

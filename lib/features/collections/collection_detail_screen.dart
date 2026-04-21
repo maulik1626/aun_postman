@@ -358,12 +358,38 @@ class _CollectionDetailScreenState
       final safe = request.name
           .replaceAll(RegExp(r'[^\w\s.-]'), '_')
           .replaceAll(RegExp(r'\s+'), '_');
-      final file = File('${dir.path}/$safe.json');
-      await file.writeAsString(json);
+      final requestFile = File('${dir.path}/$safe.json');
+      await requestFile.writeAsString(json);
+      final files = <XFile>[
+        XFile(requestFile.path, mimeType: 'application/json'),
+      ];
+      final variableNames = CollectionV21Importer.extractVariableNames(json);
+      if (variableNames.isNotEmpty) {
+        final now = DateTime.now();
+        final env = Environment(
+          uid: _uuid.v4(),
+          name: '${request.name} Variables',
+          variables: variableNames
+              .map(
+                (k) => EnvironmentVariable(
+                  uid: _uuid.v4(),
+                  key: k,
+                  value: '',
+                ),
+              )
+              .toList(),
+          createdAt: now,
+          updatedAt: now,
+        );
+        final envJson = CollectionV21Exporter.exportEnvironment(env);
+        final envFile = File('${dir.path}/${safe}_variables.postman_environment.json');
+        await envFile.writeAsString(envJson);
+        files.add(XFile(envFile.path, mimeType: 'application/json'));
+      }
       if (!mounted) return;
       final origin = Platform.isIOS ? _shareAnchorRect(context) : null;
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
+        files,
         subject: '${request.name} — AUN - ReqStudio',
         sharePositionOrigin: origin,
       );
