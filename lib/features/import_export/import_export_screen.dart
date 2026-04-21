@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/platform/icloud_backup_channel.dart';
+import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_backup.dart';
 import 'package:aun_reqstudio/core/utils/full_backup_json.dart';
 import 'package:aun_reqstudio/core/utils/curl_parser.dart';
@@ -76,6 +77,11 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     if (ms == null) return null;
     final dt = DateTime.fromMillisecondsSinceEpoch(ms.round());
     return DateFormat.yMMMd().add_jm().format(dt);
+  }
+
+  Future<void> _showPostImportExportAd() async {
+    if (!mounted) return;
+    await AdService.instance.maybeShowPostImportExportInterstitial();
   }
 
   @override
@@ -375,6 +381,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (mounted) {
         setState(() => _statusMessage = 'Full backup exported');
       }
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -428,6 +435,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
             '${data.environments.length} environment(s), '
             '${data.history.length} history entries';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -451,6 +459,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (mounted) {
         setState(() => _statusMessage = 'Backup saved to iCloud');
       }
+      await _showPostImportExportAd();
     } on IcloudBackupException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -507,6 +516,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
             '${data.history.length} history entries';
       });
       await _refreshIcloudMeta();
+      await _showPostImportExportAd();
     } on IcloudBackupException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -590,6 +600,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
             ? 'Imported "${collection.name}" · created environment with ${varNames.length} variables'
             : 'Imported "${collection.name}" successfully';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -617,6 +628,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         _statusMessage =
             'Imported environment "${env.name}" with ${env.variables.length} variables';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -806,6 +818,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     );
     await ref.read(collectionsProvider.notifier).update(updatedCollection);
     setState(() => _statusMessage = 'Request imported successfully');
+    await _showPostImportExportAd();
   }
 
   /// iOS requires a non-zero [sharePositionOrigin] for the share sheet anchor.
@@ -852,6 +865,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       );
 
       setState(() => _statusMessage = 'Export ready');
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {

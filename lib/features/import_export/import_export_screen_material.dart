@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/platform/icloud_backup_channel.dart';
+import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_backup.dart';
 import 'package:aun_reqstudio/core/utils/full_backup_json.dart';
 import 'package:aun_reqstudio/core/utils/curl_parser.dart';
@@ -91,12 +92,18 @@ class _ImportExportScreenMaterialState
     });
   }
 
+  Future<void> _showPostImportExportAd() async {
+    if (!mounted) return;
+    await AdService.instance.maybeShowPostImportExportInterstitial();
+  }
+
   @override
   Widget build(BuildContext context) {
     final collections = ref.watch(collectionsProvider);
     final primary = Theme.of(context).colorScheme.primary;
-    final secondary =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
 
     return Scaffold(
       appBar: AppBar(
@@ -109,198 +116,204 @@ class _ImportExportScreenMaterialState
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-              // ── Full backup ──────────────────────────────────────────
-              _SectionHeaderMat(title: 'Full backup', color: secondary),
-              const SizedBox(height: 8),
-              Text(
-                'Export or restore collections, environments, request history, '
-                'and saved WebSocket composer messages. '
-                'Global settings are not included. '
-                'Restore replaces all current data of those types.'
-                '${Platform.isIOS ? ' On iPhone and iPad you can also save and restore the same backup via iCloud.' : ''}',
-                style: TextStyle(
-                    fontSize: 13, height: 1.35, color: secondary),
-              ),
-              const SizedBox(height: 12),
-              _OptionCardMat(
-                icon: Icons.archive_outlined,
-                title: 'Export all data',
-                subtitle: 'Single JSON file — use for backup or moving devices',
-                onTap: _exportFullBackup,
-              ),
-              const SizedBox(height: 8),
-              _OptionCardMat(
-                icon: Icons.restore_outlined,
-                title: 'Restore from backup',
-                subtitle: 'Deletes all current data, then imports the file',
-                onTap: _restoreFullBackup,
-              ),
+          // ── Full backup ──────────────────────────────────────────
+          _SectionHeaderMat(title: 'Full backup', color: secondary),
+          const SizedBox(height: 8),
+          Text(
+            'Export or restore collections, environments, request history, '
+            'and saved WebSocket composer messages. '
+            'Global settings are not included. '
+            'Restore replaces all current data of those types.'
+            '${Platform.isIOS ? ' On iPhone and iPad you can also save and restore the same backup via iCloud.' : ''}',
+            style: TextStyle(fontSize: 13, height: 1.35, color: secondary),
+          ),
+          const SizedBox(height: 12),
+          _OptionCardMat(
+            icon: Icons.archive_outlined,
+            title: 'Export all data',
+            subtitle: 'Single JSON file — use for backup or moving devices',
+            onTap: _exportFullBackup,
+          ),
+          const SizedBox(height: 8),
+          _OptionCardMat(
+            icon: Icons.restore_outlined,
+            title: 'Restore from backup',
+            subtitle: 'Deletes all current data, then imports the file',
+            onTap: _restoreFullBackup,
+          ),
 
-              // iCloud section (iOS only)
-              if (Platform.isIOS) ...[
-                const SizedBox(height: 16),
-                Text('iCloud',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: secondary)),
-                const SizedBox(height: 8),
-                if (!_icloudMetaLoaded)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 10),
-                        Text('Checking iCloud…',
-                            style:
-                                TextStyle(fontSize: 13, color: secondary)),
-                      ],
+          // iCloud section (iOS only)
+          if (Platform.isIOS) ...[
+            const SizedBox(height: 16),
+            Text(
+              'iCloud',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: secondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (!_icloudMetaLoaded)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  )
-                else if (!_icloudAvailable)
-                  Text(
-                    'iCloud is not available. Sign in to iCloud on this device '
-                    'and ensure iCloud Drive is enabled.',
-                    style: TextStyle(
-                        fontSize: 13, height: 1.35, color: secondary),
-                  )
-                else ...[
-                  _OptionCardMat(
-                    icon: Icons.cloud_upload_outlined,
-                    title: 'Save backup to iCloud',
-                    subtitle: 'Replaces any previous iCloud backup for this app',
-                    onTap: _saveBackupToIcloud,
-                  ),
-                  const SizedBox(height: 8),
-                  _OptionCardMat(
-                    icon: Icons.cloud_download_outlined,
-                    title: 'Restore from iCloud',
-                    subtitle: _icloudBackupAgeLabel() != null
-                        ? 'Last saved: ${_icloudBackupAgeLabel()}'
-                        : 'Uses the latest file saved from this app',
-                    onTap: _restoreFromIcloud,
-                  ),
-                ],
-              ],
+                    const SizedBox(width: 10),
+                    Text(
+                      'Checking iCloud…',
+                      style: TextStyle(fontSize: 13, color: secondary),
+                    ),
+                  ],
+                ),
+              )
+            else if (!_icloudAvailable)
+              Text(
+                'iCloud is not available. Sign in to iCloud on this device '
+                'and ensure iCloud Drive is enabled.',
+                style: TextStyle(fontSize: 13, height: 1.35, color: secondary),
+              )
+            else ...[
+              _OptionCardMat(
+                icon: Icons.cloud_upload_outlined,
+                title: 'Save backup to iCloud',
+                subtitle: 'Replaces any previous iCloud backup for this app',
+                onTap: _saveBackupToIcloud,
+              ),
+              const SizedBox(height: 8),
+              _OptionCardMat(
+                icon: Icons.cloud_download_outlined,
+                title: 'Restore from iCloud',
+                subtitle: _icloudBackupAgeLabel() != null
+                    ? 'Last saved: ${_icloudBackupAgeLabel()}'
+                    : 'Uses the latest file saved from this app',
+                onTap: _restoreFromIcloud,
+              ),
+            ],
+          ],
 
-              const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-              // ── Status message ───────────────────────────────────────
-              if (_statusMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+          // ── Status message ───────────────────────────────────────
+          if (_statusMessage != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle_outline, color: primary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _statusMessage!,
-                              style: TextStyle(color: primary),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_lastImportedEnvUid != null) ...[
-                        const SizedBox(height: 8),
-                        TextButton.icon(
-                          onPressed: () => _closeImportAndGoToEnvironment(
-                            _lastImportedEnvUid!,
-                          ),
-                          icon: Icon(Icons.arrow_forward_outlined,
-                              size: 16, color: primary),
-                          label: Text(
-                            'View & fill variables',
-                            style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: primary),
-                          ),
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                          ),
+                      Icon(Icons.check_circle_outline, color: primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _statusMessage!,
+                          style: TextStyle(color: primary),
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                ),
-
-              // ── Import ───────────────────────────────────────────────
-              _SectionHeaderMat(title: 'Import', color: secondary),
-              const SizedBox(height: 12),
-              _OptionCardMat(
-                icon: Icons.description_outlined,
-                title: 'Collection JSON (v2.1)',
-                subtitle: 'Import requests + auto-create variable environment',
-                onTap: _importCollectionFile,
-              ),
-              const SizedBox(height: 8),
-              _OptionCardMat(
-                icon: Icons.public_outlined,
-                title: 'Environment JSON',
-                subtitle: 'Import a v2.x environment export JSON file',
-                onTap: _importCollectionEnvironment,
-              ),
-              const SizedBox(height: 8),
-              _OptionCardMat(
-                icon: Icons.code_outlined,
-                title: 'cURL Command',
-                subtitle: 'Paste a cURL command to import a request',
-                onTap: _importCurl,
-              ),
-
-              // ── Export ───────────────────────────────────────────────
-              const SizedBox(height: 24),
-              _SectionHeaderMat(title: 'Export', color: secondary),
-              const SizedBox(height: 12),
-              if (collections.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text('No collections to export',
-                      style: TextStyle(color: secondary)),
-                )
-              else
-                ...collections.map(
-                  (col) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Builder(
-                      builder: (cardContext) => _OptionCardMat(
-                        icon: Icons.folder_outlined,
-                        title: col.name,
-                        subtitle: 'Export as collection v2.1 JSON',
-                        onTap: () => _exportCollection(
-                          col.uid,
-                          sharePositionOrigin:
-                              _shareAnchorRect(cardContext),
+                  if (_lastImportedEnvUid != null) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () =>
+                          _closeImportAndGoToEnvironment(_lastImportedEnvUid!),
+                      icon: Icon(
+                        Icons.arrow_forward_outlined,
+                        size: 16,
+                        color: primary,
+                      ),
+                      label: Text(
+                        'View & fill variables',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: primary,
                         ),
                       ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+          // ── Import ───────────────────────────────────────────────
+          _SectionHeaderMat(title: 'Import', color: secondary),
+          const SizedBox(height: 12),
+          _OptionCardMat(
+            icon: Icons.description_outlined,
+            title: 'Collection JSON (v2.1)',
+            subtitle: 'Import requests + auto-create variable environment',
+            onTap: _importCollectionFile,
+          ),
+          const SizedBox(height: 8),
+          _OptionCardMat(
+            icon: Icons.public_outlined,
+            title: 'Environment JSON',
+            subtitle: 'Import a v2.x environment export JSON file',
+            onTap: _importCollectionEnvironment,
+          ),
+          const SizedBox(height: 8),
+          _OptionCardMat(
+            icon: Icons.code_outlined,
+            title: 'cURL Command',
+            subtitle: 'Paste a cURL command to import a request',
+            onTap: _importCurl,
+          ),
+
+          // ── Export ───────────────────────────────────────────────
+          const SizedBox(height: 24),
+          _SectionHeaderMat(title: 'Export', color: secondary),
+          const SizedBox(height: 12),
+          if (collections.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'No collections to export',
+                style: TextStyle(color: secondary),
+              ),
+            )
+          else
+            ...collections.map(
+              (col) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Builder(
+                  builder: (cardContext) => _OptionCardMat(
+                    icon: Icons.folder_outlined,
+                    title: col.name,
+                    subtitle: 'Export as collection v2.1 JSON',
+                    onTap: () => _exportCollection(
+                      col.uid,
+                      sharePositionOrigin: _shareAnchorRect(cardContext),
                     ),
                   ),
                 ),
+              ),
+            ),
 
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator(),
-                  ),
-                ),
-            ],
-          ),
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -310,8 +323,7 @@ class _ImportExportScreenMaterialState
       final json = await buildFullBackupJson(ref);
       final dir = await getTemporaryDirectory();
       final stamp = DateTime.now().toIso8601String().split('T').first;
-      final file =
-          File('${dir.path}/aun_reqstudio_backup_$stamp.json');
+      final file = File('${dir.path}/aun_reqstudio_backup_$stamp.json');
       await file.writeAsString(json);
 
       if (!mounted) return;
@@ -324,6 +336,7 @@ class _ImportExportScreenMaterialState
       if (mounted) {
         setState(() => _statusMessage = 'Full backup exported');
       }
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -365,18 +378,19 @@ class _ImportExportScreenMaterialState
       );
       if (result == null || result.files.single.path == null) return;
 
-      final content =
-          await File(result.files.single.path!).readAsString();
+      final content = await File(result.files.single.path!).readAsString();
       final data = AppBackup.parse(content);
       await _applyFullRestore(data);
 
       if (!mounted) return;
       setState(() {
         _lastImportedEnvUid = null;
-        _statusMessage = 'Restored ${data.collections.length} collection(s), '
+        _statusMessage =
+            'Restored ${data.collections.length} collection(s), '
             '${data.environments.length} environment(s), '
             '${data.history.length} history entries';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -400,6 +414,7 @@ class _ImportExportScreenMaterialState
       if (mounted) {
         setState(() => _statusMessage = 'Backup saved to iCloud');
       }
+      await _showPostImportExportAd();
     } on IcloudBackupException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -440,8 +455,7 @@ class _ImportExportScreenMaterialState
     try {
       tempPath = await IcloudBackupChannel.copyFromICloudToTempPath();
       if (tempPath == null) {
-        _showError(
-            'No backup found in iCloud. Save a backup to iCloud first.');
+        _showError('No backup found in iCloud. Save a backup to iCloud first.');
         return;
       }
       final content = await File(tempPath).readAsString();
@@ -451,12 +465,14 @@ class _ImportExportScreenMaterialState
       if (!mounted) return;
       setState(() {
         _lastImportedEnvUid = null;
-        _statusMessage = 'Restored from iCloud: '
+        _statusMessage =
+            'Restored from iCloud: '
             '${data.collections.length} collection(s), '
             '${data.environments.length} environment(s), '
             '${data.history.length} history entries';
       });
       await _refreshIcloudMeta();
+      await _showPostImportExportAd();
     } on IcloudBackupException catch (e) {
       _showError(e.message);
     } catch (e) {
@@ -515,15 +531,11 @@ class _ImportExportScreenMaterialState
       );
       if (result == null || result.files.single.path == null) return;
 
-      final content =
-          await File(result.files.single.path!).readAsString();
+      final content = await File(result.files.single.path!).readAsString();
       final collection = CollectionV21Importer.import(content);
-      await ref
-          .read(collectionsProvider.notifier)
-          .importCollection(collection);
+      await ref.read(collectionsProvider.notifier).importCollection(collection);
 
-      final varNames =
-          CollectionV21Importer.extractVariableNames(content);
+      final varNames = CollectionV21Importer.extractVariableNames(content);
       String? createdEnvUid;
       if (varNames.isNotEmpty) {
         final environment = _buildEnvironmentFromVarNames(
@@ -542,6 +554,7 @@ class _ImportExportScreenMaterialState
             ? 'Imported "${collection.name}" · created environment with ${varNames.length} variables'
             : 'Imported "${collection.name}" successfully';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -559,18 +572,16 @@ class _ImportExportScreenMaterialState
       );
       if (result == null || result.files.single.path == null) return;
 
-      final content =
-          await File(result.files.single.path!).readAsString();
+      final content = await File(result.files.single.path!).readAsString();
       final env = CollectionV21Importer.importEnvironment(content);
-      await ref
-          .read(environmentsProvider.notifier)
-          .importEnvironment(env);
+      await ref.read(environmentsProvider.notifier).importEnvironment(env);
 
       setState(() {
         _lastImportedEnvUid = env.uid;
         _statusMessage =
             'Imported environment "${env.name}" with ${env.variables.length} variables';
       });
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -579,14 +590,15 @@ class _ImportExportScreenMaterialState
   }
 
   Environment _buildEnvironmentFromVarNames(
-      String name, List<String> varNames) {
+    String name,
+    List<String> varNames,
+  ) {
     final now = DateTime.now();
     return Environment(
       uid: _uuid.v4(),
       name: name,
       variables: varNames
-          .map((k) =>
-              EnvironmentVariable(uid: _uuid.v4(), key: k, value: ''))
+          .map((k) => EnvironmentVariable(uid: _uuid.v4(), key: k, value: ''))
           .toList(),
       createdAt: now,
       updatedAt: now,
@@ -600,9 +612,7 @@ class _ImportExportScreenMaterialState
       useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           top: false,
           child: GestureDetector(
@@ -625,20 +635,21 @@ class _ImportExportScreenMaterialState
                 ),
                 const Padding(
                   padding: EdgeInsets.fromLTRB(20, 12, 20, 4),
-                  child: Text('Import cURL',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    'Import cURL',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Paste a cURL command to import a request',
                     style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.55)),
+                      fontSize: 13,
+                      color: Theme.of(
+                        ctx,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -649,11 +660,15 @@ class _ImportExportScreenMaterialState
                     maxLines: 6,
                     minLines: 4,
                     style: const TextStyle(
-                        fontFamily: 'JetBrainsMono', fontSize: 12),
+                      fontFamily: 'JetBrainsMono',
+                      fontSize: 12,
+                    ),
                     decoration: const InputDecoration(
                       hintText: "curl -X GET 'https://api.example.com'",
                       hintStyle: TextStyle(
-                          fontFamily: 'JetBrainsMono', fontSize: 12),
+                        fontFamily: 'JetBrainsMono',
+                        fontSize: 12,
+                      ),
                     ),
                     autofocus: true,
                   ),
@@ -673,8 +688,8 @@ class _ImportExportScreenMaterialState
                       Expanded(
                         child: AppGradientButton.material(
                           fullWidth: true,
-                          onPressed: () => Navigator.pop(
-                              ctx, controller.text.trim()),
+                          onPressed: () =>
+                              Navigator.pop(ctx, controller.text.trim()),
                           child: const Text('Import'),
                         ),
                       ),
@@ -713,8 +728,10 @@ class _ImportExportScreenMaterialState
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text('Save to Collection',
-                style: Theme.of(ctx).textTheme.titleMedium),
+            child: Text(
+              'Save to Collection',
+              style: Theme.of(ctx).textTheme.titleMedium,
+            ),
           ),
           ...collections.map(
             (col) => ListTile(
@@ -723,8 +740,7 @@ class _ImportExportScreenMaterialState
             ),
           ),
           ListTile(
-            title: const Text('Cancel',
-                style: TextStyle(color: Colors.red)),
+            title: const Text('Cancel', style: TextStyle(color: Colors.red)),
             onTap: () => Navigator.pop(ctx),
           ),
           const SizedBox(height: 8),
@@ -734,17 +750,14 @@ class _ImportExportScreenMaterialState
 
     if (targetCollection == null) return;
 
-    final collection =
-        collections.firstWhere((c) => c.uid == targetCollection);
-    final updatedRequest =
-        request.copyWith(collectionUid: targetCollection);
+    final collection = collections.firstWhere((c) => c.uid == targetCollection);
+    final updatedRequest = request.copyWith(collectionUid: targetCollection);
     final updatedCollection = collection.copyWith(
       requests: [...collection.requests, updatedRequest],
     );
-    await ref
-        .read(collectionsProvider.notifier)
-        .update(updatedCollection);
+    await ref.read(collectionsProvider.notifier).update(updatedCollection);
     setState(() => _statusMessage = 'Request imported successfully');
+    await _showPostImportExportAd();
   }
 
   Rect _shareAnchorRect(BuildContext anchorContext) {
@@ -755,7 +768,10 @@ class _ImportExportScreenMaterialState
     }
     final size = MediaQuery.sizeOf(anchorContext);
     return Rect.fromCenter(
-        center: size.center(Offset.zero), width: 2, height: 2);
+      center: size.center(Offset.zero),
+      width: 2,
+      height: 2,
+    );
   }
 
   Future<void> _exportCollection(
@@ -764,8 +780,9 @@ class _ImportExportScreenMaterialState
   }) async {
     setState(() => _isLoading = true);
     try {
-      final collection =
-          ref.read(collectionsProvider).firstWhere((c) => c.uid == uid);
+      final collection = ref
+          .read(collectionsProvider)
+          .firstWhere((c) => c.uid == uid);
       final json = CollectionV21Exporter.export(collection);
       final dir = await getTemporaryDirectory();
       final file = File(
@@ -785,6 +802,7 @@ class _ImportExportScreenMaterialState
       );
 
       setState(() => _statusMessage = 'Export ready');
+      await _showPostImportExportAd();
     } catch (e) {
       _showError(e.toString());
     } finally {
@@ -837,8 +855,9 @@ class _OptionCardMat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final secondary =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -864,12 +883,14 @@ class _OptionCardMat extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600)),
-                    Text(subtitle,
-                        style: TextStyle(
-                            fontSize: 12, color: secondary)),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 12, color: secondary),
+                    ),
                   ],
                 ),
               ),

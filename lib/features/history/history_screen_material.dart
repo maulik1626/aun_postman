@@ -1,11 +1,54 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
+
+NativeListAdTile _nativeAdTileMaterial(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  final chrome = scheme.surfaceContainerLow;
+  final border = scheme.outlineVariant;
+  final label = scheme.onSurface.withValues(alpha: 0.62);
+
+  return NativeListAdTile(
+    appearanceKey: scheme.brightness,
+    chromeColor: chrome,
+    borderColor: border,
+    labelColor: label,
+    height: 340,
+    templateStyle: NativeTemplateStyle(
+      templateType: TemplateType.medium,
+      mainBackgroundColor: chrome,
+      cornerRadius: 12,
+      primaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface,
+        size: 15,
+        style: NativeTemplateFontStyle.bold,
+      ),
+      secondaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface.withValues(alpha: 0.72),
+        size: 13,
+      ),
+      tertiaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface.withValues(alpha: 0.56),
+        size: 11,
+      ),
+      callToActionTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onPrimary,
+        backgroundColor: scheme.primary,
+        size: 13,
+        style: NativeTemplateFontStyle.bold,
+      ),
+    ),
+  );
+}
 
 class HistoryScreenMaterial extends ConsumerStatefulWidget {
   const HistoryScreenMaterial({super.key});
@@ -15,16 +58,17 @@ class HistoryScreenMaterial extends ConsumerStatefulWidget {
       _HistoryScreenMaterialState();
 }
 
-class _HistoryScreenMaterialState
-    extends ConsumerState<HistoryScreenMaterial> {
+class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
   String _query = '';
 
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
+    final settings = ref.watch(appSettingsProvider);
     final primary = Theme.of(context).colorScheme.primary;
-    final secondary =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
 
     final filtered = _query.isEmpty
         ? history
@@ -55,16 +99,19 @@ class _HistoryScreenMaterialState
           if (history.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search by URL, method, status',
-                    prefixIcon:
-                        const Icon(Icons.search_outlined, size: 20),
+                    prefixIcon: const Icon(Icons.search_outlined, size: 20),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),
@@ -73,82 +120,93 @@ class _HistoryScreenMaterialState
 
           if (history.isEmpty)
             SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
+              hasScrollBody: false,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(
+                              Icons.history_outlined,
+                              size: 40,
+                              color: primary,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'No History',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Send requests to see them here',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 15, color: secondary),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Icon(
-                      Icons.history_outlined,
-                      size: 40,
-                      color: primary,
-                    ),
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'No History',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Send requests to see them here',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: secondary),
-                  ),
+                  if (AdConfig.emptyStateBottomBanners.history)
+                    const BottomBannerAdSection(),
                 ],
               ),
-            ),
-          )
-        else if (filtered.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20),
+            )
+          else if (filtered.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Icon(
+                        Icons.search_outlined,
+                        size: 40,
+                        color: primary,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.search_outlined,
-                      size: 40,
-                      color: primary,
+                    const SizedBox(height: 20),
+                    Text(
+                      'No results for "$_query"',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'No results for "$_query"',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Try a different URL, method, or status code',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: secondary),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Try a different URL, method, or status code',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, color: secondary),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          )
-        else
-          SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
                 final row = _flatHistoryRow(groups, index);
                 if (row.isHeader) {
                   return Padding(
@@ -171,12 +229,17 @@ class _HistoryScreenMaterialState
                 }
 
                 final entry = row.entry!;
-                final statusColor =
-                    AppColors.statusColor(entry.response.statusCode);
-                final methodColor =
-                    AppColors.methodColor(entry.request.method.value);
-                final isFirstInSection =
-                    _isFirstEntryAfterHeader(groups, index);
+                final statusColor = AppColors.statusColor(
+                  entry.response.statusCode,
+                );
+                final methodColor = AppColors.methodColor(
+                  entry.request.method.value,
+                );
+                final isFirstInSection = _isFirstEntryAfterHeader(
+                  groups,
+                  index,
+                );
+                final entryOrdinal = _entryOrdinalAt(groups, index);
 
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -204,7 +267,9 @@ class _HistoryScreenMaterialState
                             spacing: 2,
                             label: 'Delete',
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 2, vertical: 4),
+                              horizontal: 2,
+                              vertical: 4,
+                            ),
                           ),
                         ],
                       ),
@@ -219,15 +284,18 @@ class _HistoryScreenMaterialState
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color:
-                                      methodColor.withValues(alpha: 0.12),
+                                  color: methodColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -243,8 +311,7 @@ class _HistoryScreenMaterialState
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       entry.request.url,
@@ -257,18 +324,20 @@ class _HistoryScreenMaterialState
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      DateFormat('HH:mm')
-                                          .format(entry.executedAt),
+                                      DateFormat(
+                                        'HH:mm',
+                                      ).format(entry.executedAt),
                                       style: TextStyle(
-                                          fontSize: 11, color: secondary),
+                                        fontSize: 11,
+                                        color: secondary,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   Text(
@@ -283,7 +352,9 @@ class _HistoryScreenMaterialState
                                   Text(
                                     '${entry.response.durationMs}ms',
                                     style: TextStyle(
-                                        fontSize: 11, color: secondary),
+                                      fontSize: 11,
+                                      color: secondary,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -292,12 +363,15 @@ class _HistoryScreenMaterialState
                         ),
                       ),
                     ),
+                    if (AdConfig.history.shouldInsertAfterOrdinal(
+                      entryOrdinal,
+                      overrideEvery: settings.historyAdInterval,
+                    ))
+                      _nativeAdTileMaterial(context),
                   ],
                 );
-              },
-              childCount: _flatHistoryCount(groups),
+              }, childCount: _flatHistoryCount(groups)),
             ),
-          ),
         ],
       ),
     );
@@ -337,14 +411,24 @@ class _HistoryScreenMaterialState
     return prev.isHeader;
   }
 
+  int _entryOrdinalAt(List<_HistoryGroup> groups, int index) {
+    var ordinal = 0;
+    for (var i = 0; i <= index; i++) {
+      final row = _flatHistoryRow(groups, i);
+      if (!row.isHeader) {
+        ordinal++;
+      }
+    }
+    return ordinal;
+  }
+
   List<_HistoryGroup> _groupByDate(List<HistoryEntry> entries) {
     if (entries.isEmpty) return [];
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    final thisWeekStart =
-        today.subtract(Duration(days: today.weekday - 1));
+    final thisWeekStart = today.subtract(Duration(days: today.weekday - 1));
     final thisMonthStart = DateTime(now.year, now.month);
 
     final todayList = <HistoryEntry>[];
@@ -354,8 +438,11 @@ class _HistoryScreenMaterialState
     final olderList = <HistoryEntry>[];
 
     for (final e in entries) {
-      final d =
-          DateTime(e.executedAt.year, e.executedAt.month, e.executedAt.day);
+      final d = DateTime(
+        e.executedAt.year,
+        e.executedAt.month,
+        e.executedAt.day,
+      );
       if (d == today) {
         todayList.add(e);
       } else if (d == yesterday) {
@@ -371,12 +458,9 @@ class _HistoryScreenMaterialState
 
     return [
       if (todayList.isNotEmpty) _HistoryGroup('TODAY', todayList),
-      if (yesterdayList.isNotEmpty)
-        _HistoryGroup('YESTERDAY', yesterdayList),
-      if (thisWeekList.isNotEmpty)
-        _HistoryGroup('THIS WEEK', thisWeekList),
-      if (thisMonthList.isNotEmpty)
-        _HistoryGroup('THIS MONTH', thisMonthList),
+      if (yesterdayList.isNotEmpty) _HistoryGroup('YESTERDAY', yesterdayList),
+      if (thisWeekList.isNotEmpty) _HistoryGroup('THIS WEEK', thisWeekList),
+      if (thisMonthList.isNotEmpty) _HistoryGroup('THIS MONTH', thisMonthList),
       if (olderList.isNotEmpty) _HistoryGroup('OLDER', olderList),
     ];
   }
@@ -386,8 +470,7 @@ class _HistoryScreenMaterialState
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Clear History'),
-        content:
-            const Text('This will delete all request history.'),
+        content: const Text('This will delete all request history.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -395,7 +478,8 @@ class _HistoryScreenMaterialState
           ),
           TextButton(
             style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error),
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Clear All'),
           ),

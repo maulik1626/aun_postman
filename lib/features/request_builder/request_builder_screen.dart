@@ -5,6 +5,7 @@ import 'package:aun_reqstudio/data/local/hive_service.dart';
 import 'package:aun_reqstudio/data/local/request_builder_draft_storage.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_haptics.dart';
 import 'package:aun_reqstudio/core/utils/curl_exporter.dart';
 import 'package:aun_reqstudio/core/utils/curl_parser.dart';
@@ -442,7 +443,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
           next.value != null &&
           !next.isLoading &&
           prev?.isLoading == true) {
-        _showResponseSheet();
+        unawaited(_showResponseSheet());
       }
     });
     ref.listen(requestBuilderProvider, (prev, next) {
@@ -1407,10 +1408,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Pre-request variables',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 Padding(
@@ -1550,10 +1548,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Paste cURL',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1651,13 +1646,13 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
     );
   }
 
-  void _showResponseSheet() {
+  Future<void> _showResponseSheet() async {
     final response = ref.read(requestExecutionProvider).value;
     if (response == null) return;
     final exec = ref.read(requestExecutionProvider.notifier);
     final harReq = exec.lastSentRequest;
     final harStarted = exec.lastStartedAt;
-    showCupertinoModalPopup(
+    await showCupertinoModalPopup(
       context: context,
       builder: (ctx) => SizedBox(
         height: MediaQuery.of(ctx).size.height * 0.85,
@@ -1674,6 +1669,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
         ),
       ),
     );
+    if (!mounted) return;
+    await AdService.instance.maybeShowPostRequestInterstitial();
   }
 
   Future<void> _showRenameDialog() async {

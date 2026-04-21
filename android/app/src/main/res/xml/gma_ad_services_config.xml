@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ad-services-config>
+    <includes-sdk-library name="com.google.android.gms.ads" />
+</ad-services-config>

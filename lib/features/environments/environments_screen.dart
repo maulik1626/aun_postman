@@ -1,9 +1,64 @@
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+NativeListAdTile _nativeAdTileCupertino(BuildContext context) {
+  final chrome = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondarySystemBackground,
+    context,
+  );
+  final border = CupertinoDynamicColor.resolve(
+    CupertinoColors.separator,
+    context,
+  );
+  final label = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondaryLabel,
+    context,
+  );
+  final text = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+  final muted = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondaryLabel,
+    context,
+  );
+  final tertiary = CupertinoDynamicColor.resolve(
+    CupertinoColors.tertiaryLabel,
+    context,
+  );
+  final cta = CupertinoTheme.of(context).primaryColor;
+
+  return NativeListAdTile(
+    appearanceKey: CupertinoTheme.brightnessOf(context),
+    chromeColor: chrome,
+    borderColor: border,
+    labelColor: label,
+    height: 340,
+    templateStyle: NativeTemplateStyle(
+      templateType: TemplateType.medium,
+      mainBackgroundColor: chrome,
+      cornerRadius: 12,
+      primaryTextStyle: NativeTemplateTextStyle(
+        textColor: text,
+        size: 15,
+        style: NativeTemplateFontStyle.bold,
+      ),
+      secondaryTextStyle: NativeTemplateTextStyle(textColor: muted, size: 13),
+      tertiaryTextStyle: NativeTemplateTextStyle(textColor: tertiary, size: 11),
+      callToActionTextStyle: NativeTemplateTextStyle(
+        textColor: CupertinoColors.white,
+        backgroundColor: cta,
+        size: 13,
+        style: NativeTemplateFontStyle.bold,
+      ),
+    ),
+  );
+}
 
 class EnvironmentsScreen extends ConsumerWidget {
   const EnvironmentsScreen({super.key});
@@ -11,6 +66,7 @@ class EnvironmentsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final envs = ref.watch(environmentsProvider);
+    final settings = ref.watch(appSettingsProvider);
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
@@ -42,9 +98,9 @@ class EnvironmentsScreen extends ConsumerWidget {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: CupertinoTheme.of(context)
-                                  .primaryColor
-                                  .withValues(alpha: 0.12),
+                              color: CupertinoTheme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
@@ -66,8 +122,9 @@ class EnvironmentsScreen extends ConsumerWidget {
                             'Create environments to manage variables',
                             style: TextStyle(
                               fontSize: 15,
-                              color: CupertinoColors.secondaryLabel
-                                  .resolveFrom(context),
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 28),
@@ -87,6 +144,8 @@ class EnvironmentsScreen extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(height: bottomInset),
+                  if (AdConfig.emptyStateBottomBanners.environments)
+                    const BottomBannerAdSection(),
                 ],
               ),
             )
@@ -106,79 +165,106 @@ class EnvironmentsScreen extends ConsumerWidget {
                       ),
                       itemBuilder: (context, index) {
                         final env = envs[index];
-                        return Slidable(
-                          key: ValueKey(env.uid),
-                          endActionPane: ActionPane(
-                            motion: const DrawerMotion(),
-                            extentRatio: 0.32,
-                            children: [
-                              SlidableAction(
-                                onPressed: (_) => ref
-                                    .read(environmentsProvider.notifier)
-                                    .delete(env.uid),
-                                backgroundColor: CupertinoColors.destructiveRed,
-                                foregroundColor: CupertinoColors.white,
-                                icon: CupertinoIcons.trash,
-                                spacing: 2,
-                                label: 'Delete',
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 2, vertical: 4),
-                              ),
-                            ],
-                          ),
-                          child: GestureDetector(
-                            onTap: () => context.push('/environments/${env.uid}'),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Row(
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Slidable(
+                              key: ValueKey(env.uid),
+                              endActionPane: ActionPane(
+                                motion: const DrawerMotion(),
+                                extentRatio: 0.32,
                                 children: [
-                                  Icon(
-                                    env.isActive
-                                        ? CupertinoIcons.checkmark_circle_fill
-                                        : CupertinoIcons.circle,
-                                    color: env.isActive
-                                        ? CupertinoTheme.of(context).primaryColor
-                                        : CupertinoColors.secondaryLabel
-                                            .resolveFrom(context),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          env.name,
-                                          style: TextStyle(
-                                            fontWeight: env.isActive
-                                                ? FontWeight.w700
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${env.variables.length} variable${env.variables.length == 1 ? '' : 's'}',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ],
+                                  SlidableAction(
+                                    onPressed: (_) => ref
+                                        .read(environmentsProvider.notifier)
+                                        .delete(env.uid),
+                                    backgroundColor:
+                                        CupertinoColors.destructiveRed,
+                                    foregroundColor: CupertinoColors.white,
+                                    icon: CupertinoIcons.trash,
+                                    spacing: 2,
+                                    label: 'Delete',
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                      vertical: 4,
                                     ),
                                   ),
-                                  if (!env.isActive)
-                                    CupertinoButton(
-                                      padding: EdgeInsets.zero,
-                                      minSize: 30,
-                                      onPressed: () => ref
-                                          .read(environmentsProvider.notifier)
-                                          .setActive(env.uid),
-                                      child: const Text(
-                                        'Activate',
-                                        style: TextStyle(fontSize: 14),
-                                      ),
-                                    ),
-                                  const Icon(CupertinoIcons.chevron_right, size: 16),
                                 ],
                               ),
+                              child: GestureDetector(
+                                onTap: () =>
+                                    context.push('/environments/${env.uid}'),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        env.isActive
+                                            ? CupertinoIcons
+                                                  .checkmark_circle_fill
+                                            : CupertinoIcons.circle,
+                                        color: env.isActive
+                                            ? CupertinoTheme.of(
+                                                context,
+                                              ).primaryColor
+                                            : CupertinoColors.secondaryLabel
+                                                  .resolveFrom(context),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              env.name,
+                                              style: TextStyle(
+                                                fontWeight: env.isActive
+                                                    ? FontWeight.w700
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${env.variables.length} variable${env.variables.length == 1 ? '' : 's'}',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (!env.isActive)
+                                        CupertinoButton(
+                                          padding: EdgeInsets.zero,
+                                          minSize: 30,
+                                          onPressed: () => ref
+                                              .read(
+                                                environmentsProvider.notifier,
+                                              )
+                                              .setActive(env.uid),
+                                          child: const Text(
+                                            'Activate',
+                                            style: TextStyle(fontSize: 14),
+                                          ),
+                                        ),
+                                      const Icon(
+                                        CupertinoIcons.chevron_right,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (AdConfig.environments.shouldInsertAfterOrdinal(
+                              index + 1,
+                              overrideEvery: settings.environmentsAdInterval,
+                            ))
+                              _nativeAdTileCupertino(context),
+                          ],
                         );
                       },
                     ),
@@ -205,8 +291,9 @@ class EnvironmentsScreen extends ConsumerWidget {
             placeholder: 'Environment name',
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: CupertinoColors.tertiarySystemBackground
-                  .resolveFrom(dialogContext),
+              color: CupertinoColors.tertiarySystemBackground.resolveFrom(
+                dialogContext,
+              ),
               borderRadius: BorderRadius.circular(10),
             ),
             autofocus: true,

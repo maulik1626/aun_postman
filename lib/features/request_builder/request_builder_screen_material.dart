@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_haptics.dart';
 import 'package:aun_reqstudio/core/utils/curl_exporter.dart';
 import 'package:aun_reqstudio/core/utils/curl_parser.dart';
@@ -101,8 +102,7 @@ class _RequestBuilderScreenMaterialState
 
     final collections = ref.read(collectionsProvider);
     final req = opened.request;
-    final title =
-        _resolveRequestTitleForHistoryReplay(req, collections);
+    final title = _resolveRequestTitleForHistoryReplay(req, collections);
     final toLoad = title == req.name ? req : req.copyWith(name: title);
     final snapshot = opened.variableSnapshot;
     final openedUid = opened.uid;
@@ -110,10 +110,9 @@ class _RequestBuilderScreenMaterialState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (widget.openedFromHistory?.uid != openedUid) return;
-      ref.read(requestBuilderProvider.notifier).loadFromRequest(
-            toLoad,
-            replayVariableSnapshot: snapshot,
-          );
+      ref
+          .read(requestBuilderProvider.notifier)
+          .loadFromRequest(toLoad, replayVariableSnapshot: snapshot);
       _urlController.text = ref.read(requestBuilderProvider).url;
     });
   }
@@ -138,17 +137,16 @@ class _RequestBuilderScreenMaterialState
   }
 
   String _draftScope() => RequestBuilderDraftStorage.scopeKey(
-        collectionUid: widget.collectionUid,
-        requestUid: widget.requestUid,
-        folderUid: widget.folderUid,
-      );
+    collectionUid: widget.collectionUid,
+    requestUid: widget.requestUid,
+    folderUid: widget.folderUid,
+  );
 
   Future<void> _persistDraftImmediate() async {
     if (!_cachedRequestAutoSave) return;
     final s = ref.read(requestBuilderProvider);
     if (!s.isDirty) return;
-    final box =
-        ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
+    final box = ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
     await RequestBuilderDraftStorage.save(box, _draftScope(), s);
   }
 
@@ -161,13 +159,11 @@ class _RequestBuilderScreenMaterialState
     });
   }
 
-  Future<void> _saveToCollectionAndClearDraft(
-      String collectionUid) async {
+  Future<void> _saveToCollectionAndClearDraft(String collectionUid) async {
     await ref
         .read(requestBuilderProvider.notifier)
         .saveToCollection(collectionUid);
-    final box =
-        ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
+    final box = ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
     await RequestBuilderDraftStorage.clear(box, _draftScope());
   }
 
@@ -223,10 +219,8 @@ class _RequestBuilderScreenMaterialState
     if (widget.openedFromHistory != null) return;
 
     if (ref.read(appSettingsProvider).requestAutoSave) {
-      final box =
-          ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
-      final restored =
-          RequestBuilderDraftStorage.tryLoad(box, _draftScope());
+      final box = ref.read(hiveBoxProvider(HiveBoxes.requestBuilderDrafts));
+      final restored = RequestBuilderDraftStorage.tryLoad(box, _draftScope());
       if (restored != null) {
         final c = UrlQuerySync.canonicalizeUrlAndParams(
           restored.url,
@@ -245,8 +239,7 @@ class _RequestBuilderScreenMaterialState
     final uid = widget.requestUid;
     if (uid == null) {
       // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
-      ref.read(requestBuilderProvider.notifier).state =
-          RequestBuilderState(
+      ref.read(requestBuilderProvider.notifier).state = RequestBuilderState(
         collectionUid: widget.collectionUid,
         folderUid: widget.folderUid,
       );
@@ -259,7 +252,8 @@ class _RequestBuilderScreenMaterialState
         .firstOrNull;
     if (col == null) return;
 
-    final req = col.requests.where((r) => r.uid == uid).firstOrNull ??
+    final req =
+        col.requests.where((r) => r.uid == uid).firstOrNull ??
         _findInFolders(col.folders, uid);
     if (req == null) return;
 
@@ -276,8 +270,7 @@ class _RequestBuilderScreenMaterialState
 
     final colUid = request.collectionUid;
     if (colUid != null && colUid != 'history') {
-      final col =
-          collections.where((c) => c.uid == colUid).firstOrNull;
+      final col = collections.where((c) => c.uid == colUid).firstOrNull;
       if (col != null) {
         final found =
             col.requests.where((r) => r.uid == request.uid).firstOrNull ??
@@ -297,8 +290,7 @@ class _RequestBuilderScreenMaterialState
 
   HttpRequest? _findInFolders(List<Folder> folders, String uid) {
     for (final f in folders) {
-      final found =
-          f.requests.where((r) => r.uid == uid).firstOrNull;
+      final found = f.requests.where((r) => r.uid == uid).firstOrNull;
       if (found != null) return found;
       final nested = _findInFolders(f.subFolders, uid);
       if (nested != null) return nested;
@@ -307,8 +299,7 @@ class _RequestBuilderScreenMaterialState
   }
 
   Future<void> _copyAsCurl() async {
-    final raw =
-        ref.read(requestBuilderProvider.notifier).toRequest();
+    final raw = ref.read(requestBuilderProvider.notifier).toRequest();
     if (raw.url.trim().isEmpty) {
       await UserNotification.show(
         context: context,
@@ -324,12 +315,12 @@ class _RequestBuilderScreenMaterialState
       builder: builderState,
       env: activeEnv,
     );
-    final req =
-        _interpolator.interpolateRequestWithVariables(raw, vars);
+    final req = _interpolator.interpolateRequestWithVariables(raw, vars);
     final defaultHdrs = _interpolator.interpolateHeadersWithVariables(
-        settings.defaultHeaders, vars);
-    final curl =
-        CurlExporter.toCurl(req, defaultHeaders: defaultHdrs);
+      settings.defaultHeaders,
+      vars,
+    );
+    final curl = CurlExporter.toCurl(req, defaultHeaders: defaultHdrs);
     await Clipboard.setData(ClipboardData(text: curl));
     if (!mounted) return;
     AppHaptics.light();
@@ -363,10 +354,8 @@ class _RequestBuilderScreenMaterialState
     super.dispose();
     if (snap != null && snap.isDirty) {
       try {
-        final box =
-            Hive.box<String>(HiveBoxes.requestBuilderDrafts);
-        unawaited(
-            RequestBuilderDraftStorage.save(box, scope, snap));
+        final box = Hive.box<String>(HiveBoxes.requestBuilderDrafts);
+        unawaited(RequestBuilderDraftStorage.save(box, scope, snap));
       } catch (_) {}
     }
   }
@@ -390,8 +379,7 @@ class _RequestBuilderScreenMaterialState
   }
 
   void _handleSendShortcut() {
-    final loading =
-        ref.read(requestExecutionProvider).isLoading;
+    final loading = ref.read(requestExecutionProvider).isLoading;
     if (loading) {
       ref.read(requestExecutionProvider.notifier).cancel();
     } else {
@@ -403,8 +391,7 @@ class _RequestBuilderScreenMaterialState
     final state = ref.read(requestBuilderProvider);
     if (!state.isDirty || state.collectionUid == null) return;
     AppHaptics.light();
-    unawaited(
-        _saveToCollectionAndClearDraft(state.collectionUid!));
+    unawaited(_saveToCollectionAndClearDraft(state.collectionUid!));
   }
 
   @override
@@ -441,7 +428,7 @@ class _RequestBuilderScreenMaterialState
           next.value != null &&
           !next.isLoading &&
           prev?.isLoading == true) {
-        _showResponseSheet();
+        unawaited(_showResponseSheet());
       }
     });
     ref.listen(requestBuilderProvider, (prev, next) {
@@ -455,8 +442,7 @@ class _RequestBuilderScreenMaterialState
       }
     });
 
-    _cachedRequestAutoSave =
-        ref.watch(appSettingsProvider).requestAutoSave;
+    _cachedRequestAutoSave = ref.watch(appSettingsProvider).requestAutoSave;
 
     final undefinedVars = _findUndefinedVars(
       state.url,
@@ -468,31 +454,29 @@ class _RequestBuilderScreenMaterialState
     );
 
     final primary = Theme.of(context).colorScheme.primary;
-    final secondary = Theme.of(context)
-        .colorScheme
-        .onSurface
-        .withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
 
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.enter, meta: true):
             _handleSendShortcut,
-        const SingleActivator(
-                LogicalKeyboardKey.enter, control: true):
+        const SingleActivator(LogicalKeyboardKey.enter, control: true):
             _handleSendShortcut,
         const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
             _handleSaveShortcut,
-        const SingleActivator(
-                LogicalKeyboardKey.keyS, control: true):
+        const SingleActivator(LogicalKeyboardKey.keyS, control: true):
             _handleSaveShortcut,
         for (var i = 0; i < _tabCount; i++)
-          SingleActivator(_requestBuilderTabShortcutKeys[i],
-              meta: true): () => _onTabSegmentSelected(i),
+          SingleActivator(_requestBuilderTabShortcutKeys[i], meta: true): () =>
+              _onTabSegmentSelected(i),
         for (var i = 0; i < _tabCount; i++)
           SingleActivator(
             _requestBuilderTabShortcutKeys[i],
             control: true,
-          ): () => _onTabSegmentSelected(i),
+          ): () =>
+              _onTabSegmentSelected(i),
       },
       child: GestureDetector(
         behavior: HitTestBehavior.deferToChild,
@@ -512,11 +496,7 @@ class _RequestBuilderScreenMaterialState
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Icon(
-                    Icons.edit_outlined,
-                    size: 16,
-                    color: secondary,
-                  ),
+                  Icon(Icons.edit_outlined, size: 16, color: secondary),
                 ],
               ),
             ),
@@ -530,459 +510,473 @@ class _RequestBuilderScreenMaterialState
                 TextButton(
                   onPressed: () {
                     AppHaptics.light();
-                    unawaited(_saveToCollectionAndClearDraft(
-                        state.collectionUid!));
+                    unawaited(
+                      _saveToCollectionAndClearDraft(state.collectionUid!),
+                    );
                   },
                   child: const Text('Save'),
                 ),
             ],
           ),
           body: CustomScrollView(
-          primary: false,
-          physics: const NeverScrollableScrollPhysics(),
-          slivers: [
-            // ── URL bar ─────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: TextFieldTapRegion(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          _MethodSelectorMaterial(
-                            method: state.method,
-                            onChanged: (m) => ref
-                                .read(requestBuilderProvider.notifier)
-                                .setMethod(m),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              focusNode: _urlFocusNode,
-                              controller: _urlController,
-                              style: const TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 13,
-                              ),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'https://api.example.com/endpoint',
-                                hintStyle: const TextStyle(
+            primary: false,
+            physics: const NeverScrollableScrollPhysics(),
+            slivers: [
+              // ── URL bar ─────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: TextFieldTapRegion(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            _MethodSelectorMaterial(
+                              method: state.method,
+                              onChanged: (m) => ref
+                                  .read(requestBuilderProvider.notifier)
+                                  .setMethod(m),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                focusNode: _urlFocusNode,
+                                controller: _urlController,
+                                style: const TextStyle(
                                   fontFamily: 'JetBrainsMono',
                                   fontSize: 13,
                                 ),
-                                suffixIcon: _urlController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear,
-                                            size: 16),
-                                        onPressed: () {
-                                          _urlController.clear();
-                                          ref
-                                              .read(requestBuilderProvider
-                                                  .notifier)
-                                              .setUrl('');
-                                        },
-                                      )
-                                    : null,
-                              ),
-                              onTapOutside: (_) => FocusManager
-                                  .instance.primaryFocus
-                                  ?.unfocus(),
-                              onChanged: (v) {
-                                ref
-                                    .read(
-                                        requestBuilderProvider.notifier)
-                                    .setUrl(v);
-                                setState(() {});
-                              },
-                              keyboardType: TextInputType.url,
-                              autocorrect: false,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (showUrlSuggestions)
-                        Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          constraints:
-                              const BoxConstraints(maxHeight: 200),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              padding: EdgeInsets.zero,
-                              itemCount: urlSuggestions.length,
-                              separatorBuilder: (_, __) => Divider(
-                                height: 0.5,
-                                color: Theme.of(context).dividerColor,
-                              ),
-                              itemBuilder: (context, i) {
-                                final s = urlSuggestions[i];
-                                return InkWell(
-                                  onTap: () {
-                                    AppHaptics.light();
-                                    _urlController.text = s;
-                                    ref
-                                        .read(requestBuilderProvider
-                                            .notifier)
-                                        .setUrl(s);
-                                    _urlFocusNode.unfocus();
-                                    setState(() {});
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    child: Text(
-                                      s,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontFamily: 'JetBrainsMono',
-                                        fontSize: 12,
-                                      ),
-                                    ),
+                                decoration: InputDecoration(
+                                  hintText: 'https://api.example.com/endpoint',
+                                  hintStyle: const TextStyle(
+                                    fontFamily: 'JetBrainsMono',
+                                    fontSize: 13,
                                   ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Environment pill + undefined var warning ──────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 4),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => _showEnvPicker(
-                          context, ref, envs, activeEnv?.uid),
-                      onLongPress: () =>
-                          _showVariablesPreview(context, activeEnv),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: activeEnv != null
-                              ? primary.withValues(alpha: 0.1)
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: activeEnv != null
-                                ? primary.withValues(alpha: 0.3)
-                                : Theme.of(context).dividerColor,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              activeEnv != null
-                                  ? Icons.check_circle
-                                  : Icons.circle_outlined,
-                              size: 12,
-                              color: activeEnv != null
-                                  ? primary
-                                  : secondary,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              activeEnv?.name ?? 'No Environment',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: activeEnv != null
-                                    ? primary
-                                    : secondary,
+                                  suffixIcon: _urlController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(
+                                            Icons.clear,
+                                            size: 16,
+                                          ),
+                                          onPressed: () {
+                                            _urlController.clear();
+                                            ref
+                                                .read(
+                                                  requestBuilderProvider
+                                                      .notifier,
+                                                )
+                                                .setUrl('');
+                                          },
+                                        )
+                                      : null,
+                                ),
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                onChanged: (v) {
+                                  ref
+                                      .read(requestBuilderProvider.notifier)
+                                      .setUrl(v);
+                                  setState(() {});
+                                },
+                                keyboardType: TextInputType.url,
+                                autocorrect: false,
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 14,
-                              color: activeEnv != null
-                                  ? primary
-                                  : secondary,
                             ),
                           ],
                         ),
-                      ),
+                        if (showUrlSuggestions)
+                          Container(
+                            margin: const EdgeInsets.only(top: 6),
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Theme.of(context).dividerColor,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: urlSuggestions.length,
+                                separatorBuilder: (_, __) => Divider(
+                                  height: 0.5,
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                                itemBuilder: (context, i) {
+                                  final s = urlSuggestions[i];
+                                  return InkWell(
+                                    onTap: () {
+                                      AppHaptics.light();
+                                      _urlController.text = s;
+                                      ref
+                                          .read(requestBuilderProvider.notifier)
+                                          .setUrl(s);
+                                      _urlFocusNode.unfocus();
+                                      setState(() {});
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        s,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontFamily: 'JetBrainsMono',
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    IconButton(
-                      icon: Icon(Icons.list_alt_outlined,
-                          size: 20, color: primary),
-                      onPressed: () =>
-                          _showVariablesPreview(context, activeEnv),
-                      padding: const EdgeInsets.only(left: 4),
-                      constraints: const BoxConstraints(
-                          minWidth: 32, minHeight: 32),
-                    ),
-                    if (undefinedVars.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
+                  ),
+                ),
+              ),
+
+              // ── Environment pill + undefined var warning ──────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () =>
+                            _showEnvPicker(context, ref, envs, activeEnv?.uid),
+                        onLongPress: () =>
+                            _showVariablesPreview(context, activeEnv),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.12),
+                            color: activeEnv != null
+                                ? primary.withValues(alpha: 0.1)
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceContainerHighest,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: activeEnv != null
+                                  ? primary.withValues(alpha: 0.3)
+                                  : Theme.of(context).dividerColor,
+                            ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(
-                                Icons.warning_amber,
+                              Icon(
+                                activeEnv != null
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
                                 size: 12,
-                                color: Colors.orange,
+                                color: activeEnv != null ? primary : secondary,
                               ),
                               const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  'Undefined: ${undefinedVars.join(', ')}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.orange,
-                                  ),
+                              Text(
+                                activeEnv?.name ?? 'No Environment',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: activeEnv != null
+                                      ? primary
+                                      : secondary,
                                 ),
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                size: 14,
+                                color: activeEnv != null ? primary : secondary,
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            // ── History variable snapshot banner ─────────────────────────
-            if (state.historyVariableSnapshot.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Theme.of(context).dividerColor,
-                        width: 0.5,
+                      IconButton(
+                        icon: Icon(
+                          Icons.list_alt_outlined,
+                          size: 20,
+                          color: primary,
+                        ),
+                        onPressed: () =>
+                            _showVariablesPreview(context, activeEnv),
+                        padding: const EdgeInsets.only(left: 4),
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.history, size: 16,
-                            color: Colors.teal),
+                      if (undefinedVars.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            'Using ${state.historyVariableSnapshot.length} variable(s) '
-                            'from this history entry. Open the request from a collection '
-                            'to use the active environment instead.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.3,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber,
+                                  size: 12,
+                                  color: Colors.orange,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    'Undefined: ${undefinedVars.join(', ')}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.orange,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
 
-            // ── Pre-request / Paste cURL ─────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () =>
-                          _showPreRequestSheet(context),
-                      icon: Icon(Icons.tune, size: 18, color: primary),
-                      label: Text(
-                        state.preRequestVariables.isEmpty
-                            ? 'Pre-request vars'
-                            : 'Pre-request (${state.preRequestVariables.length})',
-                        style:
-                            TextStyle(fontSize: 13, color: primary),
+              // ── History variable snapshot banner ─────────────────────────
+              if (state.historyVariableSnapshot.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                          width: 0.5,
+                        ),
                       ),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.history,
+                            size: 16,
+                            color: Colors.teal,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Using ${state.historyVariableSnapshot.length} variable(s) '
+                              'from this history entry. Open the request from a collection '
+                              'to use the active environment instead.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.3,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () =>
-                          _pasteCurlIntoBuilder(context),
-                      style: TextButton.styleFrom(
-                        foregroundColor: primary,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                  ),
+                ),
+
+              // ── Pre-request / Paste cURL ─────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
+                  child: Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _showPreRequestSheet(context),
+                        icon: Icon(Icons.tune, size: 18, color: primary),
+                        label: Text(
+                          state.preRequestVariables.isEmpty
+                              ? 'Pre-request vars'
+                              : 'Pre-request (${state.preRequestVariables.length})',
+                          style: TextStyle(fontSize: 13, color: primary),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                        ),
                       ),
-                      child: Text(
-                        'Paste cURL',
-                        style:
-                            TextStyle(fontSize: 13, color: primary),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () => _pasteCurlIntoBuilder(context),
+                        style: TextButton.styleFrom(
+                          foregroundColor: primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                        ),
+                        child: Text(
+                          'Paste cURL',
+                          style: TextStyle(fontSize: 13, color: primary),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // ── Send button ──────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 8),
-                child: GestureDetector(
-                  onTap: isLoading
-                      ? () => ref
-                          .read(requestExecutionProvider.notifier)
-                          .cancel()
-                      : _sendRequest,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.ctaGradient,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isLoading) ...[
-                          const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+              // ── Send button ──────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: GestureDetector(
+                    onTap: isLoading
+                        ? () => ref
+                              .read(requestExecutionProvider.notifier)
+                              .cancel()
+                        : _sendRequest,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.ctaGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isLoading) ...[
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Text(
+                            isLoading ? 'Sending…' : 'Send',
+                            style: const TextStyle(
                               color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                        ],
-                        Text(
-                          isLoading ? 'Sending…' : 'Send',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Tab bar ──────────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 4),
-                child: TabBar(
-                  onTap: _onTabSegmentSelected,
-                  controller: TabController(
-                    length: _tabCount,
-                    vsync: Navigator.of(context),
-                    initialIndex: _selectedTab,
-                  ),
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: primary,
-                  unselectedLabelColor: secondary,
-                  indicatorColor: primary,
-                  labelStyle: const TextStyle(
-                    fontFamily: 'Satoshi',
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                  tabs: [
-                    const Tab(text: 'Params'),
-                    const Tab(text: 'Headers'),
-                    const Tab(text: 'Body'),
-                    const Tab(text: 'Auth'),
-                    Tab(
-                      text: state.assertions.isEmpty
-                          ? 'Tests'
-                          : 'Tests (${state.assertions.length})',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Tab content ──────────────────────────────────────────────
-            SliverFillRemaining(
-              hasScrollBody: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: PrimaryScrollController.none(
-                      child: PageView(
-                        controller: _tabPageController,
-                        onPageChanged: _onTabPageChanged,
-                        physics: const PageScrollPhysics(
-                          parent: BouncingScrollPhysics(),
-                        ),
-                        children: const [
-                          ParamsTabMaterial(),
-                          HeadersTabMaterial(),
-                          BodyTabMaterial(),
-                          AuthTabMaterial(),
-                          TestsTabMaterial(),
                         ],
                       ),
                     ),
                   ),
-                  if (executionState.hasValue &&
-                      executionState.value != null)
-                    _ResponseSummaryBarMaterial(
-                      onTap: _showResponseSheet,
-                      statusCode: executionState.value!.statusCode,
-                      durationMs:
-                          executionState.value!.durationMs,
-                      sizeBytes: executionState.value!.sizeBytes,
-                    ),
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+
+              // ── Tab bar ──────────────────────────────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: TabBar(
+                    onTap: _onTabSegmentSelected,
+                    controller: TabController(
+                      length: _tabCount,
+                      vsync: Navigator.of(context),
+                      initialIndex: _selectedTab,
+                    ),
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    labelColor: primary,
+                    unselectedLabelColor: secondary,
+                    indicatorColor: primary,
+                    labelStyle: const TextStyle(
+                      fontFamily: 'Satoshi',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    tabs: [
+                      const Tab(text: 'Params'),
+                      const Tab(text: 'Headers'),
+                      const Tab(text: 'Body'),
+                      const Tab(text: 'Auth'),
+                      Tab(
+                        text: state.assertions.isEmpty
+                            ? 'Tests'
+                            : 'Tests (${state.assertions.length})',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Tab content ──────────────────────────────────────────────
+              SliverFillRemaining(
+                hasScrollBody: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: PrimaryScrollController.none(
+                        child: PageView(
+                          controller: _tabPageController,
+                          onPageChanged: _onTabPageChanged,
+                          physics: const PageScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          children: const [
+                            ParamsTabMaterial(),
+                            HeadersTabMaterial(),
+                            BodyTabMaterial(),
+                            AuthTabMaterial(),
+                            TestsTabMaterial(),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (executionState.hasValue && executionState.value != null)
+                      _ResponseSummaryBarMaterial(
+                        onTap: _showResponseSheet,
+                        statusCode: executionState.value!.statusCode,
+                        durationMs: executionState.value!.durationMs,
+                        sizeBytes: executionState.value!.sizeBytes,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1071,9 +1065,7 @@ class _RequestBuilderScreenMaterialState
                   ],
                 ),
                 onTap: () {
-                  ref
-                      .read(environmentsProvider.notifier)
-                      .setActive(e.uid);
+                  ref.read(environmentsProvider.notifier).setActive(e.uid);
                   Navigator.pop(ctx);
                 },
               ),
@@ -1082,9 +1074,9 @@ class _RequestBuilderScreenMaterialState
             ListTile(
               title: Text(
                 'Cancel',
-                style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  ctx,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
               onTap: () => Navigator.pop(ctx),
             ),
@@ -1109,8 +1101,7 @@ class _RequestBuilderScreenMaterialState
     );
   }
 
-  void _showVariablesPreview(
-      BuildContext context, Environment? env) {
+  void _showVariablesPreview(BuildContext context, Environment? env) {
     final primary = Theme.of(context).colorScheme.primary;
     showModalBottomSheet<void>(
       context: context,
@@ -1138,8 +1129,7 @@ class _RequestBuilderScreenMaterialState
                 children: [
                   const Text(
                     'Variables',
-                    style: TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                   ),
                   const Spacer(),
                   TextButton(
@@ -1149,12 +1139,10 @@ class _RequestBuilderScreenMaterialState
                 ],
               ),
             ),
-            Divider(
-                height: 1, color: Theme.of(ctx).dividerColor),
+            Divider(height: 1, color: Theme.of(ctx).dividerColor),
             Expanded(
               child: ListView(
-                padding:
-                    const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
                   Text(
                     'Environment',
@@ -1162,10 +1150,9 @@ class _RequestBuilderScreenMaterialState
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(
+                        ctx,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1175,10 +1162,9 @@ class _RequestBuilderScreenMaterialState
                       'or use dynamic variables below.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.55),
+                        color: Theme.of(
+                          ctx,
+                        ).colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
                     )
                   else ...[
@@ -1195,20 +1181,17 @@ class _RequestBuilderScreenMaterialState
                         'This environment has no variables yet.',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Theme.of(ctx)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.55),
+                          color: Theme.of(
+                            ctx,
+                          ).colorScheme.onSurface.withValues(alpha: 0.55),
                         ),
                       )
                     else
                       ...env.variables.map(
                         (v) => Padding(
-                          padding:
-                              const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 10),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 children: [
@@ -1217,17 +1200,14 @@ class _RequestBuilderScreenMaterialState
                                       '{{${v.key}}}',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight:
-                                            FontWeight.w600,
-                                        fontFamily:
-                                            'JetBrainsMono',
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'JetBrainsMono',
                                         color: v.isEnabled
                                             ? primary
                                             : Theme.of(ctx)
-                                                .colorScheme
-                                                .onSurface
-                                                .withValues(
-                                                    alpha: 0.55),
+                                                  .colorScheme
+                                                  .onSurface
+                                                  .withValues(alpha: 0.55),
                                       ),
                                     ),
                                   ),
@@ -1239,42 +1219,36 @@ class _RequestBuilderScreenMaterialState
                                         color: Theme.of(ctx)
                                             .colorScheme
                                             .onSurface
-                                            .withValues(
-                                                alpha: 0.55),
+                                            .withValues(alpha: 0.55),
                                       ),
                                     ),
                                   if (v.isSecret)
                                     Padding(
-                                      padding:
-                                          const EdgeInsets.only(
-                                              left: 6),
+                                      padding: const EdgeInsets.only(left: 6),
                                       child: Icon(
                                         Icons.lock_outline,
                                         size: 12,
                                         color: Theme.of(ctx)
                                             .colorScheme
                                             .onSurface
-                                            .withValues(
-                                                alpha: 0.55),
+                                            .withValues(alpha: 0.55),
                                       ),
                                     ),
                                   IconButton(
                                     icon: Icon(
                                       Icons.content_copy_outlined,
                                       size: 18,
-                                      color: primary
-                                          .withValues(alpha: 0.85),
+                                      color: primary.withValues(alpha: 0.85),
                                     ),
-                                    onPressed: () =>
-                                        _copyVariablePlaceholder(
-                                          ctx,
-                                          '{{${v.key}}}',
-                                        ),
+                                    onPressed: () => _copyVariablePlaceholder(
+                                      ctx,
+                                      '{{${v.key}}}',
+                                    ),
                                     padding: EdgeInsets.zero,
-                                    constraints:
-                                        const BoxConstraints(
-                                            minWidth: 32,
-                                            minHeight: 32),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1286,9 +1260,7 @@ class _RequestBuilderScreenMaterialState
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontFamily: 'JetBrainsMono',
-                                  color: Theme.of(ctx)
-                                      .colorScheme
-                                      .onSurface,
+                                  color: Theme.of(ctx).colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -1303,10 +1275,9 @@ class _RequestBuilderScreenMaterialState
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5,
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(
+                        ctx,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -1314,10 +1285,9 @@ class _RequestBuilderScreenMaterialState
                     'Use in URL, headers, or body as {{name}} — resolved at send time.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Theme.of(ctx)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.55),
+                      color: Theme.of(
+                        ctx,
+                      ).colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1340,15 +1310,15 @@ class _RequestBuilderScreenMaterialState
                             icon: Icon(
                               Icons.content_copy_outlined,
                               size: 18,
-                              color:
-                                  primary.withValues(alpha: 0.85),
+                              color: primary.withValues(alpha: 0.85),
                             ),
                             onPressed: () =>
-                                _copyVariablePlaceholder(
-                                    ctx, '{{$name}}'),
+                                _copyVariablePlaceholder(ctx, '{{$name}}'),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                                minWidth: 32, minHeight: 32),
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
                           ),
                         ],
                       ),
@@ -1370,20 +1340,16 @@ class _RequestBuilderScreenMaterialState
   }
 
   Future<void> _showPreRequestSheet(BuildContext context) async {
-    final initial =
-        ref.read(requestBuilderProvider).preRequestVariables;
+    final initial = ref.read(requestBuilderProvider).preRequestVariables;
     final controller = TextEditingController(
-      text:
-          initial.entries.map((e) => '${e.key}=${e.value}').join('\n'),
+      text: initial.entries.map((e) => '${e.key}=${e.value}').join('\n'),
     );
     final result = await showModalBottomSheet<int>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           top: false,
           child: GestureDetector(
@@ -1422,10 +1388,9 @@ class _RequestBuilderScreenMaterialState
                       'One line per key=value.',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(ctx)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.55),
+                        color: Theme.of(
+                          ctx,
+                        ).colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
@@ -1494,28 +1459,21 @@ class _RequestBuilderScreenMaterialState
         if (i <= 0) continue;
         map[t.substring(0, i).trim()] = t.substring(i + 1).trim();
       }
-      ref
-          .read(requestBuilderProvider.notifier)
-          .setPreRequestVariables(map);
+      ref.read(requestBuilderProvider.notifier).setPreRequestVariables(map);
     } else if (result == 2) {
-      ref
-          .read(requestBuilderProvider.notifier)
-          .clearPreRequestVariables();
+      ref.read(requestBuilderProvider.notifier).clearPreRequestVariables();
     }
     controller.dispose();
   }
 
-  Future<void> _pasteCurlIntoBuilder(
-      BuildContext context) async {
+  Future<void> _pasteCurlIntoBuilder(BuildContext context) async {
     final controller = TextEditingController();
     final curlCommand = await showModalBottomSheet<String?>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           top: false,
           child: GestureDetector(
@@ -1606,9 +1564,7 @@ class _RequestBuilderScreenMaterialState
       return;
     }
     if (!mounted) return;
-    ref
-        .read(requestBuilderProvider.notifier)
-        .applyImportedHttpRequest(parsed);
+    ref.read(requestBuilderProvider.notifier).applyImportedHttpRequest(parsed);
     _urlController.text = ref.read(requestBuilderProvider).url;
     setState(() {});
     if (!mounted) return;
@@ -1619,14 +1575,13 @@ class _RequestBuilderScreenMaterialState
     );
   }
 
-  void _showResponseSheet() {
-    final response =
-        ref.read(requestExecutionProvider).value;
+  Future<void> _showResponseSheet() async {
+    final response = ref.read(requestExecutionProvider).value;
     if (response == null) return;
     final exec = ref.read(requestExecutionProvider.notifier);
     final harReq = exec.lastSentRequest;
     final harStarted = exec.lastStartedAt;
-    showModalBottomSheet(
+    await showModalBottomSheet(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -1645,6 +1600,8 @@ class _RequestBuilderScreenMaterialState
         ),
       ),
     );
+    if (!mounted) return;
+    await AdService.instance.maybeShowPostRequestInterstitial();
   }
 
   Future<void> _showRenameDialog() async {
@@ -1664,10 +1621,9 @@ class _RequestBuilderScreenMaterialState
               'empty and tap Rename to follow the URL again.',
               style: TextStyle(
                 fontSize: 13,
-                color: Theme.of(dialogContext)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.55),
+                color: Theme.of(
+                  dialogContext,
+                ).colorScheme.onSurface.withValues(alpha: 0.55),
               ),
             ),
             const SizedBox(height: 12),
@@ -1684,8 +1640,7 @@ class _RequestBuilderScreenMaterialState
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, controller.text),
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
             child: const Text('Rename'),
           ),
         ],
@@ -1703,8 +1658,10 @@ class _RequestBuilderScreenMaterialState
 // ── Method selector ───────────────────────────────────────────────────────────
 
 class _MethodSelectorMaterial extends StatelessWidget {
-  const _MethodSelectorMaterial(
-      {required this.method, required this.onChanged});
+  const _MethodSelectorMaterial({
+    required this.method,
+    required this.onChanged,
+  });
 
   final HttpMethod method;
   final void Function(HttpMethod) onChanged;
@@ -1725,8 +1682,7 @@ class _MethodSelectorMaterial extends StatelessWidget {
               children: [
                 Center(
                   child: Container(
-                    margin:
-                        const EdgeInsets.only(top: 12, bottom: 8),
+                    margin: const EdgeInsets.only(top: 12, bottom: 8),
                     width: 36,
                     height: 4,
                     decoration: BoxDecoration(
@@ -1761,10 +1717,9 @@ class _MethodSelectorMaterial extends StatelessWidget {
                 ListTile(
                   title: Text(
                     'Cancel',
-                    style:
-                        Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   onTap: () => Navigator.pop(ctx),
                 ),
@@ -1776,8 +1731,7 @@ class _MethodSelectorMaterial extends StatelessWidget {
         if (selected != null) onChanged(selected);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
@@ -1819,8 +1773,7 @@ class _ResponseSummaryBarMaterial extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: color.withValues(alpha: 0.08),
         child: Row(
           children: [
@@ -1833,10 +1786,7 @@ class _ResponseSummaryBarMaterial extends StatelessWidget {
               color: primary,
             ),
             const SizedBox(width: 8),
-            _ChipMaterial(
-              label: _formatSize(sizeBytes),
-              color: Colors.indigo,
-            ),
+            _ChipMaterial(label: _formatSize(sizeBytes), color: Colors.indigo),
             const Spacer(),
             Text(
               'View Response',

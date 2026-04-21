@@ -1,4 +1,3 @@
-import 'package:aun_reqstudio/features/response_viewer/core/jobs/search_index_job.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_processing_controller.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_models.dart';
 import 'package:flutter_test/flutter_test.dart';

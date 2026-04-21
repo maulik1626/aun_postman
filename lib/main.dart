@@ -2,6 +2,7 @@ import 'package:aun_reqstudio/app/app.dart';
 import 'package:aun_reqstudio/app/icloud_auto_backup_observer.dart';
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/data/local/hive_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
@@ -14,6 +15,7 @@ void main() async {
   // Open all Hive boxes before the first frame.
   await initHive();
   await Firebase.initializeApp();
+  await AdService.instance.initialize();
 
   if (defaultTargetPlatform == TargetPlatform.iOS) {
     await UserNotification.init();

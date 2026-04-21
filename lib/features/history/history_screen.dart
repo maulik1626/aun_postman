@@ -1,11 +1,66 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
+
+NativeListAdTile _nativeAdTileCupertino(BuildContext context) {
+  final chrome = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondarySystemBackground,
+    context,
+  );
+  final border = CupertinoDynamicColor.resolve(
+    CupertinoColors.separator,
+    context,
+  );
+  final label = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondaryLabel,
+    context,
+  );
+  final text = CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+  final muted = CupertinoDynamicColor.resolve(
+    CupertinoColors.secondaryLabel,
+    context,
+  );
+  final tertiary = CupertinoDynamicColor.resolve(
+    CupertinoColors.tertiaryLabel,
+    context,
+  );
+  final cta = CupertinoTheme.of(context).primaryColor;
+
+  return NativeListAdTile(
+    appearanceKey: CupertinoTheme.brightnessOf(context),
+    chromeColor: chrome,
+    borderColor: border,
+    labelColor: label,
+    height: 340,
+    templateStyle: NativeTemplateStyle(
+      templateType: TemplateType.medium,
+      mainBackgroundColor: chrome,
+      cornerRadius: 12,
+      primaryTextStyle: NativeTemplateTextStyle(
+        textColor: text,
+        size: 15,
+        style: NativeTemplateFontStyle.bold,
+      ),
+      secondaryTextStyle: NativeTemplateTextStyle(textColor: muted, size: 13),
+      tertiaryTextStyle: NativeTemplateTextStyle(textColor: tertiary, size: 11),
+      callToActionTextStyle: NativeTemplateTextStyle(
+        textColor: CupertinoColors.white,
+        backgroundColor: cta,
+        size: 13,
+        style: NativeTemplateFontStyle.bold,
+      ),
+    ),
+  );
+}
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -20,6 +75,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
+    final settings = ref.watch(appSettingsProvider);
 
     // Filter by search query
     final filtered = _query.isEmpty
@@ -44,8 +100,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             trailing: history.isNotEmpty
                 ? CupertinoButton(
                     padding: EdgeInsets.zero,
-                    minSize: 44,
                     onPressed: () => _confirmClearAll(context),
+                    minimumSize: Size(44, 44),
                     child: const Icon(CupertinoIcons.trash),
                   )
                 : null,
@@ -54,8 +110,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           if (history.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: CupertinoSearchTextField(
                   placeholder: 'Search by URL, method, status',
                   onChanged: (v) => setState(() => _query = v),
@@ -78,9 +136,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: CupertinoTheme.of(context)
-                                  .primaryColor
-                                  .withValues(alpha: 0.12),
+                              color: CupertinoTheme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
@@ -102,14 +160,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             'Send requests to see them here',
                             style: TextStyle(
                               fontSize: 15,
-                              color: CupertinoColors.secondaryLabel
-                                  .resolveFrom(context),
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
+                  if (AdConfig.emptyStateBottomBanners.history)
+                    const BottomBannerAdSection(),
                   SizedBox(height: bottomInset + 8),
                 ],
               ),
@@ -129,9 +190,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: CupertinoTheme.of(context)
-                                  .primaryColor
-                                  .withValues(alpha: 0.12),
+                              color: CupertinoTheme.of(
+                                context,
+                              ).primaryColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Icon(
@@ -153,8 +214,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                             'Try a different URL, method, or status code',
                             style: TextStyle(
                               fontSize: 15,
-                              color: CupertinoColors.secondaryLabel
-                                  .resolveFrom(context),
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
+                              ),
                             ),
                           ),
                         ],
@@ -198,14 +260,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           );
                         }
                         final entry = row.entry!;
-                        final statusColor =
-                            AppColors.statusColor(entry.response.statusCode);
-                        final methodColor =
-                            AppColors.methodColor(entry.request.method.value);
+                        final statusColor = AppColors.statusColor(
+                          entry.response.statusCode,
+                        );
+                        final methodColor = AppColors.methodColor(
+                          entry.request.method.value,
+                        );
                         final isFirstInSection = _isFirstEntryAfterHeader(
                           groups,
                           index,
                         );
+                        final entryOrdinal = _entryOrdinalAt(groups, index);
 
                         return Column(
                           mainAxisSize: MainAxisSize.min,
@@ -215,7 +280,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                               Container(
                                 height: 0.5,
                                 margin: const EdgeInsets.only(left: 16),
-                                color: CupertinoColors.separator.resolveFrom(context),
+                                color: CupertinoColors.separator.resolveFrom(
+                                  context,
+                                ),
                               ),
                             Slidable(
                               key: ValueKey(entry.uid),
@@ -227,13 +294,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                     onPressed: (_) => ref
                                         .read(historyProvider.notifier)
                                         .delete(entry.uid),
-                                    backgroundColor: CupertinoColors.destructiveRed,
+                                    backgroundColor:
+                                        CupertinoColors.destructiveRed,
                                     foregroundColor: CupertinoColors.white,
                                     icon: CupertinoIcons.trash,
                                     spacing: 2,
                                     label: 'Delete',
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 2, vertical: 4),
+                                      horizontal: 2,
+                                      vertical: 4,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -250,15 +320,23 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                   color: CupertinoColors.systemBackground
                                       .resolveFrom(context),
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
                                         decoration: BoxDecoration(
-                                          color: methodColor.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(4),
+                                          color: methodColor.withValues(
+                                            alpha: 0.12,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                         child: Text(
                                           entry.request.method.value,
@@ -273,7 +351,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               entry.request.url,
@@ -286,11 +365,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
-                                              DateFormat('HH:mm')
-                                                  .format(entry.executedAt),
+                                              DateFormat(
+                                                'HH:mm',
+                                              ).format(entry.executedAt),
                                               style: TextStyle(
                                                 fontSize: 11,
-                                                color: CupertinoColors.secondaryLabel
+                                                color: CupertinoColors
+                                                    .secondaryLabel
                                                     .resolveFrom(context),
                                               ),
                                             ),
@@ -299,8 +380,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
                                         children: [
                                           Text(
                                             '${entry.response.statusCode}',
@@ -315,7 +398,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                             '${entry.response.durationMs}ms',
                                             style: TextStyle(
                                               fontSize: 11,
-                                              color: CupertinoColors.secondaryLabel
+                                              color: CupertinoColors
+                                                  .secondaryLabel
                                                   .resolveFrom(context),
                                             ),
                                           ),
@@ -326,6 +410,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 ),
                               ),
                             ),
+                            if (AdConfig.history.shouldInsertAfterOrdinal(
+                              entryOrdinal,
+                              overrideEvery: settings.historyAdInterval,
+                            ))
+                              _nativeAdTileCupertino(context),
                           ],
                         );
                       },
@@ -374,6 +463,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return prev.isHeader;
   }
 
+  int _entryOrdinalAt(List<_HistoryGroup> groups, int index) {
+    var ordinal = 0;
+    for (var i = 0; i <= index; i++) {
+      final row = _flatHistoryRow(groups, i);
+      if (!row.isHeader) {
+        ordinal++;
+      }
+    }
+    return ordinal;
+  }
+
   List<_HistoryGroup> _groupByDate(List<HistoryEntry> entries) {
     if (entries.isEmpty) return [];
 
@@ -391,7 +491,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     for (final e in entries) {
       final d = DateTime(
-          e.executedAt.year, e.executedAt.month, e.executedAt.day);
+        e.executedAt.year,
+        e.executedAt.month,
+        e.executedAt.day,
+      );
       if (d == today) {
         todayList.add(e);
       } else if (d == yesterday) {

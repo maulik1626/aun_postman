@@ -3,17 +3,60 @@ import 'dart:io';
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
 import 'package:aun_reqstudio/domain/models/collection.dart';
 import 'package:aun_reqstudio/features/collections/collection_detail_screen_material.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+
+NativeListAdTile _nativeAdTileMaterial(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  final chrome = scheme.surfaceContainerLow;
+  final border = scheme.outlineVariant;
+  final label = scheme.onSurface.withValues(alpha: 0.62);
+
+  return NativeListAdTile(
+    appearanceKey: scheme.brightness,
+    chromeColor: chrome,
+    borderColor: border,
+    labelColor: label,
+    height: 340,
+    templateStyle: NativeTemplateStyle(
+      templateType: TemplateType.medium,
+      mainBackgroundColor: chrome,
+      cornerRadius: 12,
+      primaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface,
+        size: 15,
+        style: NativeTemplateFontStyle.bold,
+      ),
+      secondaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface.withValues(alpha: 0.72),
+        size: 13,
+      ),
+      tertiaryTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onSurface.withValues(alpha: 0.56),
+        size: 11,
+      ),
+      callToActionTextStyle: NativeTemplateTextStyle(
+        textColor: scheme.onPrimary,
+        backgroundColor: scheme.primary,
+        size: 13,
+        style: NativeTemplateFontStyle.bold,
+      ),
+    ),
+  );
+}
 
 class CollectionsScreenMaterial extends ConsumerStatefulWidget {
   const CollectionsScreenMaterial({super.key});
@@ -31,6 +74,7 @@ class _CollectionsScreenMaterialState
   @override
   Widget build(BuildContext context) {
     final collections = ref.watch(collectionsProvider);
+    final settings = ref.watch(appSettingsProvider);
     final isExpandedLayout = AppPlatform.isExpanded(context);
 
     if (isExpandedLayout) {
@@ -38,7 +82,12 @@ class _CollectionsScreenMaterialState
         children: [
           SizedBox(
             width: 320,
-            child: _buildListPane(context, collections, isExpanded: true),
+            child: _buildListPane(
+              context,
+              collections,
+              isExpanded: true,
+              adInterval: settings.collectionsAdInterval,
+            ),
           ),
           const VerticalDivider(width: 1, thickness: 0.5),
           Expanded(
@@ -53,13 +102,19 @@ class _CollectionsScreenMaterialState
       );
     }
 
-    return _buildListPane(context, collections, isExpanded: false);
+    return _buildListPane(
+      context,
+      collections,
+      isExpanded: false,
+      adInterval: settings.collectionsAdInterval,
+    );
   }
 
   Widget _buildListPane(
     BuildContext context,
     List<Collection> collections, {
     required bool isExpanded,
+    required int adInterval,
   }) {
     final isEmpty = collections.isEmpty;
 
@@ -88,187 +143,202 @@ class _CollectionsScreenMaterialState
                 ),
               )
             : ReorderableListView.builder(
-                  padding: EdgeInsets.zero,
-                  itemCount: collections.length,
-                  onReorder: (oldIndex, newIndex) {
-                    if (newIndex > oldIndex) newIndex--;
-                    final reordered = [...collections];
-                    final item = reordered.removeAt(oldIndex);
-                    reordered.insert(newIndex, item);
-                    ref
-                        .read(collectionsProvider.notifier)
-                        .reorder(reordered.map((c) => c.uid).toList());
-                  },
-                  itemBuilder: (context, index) {
-                    final collection = collections[index];
-                    final requestCount = collection.requests.length +
-                        collection.folders.fold(
-                          0,
-                          (s, f) => s + f.requests.length,
-                        );
-                    final isSelected =
-                        isExpanded && _selectedUid == collection.uid;
+                padding: EdgeInsets.zero,
+                itemCount: collections.length,
+                onReorder: (oldIndex, newIndex) {
+                  if (newIndex > oldIndex) newIndex--;
+                  final reordered = [...collections];
+                  final item = reordered.removeAt(oldIndex);
+                  reordered.insert(newIndex, item);
+                  ref
+                      .read(collectionsProvider.notifier)
+                      .reorder(reordered.map((c) => c.uid).toList());
+                },
+                itemBuilder: (context, index) {
+                  final collection = collections[index];
+                  final requestCount =
+                      collection.requests.length +
+                      collection.folders.fold(
+                        0,
+                        (s, f) => s + f.requests.length,
+                      );
+                  final isSelected =
+                      isExpanded && _selectedUid == collection.uid;
 
-                    return Slidable(
-                      key: ValueKey(collection.uid),
-                      startActionPane: ActionPane(
-                        motion: const DrawerMotion(),
-                        extentRatio: 0.22,
-                        children: [
-                          SlidableAction(
-                            onPressed: (ctx) =>
-                                _shareCollection(ctx, collection),
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                            icon: Icons.share_outlined,
-                            spacing: 2,
-                            label: 'Share',
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 2,
-                              vertical: 4,
-                            ),
-                          ),
-                        ],
-                      ),
-                      endActionPane: ActionPane(
-                        motion: const DrawerMotion(),
-                        extentRatio: 0.48,
-                        children: [
-                          SlidableAction(
-                            onPressed: (_) => ref
-                                .read(collectionsProvider.notifier)
-                                .duplicate(collection.uid),
-                            backgroundColor: Colors.indigo,
-                            foregroundColor: Colors.white,
-                            icon: Icons.copy_outlined,
-                            spacing: 2,
-                            label: 'Duplicate',
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 2, vertical: 4),
-                          ),
-                          SlidableAction(
-                            onPressed: (_) => _confirmDelete(
-                              context,
-                              ref,
-                              collection.uid,
-                              collection.name,
-                            ),
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            icon: Icons.delete_outlined,
-                            spacing: 2,
-                            label: 'Delete',
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 2, vertical: 4),
-                          ),
-                        ],
-                      ),
-                      child: InkWell(
-                        onTap: () {
-                          if (isExpanded) {
-                            setState(() => _selectedUid = collection.uid);
-                          } else {
-                            context.push('/collections/${collection.uid}');
-                          }
-                        },
-                        child: Container(
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.06)
-                              : null,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.primary
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.folder,
-                                  size: 18,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
+                  return Column(
+                    key: ValueKey(collection.uid),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Slidable(
+                        startActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.22,
+                          children: [
+                            SlidableAction(
+                              onPressed: (ctx) =>
+                                  _shareCollection(ctx, collection),
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              icon: Icons.share_outlined,
+                              spacing: 2,
+                              label: 'Share',
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 4,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      collection.name,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                            ),
+                          ],
+                        ),
+                        endActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.48,
+                          children: [
+                            SlidableAction(
+                              onPressed: (_) => ref
+                                  .read(collectionsProvider.notifier)
+                                  .duplicate(collection.uid),
+                              backgroundColor: Colors.indigo,
+                              foregroundColor: Colors.white,
+                              icon: Icons.copy_outlined,
+                              spacing: 2,
+                              label: 'Duplicate',
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 4,
+                              ),
+                            ),
+                            SlidableAction(
+                              onPressed: (_) => _confirmDelete(
+                                context,
+                                ref,
+                                collection.uid,
+                                collection.name,
+                              ),
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              icon: Icons.delete_outlined,
+                              spacing: 2,
+                              label: 'Delete',
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 4,
+                              ),
+                            ),
+                          ],
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            if (isExpanded) {
+                              setState(() => _selectedUid = collection.uid);
+                            } else {
+                              context.push('/collections/${collection.uid}');
+                            }
+                          },
+                          child: Container(
+                            color: isSelected
+                                ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withValues(alpha: 0.06)
+                                : null,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.folder,
+                                    size: 18,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        collection.name,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '$requestCount request${requestCount == 1 ? '' : 's'}',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onSurface
-                                            .withValues(alpha: 0.55),
-                                      ),
-                                    ),
-                                    if (collection.description != null &&
-                                        collection
-                                            .description!.isNotEmpty) ...[
                                       const SizedBox(height: 2),
                                       Text(
-                                        collection.description!,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                        '$requestCount request${requestCount == 1 ? '' : 's'}',
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 13,
                                           color: Theme.of(context)
                                               .colorScheme
                                               .onSurface
-                                              .withValues(alpha: 0.38),
+                                              .withValues(alpha: 0.55),
                                         ),
                                       ),
+                                      if (collection.description != null &&
+                                          collection
+                                              .description!
+                                              .isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          collection.description!,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.38),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 18,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.38),
-                              ),
-                              const SizedBox(width: 4),
-                              // Drag handle — ReorderableListView provides one
-                              // automatically via the ReorderableDragStartListener
-                              // injected by ReorderableListView.builder.
-                              ReorderableDragStartListener(
-                                index: index,
-                                child: Icon(
-                                  Icons.drag_handle,
-                                  size: 20,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.onSurface
                                       .withValues(alpha: 0.38),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                ReorderableDragStartListener(
+                                  index: index,
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    size: 20,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.38),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                      if (AdConfig.collections.shouldInsertAfterOrdinal(
+                        index + 1,
+                        overrideEvery: adInterval,
+                      ))
+                        _nativeAdTileMaterial(context),
+                    ],
+                  );
+                },
+              ),
       ),
       floatingActionButton: isEmpty
           ? null
@@ -348,10 +418,9 @@ class _CollectionsScreenMaterialState
       await file.writeAsString(json);
       if (!context.mounted) return;
       // Android share sheet doesn't need a position origin.
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
-        subject: '${collection.name} — AUN - ReqStudio',
-      );
+      await Share.shareXFiles([
+        XFile(file.path, mimeType: 'application/json'),
+      ], subject: '${collection.name} — AUN - ReqStudio');
     } catch (e) {
       if (!context.mounted) return;
       UserNotification.show(
@@ -459,7 +528,9 @@ class _EmptyState extends StatelessWidget {
             width: 80,
             height: 80,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
@@ -480,10 +551,9 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.55),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.55),
             ),
           ),
           const SizedBox(height: 28),
@@ -516,20 +586,18 @@ class _EmptyDetailPane extends StatelessWidget {
           Icon(
             Icons.folder_open_outlined,
             size: 64,
-            color: Theme.of(context)
-                .colorScheme
-                .onSurface
-                .withValues(alpha: 0.2),
+            color: Theme.of(
+              context,
+            ).colorScheme.onSurface.withValues(alpha: 0.2),
           ),
           const SizedBox(height: 16),
           Text(
             'Select a collection',
             style: TextStyle(
               fontSize: 16,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.45),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.45),
             ),
           ),
         ],

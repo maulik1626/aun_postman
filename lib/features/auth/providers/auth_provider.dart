@@ -7,6 +7,7 @@ import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -198,6 +199,9 @@ class AuthController extends StateNotifier<AppAuthState> {
         } catch (_) {
           await GoogleSignIn.instance.signOut();
         }
+        await _ref
+            .read(appSettingsProvider.notifier)
+            .resetAdPreferencesToDefaults();
 
         state = state.copyWith(clearBackendSession: true, clearError: true);
         _ref.invalidate(collectionsProvider);

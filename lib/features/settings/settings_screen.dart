@@ -4,6 +4,7 @@ import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/scaled_cupertino_switch.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
 import 'package:aun_reqstudio/app/widgets/cupertino_licenses_page.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/legal_urls.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
@@ -531,6 +532,135 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ],
                       ),
+                      _SectionHeader(title: 'Ads'),
+                      _SettingsGroup(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 13,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.heart,
+                                  color: CupertinoColors.systemPink.resolveFrom(
+                                    context,
+                                  ),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Why ads matter',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        AdConfig.supportMessage,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: CupertinoColors.secondaryLabel
+                                              .resolveFrom(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            height: 0.5,
+                            margin: const EdgeInsets.only(left: 50),
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                          _CupertinoSettingsActionRow(
+                            icon: CupertinoIcons.folder,
+                            iconColor: CupertinoColors.systemBlue.resolveFrom(
+                              context,
+                            ),
+                            title: 'Collections ad interval',
+                            value: '${settings.collectionsAdInterval}',
+                            subtitle: _adIntervalHelperText(
+                              defaultValue:
+                                  AdConfig.defaultCollectionsInlineAdInterval,
+                            ),
+                            onTap: () => _showAdIntervalEditor(
+                              context,
+                              ref,
+                              title: 'Collections Ad Interval',
+                              current: settings.collectionsAdInterval,
+                              onSave: (value) => ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setCollectionsAdInterval(value),
+                            ),
+                          ),
+                          Container(
+                            height: 0.5,
+                            margin: const EdgeInsets.only(left: 50),
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                          _CupertinoSettingsActionRow(
+                            icon: CupertinoIcons.time,
+                            iconColor: CupertinoColors.systemOrange.resolveFrom(
+                              context,
+                            ),
+                            title: 'History ad interval',
+                            value: '${settings.historyAdInterval}',
+                            subtitle: _adIntervalHelperText(
+                              defaultValue:
+                                  AdConfig.defaultHistoryInlineAdInterval,
+                            ),
+                            onTap: () => _showAdIntervalEditor(
+                              context,
+                              ref,
+                              title: 'History Ad Interval',
+                              current: settings.historyAdInterval,
+                              onSave: (value) => ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setHistoryAdInterval(value),
+                            ),
+                          ),
+                          Container(
+                            height: 0.5,
+                            margin: const EdgeInsets.only(left: 50),
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                          _CupertinoSettingsActionRow(
+                            icon: CupertinoIcons.slider_horizontal_3,
+                            iconColor: CupertinoColors.systemTeal.resolveFrom(
+                              context,
+                            ),
+                            title: 'Environments ad interval',
+                            value: '${settings.environmentsAdInterval}',
+                            subtitle: _adIntervalHelperText(
+                              defaultValue:
+                                  AdConfig.defaultEnvironmentsInlineAdInterval,
+                            ),
+                            onTap: () => _showAdIntervalEditor(
+                              context,
+                              ref,
+                              title: 'Environments Ad Interval',
+                              current: settings.environmentsAdInterval,
+                              onSave: (value) => ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setEnvironmentsAdInterval(value),
+                            ),
+                          ),
+                        ],
+                      ),
                       _SectionHeader(title: 'Danger Zone'),
                       _SettingsGroup(
                         children: [
@@ -958,6 +1088,83 @@ class SettingsScreen extends ConsumerWidget {
     return ThemePreference.dark;
   }
 
+  String _adIntervalHelperText({required int defaultValue}) {
+    return 'Show an ad after every X tiles. Example: if you enter 3, an ad appears after every 3 tiles. Default: $defaultValue until you change it.';
+  }
+
+  Future<void> _showAdIntervalEditor(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required int current,
+    required Future<void> Function(int value) onSave,
+  }) async {
+    final controller = TextEditingController(text: current.toString());
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Column(
+          children: [
+            const SizedBox(height: 8),
+            Text(AdConfig.supportMessage),
+            const SizedBox(height: 12),
+            CupertinoTextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              placeholder: 'Show an ad after every X tiles',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Example: enter 3 to show an ad after every 3 tiles. Allowed range: ${AdConfig.minInlineAdInterval}-${AdConfig.maxInlineAdInterval}.',
+              style: TextStyle(
+                fontSize: 12,
+                color: CupertinoColors.secondaryLabel.resolveFrom(
+                  dialogContext,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () async {
+              final parsed = int.tryParse(controller.text.trim());
+              if (parsed == null ||
+                  parsed < AdConfig.minInlineAdInterval ||
+                  parsed > AdConfig.maxInlineAdInterval) {
+                UserNotification.show(
+                  context: dialogContext,
+                  title: 'Invalid value',
+                  body:
+                      'Enter a number from ${AdConfig.minInlineAdInterval} to ${AdConfig.maxInlineAdInterval}.',
+                );
+                return;
+              }
+              await onSave(parsed);
+              if (!dialogContext.mounted) return;
+              Navigator.of(dialogContext).pop();
+              if (!context.mounted) return;
+              UserNotification.show(
+                context: context,
+                title: 'Ad settings updated',
+                body:
+                    'Your ad interval preference will stay active until sign out.',
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showThemePicker(
     BuildContext context,
     WidgetRef ref,
@@ -1054,6 +1261,72 @@ class _SectionHeader extends StatelessWidget {
           fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
           color: CupertinoColors.secondaryLabel.resolveFrom(context),
+        ),
+      ),
+    );
+  }
+}
+
+class _CupertinoSettingsActionRow extends StatelessWidget {
+  const _CupertinoSettingsActionRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String value;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: CupertinoColors.secondaryLabel.resolveFrom(
+                        context,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 15,
+                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+            ),
+          ],
         ),
       ),
     );

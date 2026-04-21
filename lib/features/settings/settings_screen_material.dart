@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/legal_urls.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
@@ -284,6 +285,106 @@ class SettingsScreenMaterial extends ConsumerWidget {
             ],
           ),
 
+          _SectionHeaderMaterial(title: 'Ads', color: sectionColor),
+          _SettingsGroupMaterial(
+            children: [
+              ListTile(
+                leading: Icon(Icons.favorite_outline, color: Colors.pinkAccent),
+                title: const Text('Why ads matter'),
+                subtitle: Text(
+                  AdConfig.supportMessage,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                ),
+              ),
+              _settingsDivider(context),
+              ListTile(
+                leading: Icon(Icons.folder_copy_outlined, color: Colors.blue),
+                title: const Text('Collections ad interval'),
+                subtitle: Text(
+                  _adIntervalHelperText(
+                    defaultValue: AdConfig.defaultCollectionsInlineAdInterval,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                ),
+                trailing: _settingsTrailingChevron(
+                  context,
+                  '${settings.collectionsAdInterval}',
+                  secondary,
+                  tertiary,
+                ),
+                onTap: () => _showAdIntervalEditor(
+                  context,
+                  ref,
+                  title: 'Collections Ad Interval',
+                  current: settings.collectionsAdInterval,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setCollectionsAdInterval(value),
+                ),
+              ),
+              _settingsDivider(context),
+              ListTile(
+                leading: Icon(Icons.history, color: Colors.deepOrange),
+                title: const Text('History ad interval'),
+                subtitle: Text(
+                  _adIntervalHelperText(
+                    defaultValue: AdConfig.defaultHistoryInlineAdInterval,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                ),
+                trailing: _settingsTrailingChevron(
+                  context,
+                  '${settings.historyAdInterval}',
+                  secondary,
+                  tertiary,
+                ),
+                onTap: () => _showAdIntervalEditor(
+                  context,
+                  ref,
+                  title: 'History Ad Interval',
+                  current: settings.historyAdInterval,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setHistoryAdInterval(value),
+                ),
+              ),
+              _settingsDivider(context),
+              ListTile(
+                leading: Icon(Icons.tune, color: Colors.teal),
+                title: const Text('Environments ad interval'),
+                subtitle: Text(
+                  _adIntervalHelperText(
+                    defaultValue: AdConfig.defaultEnvironmentsInlineAdInterval,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                ),
+                trailing: _settingsTrailingChevron(
+                  context,
+                  '${settings.environmentsAdInterval}',
+                  secondary,
+                  tertiary,
+                ),
+                onTap: () => _showAdIntervalEditor(
+                  context,
+                  ref,
+                  title: 'Environments Ad Interval',
+                  current: settings.environmentsAdInterval,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setEnvironmentsAdInterval(value),
+                ),
+              ),
+            ],
+          ),
+
           // ── Danger Zone ───────────────────────────────────────────
           _SectionHeaderMaterial(title: 'Danger zone', color: sectionColor),
           _SettingsGroupMaterial(
@@ -464,6 +565,81 @@ class SettingsScreenMaterial extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _adIntervalHelperText({required int defaultValue}) {
+    return 'Show an ad after every X tiles. Example: if you enter 3, an ad appears after every 3 tiles. Default: $defaultValue until you change it.';
+  }
+
+  Future<void> _showAdIntervalEditor(
+    BuildContext context,
+    WidgetRef ref, {
+    required String title,
+    required int current,
+    required Future<void> Function(int value) onSave,
+  }) async {
+    final controller = TextEditingController(text: current.toString());
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              AdConfig.supportMessage,
+              style: Theme.of(ctx).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Show an ad after every X tiles',
+                helperText:
+                    'Example: enter 3 to show an ad after every 3 tiles. Allowed range: ${AdConfig.minInlineAdInterval}-${AdConfig.maxInlineAdInterval}.',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final parsed = int.tryParse(controller.text.trim());
+              if (parsed == null ||
+                  parsed < AdConfig.minInlineAdInterval ||
+                  parsed > AdConfig.maxInlineAdInterval) {
+                UserNotification.show(
+                  context: ctx,
+                  title: 'Invalid value',
+                  body:
+                      'Enter a number from ${AdConfig.minInlineAdInterval} to ${AdConfig.maxInlineAdInterval}.',
+                );
+                return;
+              }
+              await onSave(parsed);
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx, true);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true && context.mounted) {
+      UserNotification.show(
+        context: context,
+        title: 'Ad settings updated',
+        body: 'Your ad interval preference will stay active until sign out.',
+      );
+    }
   }
 
   Future<void> _confirmClearAll(BuildContext context, WidgetRef ref) async {

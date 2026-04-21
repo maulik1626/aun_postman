@@ -2,6 +2,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_router.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/theme/app_theme.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
@@ -20,6 +21,27 @@ class App extends ConsumerWidget {
         ? const _MaterialAppShell()
         : const _CupertinoAppShell();
   }
+}
+
+Color resolveAndroidSystemNavColorForLocation({
+  required ThemeData theme,
+  required String location,
+}) {
+  final shellNavColor =
+      theme.navigationBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor;
+
+  if (location == AppRoutes.auth) {
+    return const Color(0xFF17110B);
+  }
+
+  if (location == AppRoutes.collections ||
+      location == AppRoutes.history ||
+      location == AppRoutes.environments ||
+      location == AppRoutes.websocket) {
+    return shellNavColor;
+  }
+
+  return theme.scaffoldBackgroundColor;
 }
 
 // ── iOS — Cupertino ──────────────────────────────────────────────────────────
@@ -86,11 +108,14 @@ class _MaterialAppShell extends ConsumerWidget {
       // iOS uses [_CupertinoAppShell] only — this builder runs on Android.
       builder: (context, child) {
         final theme = Theme.of(context);
-        final systemNavColor =
-            theme.navigationBarTheme.backgroundColor ??
-                theme.scaffoldBackgroundColor;
-        final navBrightness =
-            ThemeData.estimateBrightnessForColor(systemNavColor);
+        final location = router.routerDelegate.currentConfiguration.uri.path;
+        final systemNavColor = resolveAndroidSystemNavColorForLocation(
+          theme: theme,
+          location: location,
+        );
+        final navBrightness = ThemeData.estimateBrightnessForColor(
+          systemNavColor,
+        );
         final overlayStyle = SystemUiOverlayStyle(
           systemNavigationBarColor: systemNavColor,
           systemNavigationBarDividerColor: systemNavColor,
@@ -101,13 +126,16 @@ class _MaterialAppShell extends ConsumerWidget {
         );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: overlayStyle,
-          child: SafeArea(
-            top: false,
-            left: false,
-            right: false,
-            bottom: true,
-            maintainBottomViewPadding: true,
-            child: child ?? const SizedBox.shrink(),
+          child: ColoredBox(
+            color: systemNavColor,
+            child: SafeArea(
+              top: false,
+              left: false,
+              right: false,
+              bottom: true,
+              maintainBottomViewPadding: true,
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },
