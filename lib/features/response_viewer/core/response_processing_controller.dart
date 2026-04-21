@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 
 class ResponseProcessingController extends ChangeNotifier {
   ResponseProcessingController({ResponseViewerTelemetry? telemetry})
-      : _telemetry = telemetry ?? const NoopResponseViewerTelemetry();
+    : _telemetry = telemetry ?? const NoopResponseViewerTelemetry();
 
   final ResponseViewerTelemetry _telemetry;
   ResponsePrettyState prettyState = ResponsePrettyState.idle;
@@ -25,18 +25,30 @@ class ResponseProcessingController extends ChangeNotifier {
   }
 
   int _searchToken = 0;
+  int _prettyToken = 0;
+
+  void invalidateSearch({
+    ResponseSearchState nextState = ResponseSearchState.idle,
+  }) {
+    _searchToken++;
+    setSearchState(nextState);
+  }
 
   Future<PrettyFormatResult> computePretty({
     required String raw,
     required bool unwrapJson,
   }) async {
     final stopwatch = Stopwatch()..start();
+    final requestToken = ++_prettyToken;
     setPrettyState(ResponsePrettyState.loading);
     try {
-      final result = await compute(
-        runPrettyFormatJob,
-        (raw: raw, unwrapJson: unwrapJson),
-      );
+      final result = await compute(runPrettyFormatJob, (
+        raw: raw,
+        unwrapJson: unwrapJson,
+      ));
+      if (requestToken != _prettyToken) {
+        return (text: raw, language: 'plaintext');
+      }
       setPrettyState(ResponsePrettyState.ready);
       _telemetry.record(
         ResponseViewerTelemetryEvent(

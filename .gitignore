@@ -46,3 +46,15 @@ app.*.map.json
 
 # Netlify CLI (local site link / state)
 .netlify/
+
+# Secrets / signing / Firebase config (never commit)
+*.jks
+*.keystore
+*.p12
+*.pem
+*.mobileprovision
+android/key.properties
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+**/aun-release-metadata.txt
+**/README-LOCAL.md

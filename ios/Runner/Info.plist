@@ -90,5 +90,17 @@
 		<string>https</string>
 		<string>http</string>
 	</array>
+	<!-- Google Sign-In callback URL. Replace REVERSED_CLIENT_ID with value from GoogleService-Info.plist -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.557742239589-s06jg84d4i1mq0hef0agoqnhcef1q5mm</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

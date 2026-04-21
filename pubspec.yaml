@@ -55,11 +55,15 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   flutter_local_notifications: ^21.0.0
   socket_io_client: ^3.1.4
+  firebase_core: ^4.7.0
+  firebase_auth: ^6.4.0
+  google_sign_in: ^7.2.0
+  sign_in_with_apple: ^7.0.1
 
 # 2.6+ uses package:objective_c (native assets); Simulator can fail to load
 # objective_c.framework. 2.5.x uses the classic iOS plugin without it.
 dependency_overrides:
-  path_provider_foundation: 2.6.0
+  path_provider_foundation: ">=2.5.0 <2.6.0"
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +79,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/images/
     - assets/fonts/
   fonts:
     - family: Satoshi

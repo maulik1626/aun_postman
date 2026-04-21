@@ -1,6 +1,8 @@
 class AppRoutes {
   AppRoutes._();
 
+  static const String bootstrap = '/';
+  static const String auth = '/auth';
   static const String collections = '/collections';
   static const String collectionDetail = '/collections/:uid';
   static const String newRequest = '/collections/:uid/request/new';

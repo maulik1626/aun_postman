@@ -1,3 +1,4 @@
+import 'package:aun_reqstudio/app/platform.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,11 +23,7 @@ class ShellScreenMaterial extends StatelessWidget {
       selectedIcon: Icons.history,
       label: 'History',
     ),
-    (
-      icon: Icons.tune_outlined,
-      selectedIcon: Icons.tune,
-      label: 'Envs',
-    ),
+    (icon: Icons.tune_outlined, selectedIcon: Icons.tune, label: 'Envs'),
     (
       icon: Icons.compare_arrows_outlined,
       selectedIcon: Icons.compare_arrows,
@@ -38,25 +35,38 @@ class ShellScreenMaterial extends StatelessWidget {
     shell.goBranch(index, initialLocation: index == shell.currentIndex);
   }
 
+  bool _shouldRedirectAndroidBackToCollections(BuildContext context) {
+    if (!AppPlatform.isAndroid) return false;
+    if (shell.currentIndex == 0) return false;
+    return !GoRouter.of(context).canPop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isCompact = width < 600;
+    final child = isCompact
+        ? _CompactShell(
+            shell: shell,
+            destinations: _destinations,
+            onTap: _onTap,
+          )
+        : _RailShell(
+            shell: shell,
+            destinations: _destinations,
+            onTap: _onTap,
+            extended: width >= 840,
+          );
+    final interceptBack = _shouldRedirectAndroidBackToCollections(context);
 
-    if (isCompact) {
-      return _CompactShell(
-        shell: shell,
-        destinations: _destinations,
-        onTap: _onTap,
-      );
-    }
-
-    final isExpanded = width >= 840;
-    return _RailShell(
-      shell: shell,
-      destinations: _destinations,
-      onTap: _onTap,
-      extended: isExpanded,
+    return PopScope<Object?>(
+      canPop: !interceptBack,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!_shouldRedirectAndroidBackToCollections(context)) return;
+        shell.goBranch(0, initialLocation: true);
+      },
+      child: child,
     );
   }
 }
@@ -72,7 +82,7 @@ class _CompactShell extends StatelessWidget {
 
   final StatefulNavigationShell shell;
   final List<({IconData icon, IconData selectedIcon, String label})>
-      destinations;
+  destinations;
   final void Function(int) onTap;
 
   @override
@@ -108,7 +118,7 @@ class _RailShell extends StatelessWidget {
 
   final StatefulNavigationShell shell;
   final List<({IconData icon, IconData selectedIcon, String label})>
-      destinations;
+  destinations;
   final void Function(int) onTap;
 
   /// When [extended] is true the rail shows icon + label side-by-side

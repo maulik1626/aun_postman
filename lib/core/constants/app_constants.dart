@@ -21,4 +21,7 @@ class StorageKeys {
   static const String wsSavedSession = 'ws_saved_session_json';
   static const String requestAutoSave = 'request_auto_save';
   static const String icloudAutoBackup = 'icloud_auto_backup';
+  static const String backendSessionToken = 'backend_session_token';
+  static const String backendSessionIssuedAt = 'backend_session_issued_at';
+  static const String hasSignedInBefore = 'has_signed_in_before';
 }

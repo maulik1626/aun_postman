@@ -1,6 +1,12 @@
 import 'package:aun_reqstudio/app/platform.dart';
+import 'package:aun_reqstudio/app/router/auth_redirect.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
+import 'package:aun_reqstudio/features/auth/auth_bootstrap_screen.dart';
+import 'package:aun_reqstudio/features/auth/auth_bootstrap_screen_material.dart';
+import 'package:aun_reqstudio/features/auth/auth_screen.dart';
+import 'package:aun_reqstudio/features/auth/auth_screen_material.dart';
+import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/collection_auth_screen.dart';
 import 'package:aun_reqstudio/features/collections/collection_auth_screen_material.dart';
 import 'package:aun_reqstudio/features/collections/collection_detail_screen.dart';
@@ -46,10 +52,29 @@ Page<void> _page(Widget child, {bool fullscreenDialog = false}) {
 
 @Riverpod(keepAlive: true)
 GoRouter appRouter(AppRouterRef ref) {
+  final auth = ref.watch(authControllerProvider);
   return GoRouter(
-    initialLocation: AppRoutes.collections,
+    initialLocation: AppRoutes.bootstrap,
     debugLogDiagnostics: false,
+    redirect: (context, state) =>
+        appAuthRedirect(auth: auth, matchedLocation: state.matchedLocation),
     routes: [
+      GoRoute(
+        path: AppRoutes.bootstrap,
+        pageBuilder: (context, state) => _page(
+          AppPlatform.isAndroid
+              ? const AuthBootstrapScreenMaterial()
+              : const AuthBootstrapScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.auth,
+        pageBuilder: (context, state) => _page(
+          AppPlatform.isAndroid
+              ? const AuthScreenMaterial()
+              : const AuthScreen(),
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppPlatform.isAndroid
             ? ShellScreenMaterial(shell: shell)
