@@ -1630,12 +1630,18 @@ class _RequestBuilderScreenMaterialState
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
-      builder: (ctx) => SizedBox(
-        height: MediaQuery.of(ctx).size.height * 0.85,
-        child: ResponseViewerSheetMaterial(
-          response: response,
-          harRequest: harReq,
-          harStartedAt: harStarted,
+      useRootNavigator: true,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (ctx) => PopScope(
+        canPop: true,
+        child: SizedBox(
+          height: MediaQuery.of(ctx).size.height * 0.85,
+          child: ResponseViewerSheetMaterial(
+            response: response,
+            harRequest: harReq,
+            harStartedAt: harStarted,
+          ),
         ),
       ),
     );

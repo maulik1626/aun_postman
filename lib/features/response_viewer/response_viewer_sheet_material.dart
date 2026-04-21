@@ -6,6 +6,7 @@ import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/har_exporter.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_text_engine.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet.dart'
     show prettifyResponseBody;
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_syntax.dart';
@@ -699,14 +700,14 @@ class _ResponseViewerSheetMaterialState
 
 class _LineNumberedBodyMaterial extends StatelessWidget {
   const _LineNumberedBodyMaterial({
-    required this.lines,
+    required this.textEngine,
     required this.scrollController,
     required this.softWrap,
     required this.buildLine,
     this.softWrapLineContentBackground,
   });
 
-  final List<String> lines;
+  final ResponseTextEngine textEngine;
   final ScrollController scrollController;
   final bool softWrap;
   final Widget Function(BuildContext context, int index, String line) buildLine;
@@ -714,7 +715,7 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineCount = lines.isEmpty ? 1 : lines.length;
+    final lineCount = textEngine.lineCount;
     final gutterW = _lineNumberGutterWidth(lineCount);
     final sep = Theme.of(context).dividerColor;
     final numStyle = TextStyle(
@@ -738,8 +739,9 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
         child: ListView.builder(
           controller: scrollController,
           padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
-          itemCount: lines.length,
+          itemCount: lineCount,
           itemBuilder: (context, i) {
+            final line = textEngine.lineAt(i);
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -766,12 +768,12 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
                             color: softWrapLineContentBackground!,
                             child: Padding(
                               padding: const EdgeInsets.only(left: 10),
-                              child: buildLine(context, i, lines[i]),
+                              child: buildLine(context, i, line),
                             ),
                           )
                         : Padding(
                             padding: const EdgeInsets.only(left: 10),
-                            child: buildLine(context, i, lines[i]),
+                            child: buildLine(context, i, line),
                           ),
                   ),
                 ),
@@ -796,8 +798,9 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
           child: ListView.builder(
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
-            itemCount: lines.length,
+            itemCount: lineCount,
             itemBuilder: (context, i) {
+              final line = textEngine.lineAt(i);
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -826,7 +829,7 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(minWidth: innerMinW),
-                            child: buildLine(context, i, lines[i]),
+                            child: buildLine(context, i, line),
                           ),
                         ),
                       ),
@@ -874,7 +877,7 @@ class _PrettyTabMaterial extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = isDark ? atomOneDarkTheme : atomOneLightTheme;
-    final lines = prettyBody.split('\n');
+    final textEngine = ResponseTextEngine(prettyBody);
     final softWrapBg =
         theme['root']?.backgroundColor ?? const Color(0xffffffff);
 
@@ -882,7 +885,7 @@ class _PrettyTabMaterial extends StatelessWidget {
       return SelectableRegion(
         selectionControls: materialTextSelectionControls,
         child: _LineNumberedBodyMaterial(
-          lines: lines,
+          textEngine: textEngine,
           scrollController: scrollController,
           softWrap: softWrap,
           softWrapLineContentBackground: softWrap ? softWrapBg : null,
@@ -935,12 +938,12 @@ class _RawTabMaterial extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = body.split('\n');
+    final textEngine = ResponseTextEngine(body);
     if (searchQuery.trim().isEmpty) {
       return SelectableRegion(
         selectionControls: materialTextSelectionControls,
         child: _LineNumberedBodyMaterial(
-          lines: lines,
+          textEngine: textEngine,
           scrollController: scrollController,
           softWrap: true,
           buildLine: (_, __, line) => Text(line, style: _textStyle),
@@ -1048,12 +1051,12 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
     final q = searchQuery.trim();
     const highlightBg = Colors.amber;
     const activeHighlightBg = Colors.deepOrangeAccent;
-    final lines = text.split('\n');
+    final textEngine = ResponseTextEngine(text);
 
     return SelectableRegion(
       selectionControls: materialTextSelectionControls,
       child: _LineNumberedBodyMaterial(
-        lines: lines,
+        textEngine: textEngine,
         scrollController: scrollController,
         softWrap: softWrap,
         buildLine: (context, index, line) => Text.rich(

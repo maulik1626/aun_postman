@@ -7,6 +7,7 @@ import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/har_exporter.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_text_engine.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_syntax.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -72,14 +73,14 @@ Widget _withCupertinoScrollbar({
 /// not create tens of thousands of widgets at once.
 class _LineNumberedBody extends StatelessWidget {
   const _LineNumberedBody({
-    required this.lines,
+    required this.textEngine,
     required this.scrollController,
     required this.softWrap,
     required this.buildLine,
     this.softWrapLineContentBackground,
   });
 
-  final List<String> lines;
+  final ResponseTextEngine textEngine;
   final ScrollController scrollController;
   final bool softWrap;
 
@@ -91,7 +92,7 @@ class _LineNumberedBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineCount = lines.isEmpty ? 1 : lines.length;
+    final lineCount = textEngine.lineCount;
     final gutterW = _lineNumberGutterWidth(lineCount);
     final sep = CupertinoColors.separator.resolveFrom(context);
     final numStyle = TextStyle(
@@ -112,8 +113,9 @@ class _LineNumberedBody extends StatelessWidget {
         child: ListView.builder(
           controller: scrollController,
           padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
-          itemCount: lines.length,
+          itemCount: lineCount,
           itemBuilder: (context, i) {
+            final line = textEngine.lineAt(i);
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -138,12 +140,12 @@ class _LineNumberedBody extends StatelessWidget {
                             color: softWrapLineContentBackground!,
                             child: Padding(
                               padding: const EdgeInsets.only(left: 10),
-                              child: buildLine(context, i, lines[i]),
+                              child: buildLine(context, i, line),
                             ),
                           )
                         : Padding(
                             padding: const EdgeInsets.only(left: 10),
-                            child: buildLine(context, i, lines[i]),
+                            child: buildLine(context, i, line),
                           ),
                   ),
                 ),
@@ -169,8 +171,9 @@ class _LineNumberedBody extends StatelessWidget {
           child: ListView.builder(
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
-            itemCount: lines.length,
+            itemCount: lineCount,
             itemBuilder: (context, i) {
+              final line = textEngine.lineAt(i);
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -197,7 +200,7 @@ class _LineNumberedBody extends StatelessWidget {
                           scrollDirection: Axis.horizontal,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(minWidth: innerMinW),
-                            child: buildLine(context, i, lines[i]),
+                            child: buildLine(context, i, line),
                           ),
                         ),
                       ),
@@ -830,7 +833,7 @@ class _PrettyTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = isDark ? atomOneDarkTheme : atomOneLightTheme;
-    final lines = prettyBody.split('\n');
+    final textEngine = ResponseTextEngine(prettyBody);
     final softWrapBg =
         theme['root']?.backgroundColor ?? const Color(0xffffffff);
 
@@ -838,7 +841,7 @@ class _PrettyTab extends StatelessWidget {
       return SelectableRegion(
         selectionControls: cupertinoTextSelectionControls,
         child: _LineNumberedBody(
-          lines: lines,
+          textEngine: textEngine,
           scrollController: scrollController,
           softWrap: softWrap,
           softWrapLineContentBackground: softWrap ? softWrapBg : null,
@@ -888,12 +891,12 @@ class _RawTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = body.split('\n');
+    final textEngine = ResponseTextEngine(body);
     if (searchQuery.trim().isEmpty) {
       return SelectableRegion(
         selectionControls: cupertinoTextSelectionControls,
         child: _LineNumberedBody(
-          lines: lines,
+          textEngine: textEngine,
           scrollController: scrollController,
           softWrap: true,
           buildLine: (_, __, line) => Text(line, style: _textStyle),
@@ -996,12 +999,12 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
     final q = searchQuery.trim();
     final highlightBg = CupertinoColors.systemYellow.resolveFrom(context);
     final activeHighlightBg = CupertinoColors.systemOrange.resolveFrom(context);
-    final lines = text.split('\n');
+    final textEngine = ResponseTextEngine(text);
 
     return SelectableRegion(
       selectionControls: cupertinoTextSelectionControls,
       child: _LineNumberedBody(
-        lines: lines,
+        textEngine: textEngine,
         scrollController: scrollController,
         softWrap: softWrap,
         buildLine: (context, index, line) => Text.rich(
