@@ -2,6 +2,7 @@ import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,6 +68,7 @@ class EnvironmentsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final envs = ref.watch(environmentsProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
@@ -144,7 +146,8 @@ class EnvironmentsScreen extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(height: bottomInset),
-                  if (AdConfig.emptyStateBottomBanners.environments)
+                  if (!adSession.browseAdsDisabledByReward &&
+                      AdConfig.emptyStateBottomBanners.environments)
                     const BottomBannerAdSection(),
                 ],
               ),
@@ -259,10 +262,12 @@ class EnvironmentsScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (AdConfig.environments.shouldInsertAfterOrdinal(
-                              index + 1,
-                              overrideEvery: settings.environmentsAdInterval,
-                            ))
+                            if (!adSession.browseAdsDisabledByReward &&
+                                AdConfig.environments.shouldInsertAfterOrdinal(
+                                  index + 1,
+                                  overrideEvery:
+                                      settings.environmentsAdInterval,
+                                ))
                               _nativeAdTileCupertino(context),
                           ],
                         );

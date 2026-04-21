@@ -12,6 +12,7 @@ import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +28,9 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final brightness = ref.watch(appThemeNotifierProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
+    final adSessionNow =
+        ref.watch(adSessionNowProvider).value ?? DateTime.now();
     final auth = ref.watch(authControllerProvider);
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
@@ -582,6 +586,64 @@ class SettingsScreen extends ConsumerWidget {
                               context,
                             ),
                           ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.play_rectangle,
+                                  color: CupertinoColors.systemYellow
+                                      .resolveFrom(context),
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Pause Browse Ads',
+                                        style: TextStyle(fontSize: 16),
+                                      ),
+                                      Text(
+                                        adSession.browseAdsDisabledByReward
+                                            ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
+                                            : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: CupertinoColors.secondaryLabel
+                                              .resolveFrom(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                ScaledCupertinoSwitch(
+                                  value: adSession.browseAdsDisabledByReward,
+                                  onChanged: adSession.isLoadingRewardedAd
+                                      ? null
+                                      : (enabled) =>
+                                            _handleRewardedBrowseAdsToggle(
+                                              context,
+                                              ref,
+                                              enabled,
+                                            ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            height: 0.5,
+                            margin: const EdgeInsets.only(left: 50),
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
                           _CupertinoSettingsActionRow(
                             icon: CupertinoIcons.folder,
                             iconColor: CupertinoColors.systemBlue.resolveFrom(
@@ -592,16 +654,21 @@ class SettingsScreen extends ConsumerWidget {
                             subtitle: _adIntervalHelperText(
                               defaultValue:
                                   AdConfig.defaultCollectionsInlineAdInterval,
+                              pausedByReward:
+                                  adSession.browseAdsDisabledByReward,
                             ),
-                            onTap: () => _showAdIntervalEditor(
-                              context,
-                              ref,
-                              title: 'Collections Ad Interval',
-                              current: settings.collectionsAdInterval,
-                              onSave: (value) => ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setCollectionsAdInterval(value),
-                            ),
+                            enabled: !adSession.browseAdsDisabledByReward,
+                            onTap: adSession.browseAdsDisabledByReward
+                                ? null
+                                : () => _showAdIntervalEditor(
+                                    context,
+                                    ref,
+                                    title: 'Collections Ad Interval',
+                                    current: settings.collectionsAdInterval,
+                                    onSave: (value) => ref
+                                        .read(appSettingsProvider.notifier)
+                                        .setCollectionsAdInterval(value),
+                                  ),
                           ),
                           Container(
                             height: 0.5,
@@ -620,16 +687,21 @@ class SettingsScreen extends ConsumerWidget {
                             subtitle: _adIntervalHelperText(
                               defaultValue:
                                   AdConfig.defaultHistoryInlineAdInterval,
+                              pausedByReward:
+                                  adSession.browseAdsDisabledByReward,
                             ),
-                            onTap: () => _showAdIntervalEditor(
-                              context,
-                              ref,
-                              title: 'History Ad Interval',
-                              current: settings.historyAdInterval,
-                              onSave: (value) => ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setHistoryAdInterval(value),
-                            ),
+                            enabled: !adSession.browseAdsDisabledByReward,
+                            onTap: adSession.browseAdsDisabledByReward
+                                ? null
+                                : () => _showAdIntervalEditor(
+                                    context,
+                                    ref,
+                                    title: 'History Ad Interval',
+                                    current: settings.historyAdInterval,
+                                    onSave: (value) => ref
+                                        .read(appSettingsProvider.notifier)
+                                        .setHistoryAdInterval(value),
+                                  ),
                           ),
                           Container(
                             height: 0.5,
@@ -648,16 +720,21 @@ class SettingsScreen extends ConsumerWidget {
                             subtitle: _adIntervalHelperText(
                               defaultValue:
                                   AdConfig.defaultEnvironmentsInlineAdInterval,
+                              pausedByReward:
+                                  adSession.browseAdsDisabledByReward,
                             ),
-                            onTap: () => _showAdIntervalEditor(
-                              context,
-                              ref,
-                              title: 'Environments Ad Interval',
-                              current: settings.environmentsAdInterval,
-                              onSave: (value) => ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setEnvironmentsAdInterval(value),
-                            ),
+                            enabled: !adSession.browseAdsDisabledByReward,
+                            onTap: adSession.browseAdsDisabledByReward
+                                ? null
+                                : () => _showAdIntervalEditor(
+                                    context,
+                                    ref,
+                                    title: 'Environments Ad Interval',
+                                    current: settings.environmentsAdInterval,
+                                    onSave: (value) => ref
+                                        .read(appSettingsProvider.notifier)
+                                        .setEnvironmentsAdInterval(value),
+                                  ),
                           ),
                         ],
                       ),
@@ -1088,7 +1165,13 @@ class SettingsScreen extends ConsumerWidget {
     return ThemePreference.dark;
   }
 
-  String _adIntervalHelperText({required int defaultValue}) {
+  String _adIntervalHelperText({
+    required int defaultValue,
+    required bool pausedByReward,
+  }) {
+    if (pausedByReward) {
+      return 'Temporarily disabled while rewarded ad pause is active. Auto re-enables when the countdown ends.';
+    }
     return 'Show an ad after every X tiles. Example: if you enter 3, an ad appears after every 3 tiles. Default: $defaultValue until you change it.';
   }
 
@@ -1163,6 +1246,65 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _handleRewardedBrowseAdsToggle(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final notifier = ref.read(adSessionProvider.notifier);
+    if (!enabled) {
+      await notifier.disableBrowseAdRewardMode();
+      if (!context.mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Browse ads restored',
+        body: 'Collections, History, and Environments ads are enabled again.',
+      );
+      return;
+    }
+
+    final result = await notifier.enableBrowseAdRewardMode();
+    if (!context.mounted) return;
+    switch (result) {
+      case RewardBrowseAdsResult.earned:
+        UserNotification.show(
+          context: context,
+          title: 'Browse ads paused',
+          body:
+              'Collections, History, and Environments ads are turned off for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+        );
+      case RewardBrowseAdsResult.unavailable:
+        UserNotification.show(
+          context: context,
+          title: 'Rewarded ad unavailable',
+          body: 'Please try again in a moment.',
+        );
+      case RewardBrowseAdsResult.dismissed:
+        UserNotification.show(
+          context: context,
+          title: 'Reward not completed',
+          body: 'Browse ads stay on unless the rewarded ad is completed.',
+        );
+    }
+  }
+
+  String _formatPauseExpiry(DateTime? value) {
+    if (value == null) return 'soon';
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final suffix = value.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $suffix';
+  }
+
+  String _formatCountdown(DateTime? value, DateTime now) {
+    if (value == null) return '0m 0s';
+    final remaining = value.difference(now);
+    if (remaining <= Duration.zero) return '0m 0s';
+    final minutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds % 60;
+    return '${minutes}m ${seconds}s';
   }
 
   void _showThemePicker(
@@ -1274,6 +1416,7 @@ class _CupertinoSettingsActionRow extends StatelessWidget {
     required this.title,
     required this.value,
     required this.subtitle,
+    required this.enabled,
     required this.onTap,
   });
 
@@ -1282,7 +1425,8 @@ class _CupertinoSettingsActionRow extends StatelessWidget {
   final String title;
   final String value;
   final String subtitle;
-  final VoidCallback onTap;
+  final bool enabled;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1304,9 +1448,9 @@ class _CupertinoSettingsActionRow extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
+                      color: CupertinoColors.secondaryLabel
+                          .resolveFrom(context)
+                          .withValues(alpha: enabled ? 1 : 0.7),
                     ),
                   ),
                 ],
@@ -1317,14 +1461,18 @@ class _CupertinoSettingsActionRow extends StatelessWidget {
               value,
               style: TextStyle(
                 fontSize: 15,
-                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                color: CupertinoColors.secondaryLabel
+                    .resolveFrom(context)
+                    .withValues(alpha: enabled ? 1 : 0.7),
               ),
             ),
             const SizedBox(width: 6),
             Icon(
               CupertinoIcons.chevron_right,
               size: 14,
-              color: CupertinoColors.tertiaryLabel.resolveFrom(context),
+              color: CupertinoColors.tertiaryLabel
+                  .resolveFrom(context)
+                  .withValues(alpha: enabled ? 1 : 0.7),
             ),
           ],
         ),

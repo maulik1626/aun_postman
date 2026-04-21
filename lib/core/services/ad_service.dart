@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'dart:io' show Platform;
 
@@ -5,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 enum AdInterstitialPlacement { postRequest, postImportExport }
+
+enum RewardedAdShowResult { earned, unavailable, dismissed }
 
 /// Centralized AdMob integration for banners and guarded interstitials.
 class AdService {
@@ -25,6 +29,9 @@ class AdService {
   static const String _androidNativeId =
       'ca-app-pub-3940256099942544/2247696110';
   static const String _iosNativeId = 'ca-app-pub-3940256099942544/3986624511';
+  static const String _androidRewardedId =
+      'ca-app-pub-3940256099942544/5224354917';
+  static const String _iosRewardedId = 'ca-app-pub-3940256099942544/1712485313';
 
   static String get appId => Platform.isAndroid ? _androidAppId : _iosAppId;
 
@@ -37,9 +44,14 @@ class AdService {
   static String get _nativeId =>
       Platform.isAndroid ? _androidNativeId : _iosNativeId;
 
+  static String get _rewardedId =>
+      Platform.isAndroid ? _androidRewardedId : _iosRewardedId;
+
   bool _initialized = false;
   bool _loadingInterstitial = false;
   bool _showingInterstitial = false;
+  bool _loadingRewarded = false;
+  bool _showingRewarded = false;
   final Map<AdInterstitialPlacement, int> _eligibleActionCounts = {
     AdInterstitialPlacement.postRequest: 0,
     AdInterstitialPlacement.postImportExport: 0,
@@ -49,6 +61,7 @@ class AdService {
     AdInterstitialPlacement.postImportExport: null,
   };
   InterstitialAd? _interstitialAd;
+  RewardedAd? _rewardedAd;
 
   bool get isInitialized => _initialized;
 
@@ -58,6 +71,7 @@ class AdService {
       await MobileAds.instance.initialize();
       _initialized = true;
       await preloadInterstitial();
+      await preloadRewardedAd();
       debugPrint('AdService: Mobile Ads initialized');
     } catch (e) {
       debugPrint('AdService: initialization failed - $e');
@@ -161,6 +175,87 @@ class AdService {
     );
   }
 
+  Future<void> preloadRewardedAd() async {
+    if (!_initialized || _loadingRewarded || _rewardedAd != null) {
+      return;
+    }
+    _loadingRewarded = true;
+    await RewardedAd.load(
+      adUnitId: _rewardedId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          debugPrint('AdService: rewarded ad loaded');
+          _loadingRewarded = false;
+          _rewardedAd = ad;
+        },
+        onAdFailedToLoad: (error) {
+          debugPrint('AdService: rewarded ad failed to load - $error');
+          _loadingRewarded = false;
+          _rewardedAd = null;
+        },
+      ),
+    );
+  }
+
+  Future<RewardedAdShowResult> showRewardedAdForBrowseAdPause() async {
+    if (!_initialized || _showingInterstitial || _showingRewarded) {
+      return RewardedAdShowResult.unavailable;
+    }
+
+    var ad = _rewardedAd;
+    if (ad == null) {
+      await preloadRewardedAd();
+      ad = _rewardedAd;
+    }
+    if (ad == null) {
+      debugPrint('AdService: rewarded ad skipped, no rewarded ad ready');
+      return RewardedAdShowResult.unavailable;
+    }
+
+    _rewardedAd = null;
+    var earned = false;
+    final completer = Completer<RewardedAdShowResult>();
+
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (_) {
+        _showingRewarded = true;
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        debugPrint('AdService: rewarded ad dismissed');
+        _showingRewarded = false;
+        ad.dispose();
+        preloadRewardedAd();
+        if (!completer.isCompleted) {
+          completer.complete(
+            earned
+                ? RewardedAdShowResult.earned
+                : RewardedAdShowResult.dismissed,
+          );
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('AdService: rewarded ad failed to show - $error');
+        _showingRewarded = false;
+        ad.dispose();
+        preloadRewardedAd();
+        if (!completer.isCompleted) {
+          completer.complete(RewardedAdShowResult.unavailable);
+        }
+      },
+    );
+
+    await ad.show(
+      onUserEarnedReward: (_, reward) {
+        earned = true;
+        debugPrint(
+          'AdService: rewarded ad earned - ${reward.amount} ${reward.type}',
+        );
+      },
+    );
+    return completer.future;
+  }
+
   Future<bool> maybeShowPostRequestInterstitial() async {
     return _maybeShowInterstitial(AdInterstitialPlacement.postRequest);
   }
@@ -170,7 +265,9 @@ class AdService {
   }
 
   Future<bool> _maybeShowInterstitial(AdInterstitialPlacement placement) async {
-    if (!_initialized || _showingInterstitial) return false;
+    if (!_initialized || _showingInterstitial || _showingRewarded) {
+      return false;
+    }
 
     final config = switch (placement) {
       AdInterstitialPlacement.postRequest => AdConfig.postRequestInterstitial,
@@ -216,6 +313,8 @@ class AdService {
   void dispose() {
     _interstitialAd?.dispose();
     _interstitialAd = null;
+    _rewardedAd?.dispose();
+    _rewardedAd = null;
   }
 
   @visibleForTesting
@@ -223,5 +322,6 @@ class AdService {
     _eligibleActionCounts.updateAll((_, __) => 0);
     _lastInterstitialAts.updateAll((_, __) => null);
     _showingInterstitial = false;
+    _showingRewarded = false;
   }
 }

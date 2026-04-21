@@ -9,6 +9,7 @@ import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
 import 'package:aun_reqstudio/domain/models/collection.dart';
 import 'package:aun_reqstudio/features/collections/dialogs/create_collection_dialog.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,6 +77,7 @@ class CollectionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final collections = ref.watch(collectionsProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
 
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
@@ -324,10 +326,12 @@ class CollectionsScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              if (AdConfig.collections.shouldInsertAfterOrdinal(
-                                index + 1,
-                                overrideEvery: settings.collectionsAdInterval,
-                              ))
+                              if (!adSession.browseAdsDisabledByReward &&
+                                  AdConfig.collections.shouldInsertAfterOrdinal(
+                                    index + 1,
+                                    overrideEvery:
+                                        settings.collectionsAdInterval,
+                                  ))
                                 _nativeAdTileCupertino(context),
                             ],
                           );

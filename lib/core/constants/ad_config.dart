@@ -25,6 +25,9 @@ abstract final class AdConfig {
   /// Maximum inline ad interval a user can configure from Settings.
   static const int maxInlineAdInterval = 8;
 
+  /// Rewarded browse-ad pause duration, in minutes.
+  static const int rewardedBrowseAdsPauseMinutes = 15;
+
   /// Module-level inline ad configuration for the Collections screen.
   static const AdInlineModuleConfig collections = AdInlineModuleConfig(
     enabled: true,

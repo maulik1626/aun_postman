@@ -10,6 +10,7 @@ import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
 import 'package:aun_reqstudio/domain/models/collection.dart';
 import 'package:aun_reqstudio/features/collections/collection_detail_screen_material.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,6 +76,7 @@ class _CollectionsScreenMaterialState
   Widget build(BuildContext context) {
     final collections = ref.watch(collectionsProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
     final isExpandedLayout = AppPlatform.isExpanded(context);
 
     if (isExpandedLayout) {
@@ -87,6 +89,7 @@ class _CollectionsScreenMaterialState
               collections,
               isExpanded: true,
               adInterval: settings.collectionsAdInterval,
+              sessionBrowseAdsDisabled: adSession.browseAdsDisabledByReward,
             ),
           ),
           const VerticalDivider(width: 1, thickness: 0.5),
@@ -107,6 +110,7 @@ class _CollectionsScreenMaterialState
       collections,
       isExpanded: false,
       adInterval: settings.collectionsAdInterval,
+      sessionBrowseAdsDisabled: adSession.browseAdsDisabledByReward,
     );
   }
 
@@ -115,6 +119,7 @@ class _CollectionsScreenMaterialState
     List<Collection> collections, {
     required bool isExpanded,
     required int adInterval,
+    required bool sessionBrowseAdsDisabled,
   }) {
     final isEmpty = collections.isEmpty;
 
@@ -330,10 +335,11 @@ class _CollectionsScreenMaterialState
                           ),
                         ),
                       ),
-                      if (AdConfig.collections.shouldInsertAfterOrdinal(
-                        index + 1,
-                        overrideEvery: adInterval,
-                      ))
+                      if (!sessionBrowseAdsDisabled &&
+                          AdConfig.collections.shouldInsertAfterOrdinal(
+                            index + 1,
+                            overrideEvery: adInterval,
+                          ))
                         _nativeAdTileMaterial(context),
                     ],
                   );

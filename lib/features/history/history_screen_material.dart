@@ -3,6 +3,7 @@ import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +66,7 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
     final primary = Theme.of(context).colorScheme.primary;
     final secondary = Theme.of(
       context,
@@ -160,7 +162,8 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                       ),
                     ),
                   ),
-                  if (AdConfig.emptyStateBottomBanners.history)
+                  if (!adSession.browseAdsDisabledByReward &&
+                      AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
                 ],
               ),
@@ -363,10 +366,11 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                         ),
                       ),
                     ),
-                    if (AdConfig.history.shouldInsertAfterOrdinal(
-                      entryOrdinal,
-                      overrideEvery: settings.historyAdInterval,
-                    ))
+                    if (!adSession.browseAdsDisabledByReward &&
+                        AdConfig.history.shouldInsertAfterOrdinal(
+                          entryOrdinal,
+                          overrideEvery: settings.historyAdInterval,
+                        ))
                       _nativeAdTileMaterial(context),
                   ],
                 );

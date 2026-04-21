@@ -3,6 +3,7 @@ import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -76,6 +77,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(historyProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
 
     // Filter by search query
     final filtered = _query.isEmpty
@@ -169,7 +171,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                     ),
                   ),
-                  if (AdConfig.emptyStateBottomBanners.history)
+                  if (!adSession.browseAdsDisabledByReward &&
+                      AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
                   SizedBox(height: bottomInset + 8),
                 ],
@@ -410,10 +413,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 ),
                               ),
                             ),
-                            if (AdConfig.history.shouldInsertAfterOrdinal(
-                              entryOrdinal,
-                              overrideEvery: settings.historyAdInterval,
-                            ))
+                            if (!adSession.browseAdsDisabledByReward &&
+                                AdConfig.history.shouldInsertAfterOrdinal(
+                                  entryOrdinal,
+                                  overrideEvery: settings.historyAdInterval,
+                                ))
                               _nativeAdTileCupertino(context),
                           ],
                         );

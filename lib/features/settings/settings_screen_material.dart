@@ -10,6 +10,7 @@ import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -96,6 +97,9 @@ class SettingsScreenMaterial extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final brightness = ref.watch(appThemeNotifierProvider);
     final settings = ref.watch(appSettingsProvider);
+    final adSession = ref.watch(adSessionProvider);
+    final adSessionNow =
+        ref.watch(adSessionNowProvider).value ?? DateTime.now();
     final auth = ref.watch(authControllerProvider);
     final primary = Theme.of(context).colorScheme.primary;
     final secondary = Theme.of(
@@ -299,16 +303,39 @@ class SettingsScreenMaterial extends ConsumerWidget {
                 ),
               ),
               _settingsDivider(context),
+              _ScaledSwitchTile(
+                leading: Icon(Icons.ondemand_video, color: Colors.amber[700]),
+                title: 'Pause Browse Ads',
+                subtitle: Text(
+                  adSession.browseAdsDisabledByReward
+                      ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
+                      : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                value: adSession.browseAdsDisabledByReward,
+                onChanged: adSession.isLoadingRewardedAd
+                    ? (_) {}
+                    : (enabled) =>
+                          _handleRewardedBrowseAdsToggle(context, ref, enabled),
+              ),
+              _settingsDivider(context),
               ListTile(
                 leading: Icon(Icons.folder_copy_outlined, color: Colors.blue),
                 title: const Text('Collections ad interval'),
                 subtitle: Text(
                   _adIntervalHelperText(
                     defaultValue: AdConfig.defaultCollectionsInlineAdInterval,
+                    pausedByReward: adSession.browseAdsDisabledByReward,
                   ),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: adSession.browseAdsDisabledByReward
+                        ? tertiary
+                        : onVar,
+                  ),
                 ),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -316,15 +343,18 @@ class SettingsScreenMaterial extends ConsumerWidget {
                   secondary,
                   tertiary,
                 ),
-                onTap: () => _showAdIntervalEditor(
-                  context,
-                  ref,
-                  title: 'Collections Ad Interval',
-                  current: settings.collectionsAdInterval,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setCollectionsAdInterval(value),
-                ),
+                enabled: !adSession.browseAdsDisabledByReward,
+                onTap: adSession.browseAdsDisabledByReward
+                    ? null
+                    : () => _showAdIntervalEditor(
+                        context,
+                        ref,
+                        title: 'Collections Ad Interval',
+                        current: settings.collectionsAdInterval,
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setCollectionsAdInterval(value),
+                      ),
               ),
               _settingsDivider(context),
               ListTile(
@@ -333,10 +363,13 @@ class SettingsScreenMaterial extends ConsumerWidget {
                 subtitle: Text(
                   _adIntervalHelperText(
                     defaultValue: AdConfig.defaultHistoryInlineAdInterval,
+                    pausedByReward: adSession.browseAdsDisabledByReward,
                   ),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: adSession.browseAdsDisabledByReward
+                        ? tertiary
+                        : onVar,
+                  ),
                 ),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -344,15 +377,18 @@ class SettingsScreenMaterial extends ConsumerWidget {
                   secondary,
                   tertiary,
                 ),
-                onTap: () => _showAdIntervalEditor(
-                  context,
-                  ref,
-                  title: 'History Ad Interval',
-                  current: settings.historyAdInterval,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setHistoryAdInterval(value),
-                ),
+                enabled: !adSession.browseAdsDisabledByReward,
+                onTap: adSession.browseAdsDisabledByReward
+                    ? null
+                    : () => _showAdIntervalEditor(
+                        context,
+                        ref,
+                        title: 'History Ad Interval',
+                        current: settings.historyAdInterval,
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setHistoryAdInterval(value),
+                      ),
               ),
               _settingsDivider(context),
               ListTile(
@@ -361,10 +397,13 @@ class SettingsScreenMaterial extends ConsumerWidget {
                 subtitle: Text(
                   _adIntervalHelperText(
                     defaultValue: AdConfig.defaultEnvironmentsInlineAdInterval,
+                    pausedByReward: adSession.browseAdsDisabledByReward,
                   ),
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: adSession.browseAdsDisabledByReward
+                        ? tertiary
+                        : onVar,
+                  ),
                 ),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -372,15 +411,18 @@ class SettingsScreenMaterial extends ConsumerWidget {
                   secondary,
                   tertiary,
                 ),
-                onTap: () => _showAdIntervalEditor(
-                  context,
-                  ref,
-                  title: 'Environments Ad Interval',
-                  current: settings.environmentsAdInterval,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setEnvironmentsAdInterval(value),
-                ),
+                enabled: !adSession.browseAdsDisabledByReward,
+                onTap: adSession.browseAdsDisabledByReward
+                    ? null
+                    : () => _showAdIntervalEditor(
+                        context,
+                        ref,
+                        title: 'Environments Ad Interval',
+                        current: settings.environmentsAdInterval,
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setEnvironmentsAdInterval(value),
+                      ),
               ),
             ],
           ),
@@ -567,7 +609,13 @@ class SettingsScreenMaterial extends ConsumerWidget {
     );
   }
 
-  String _adIntervalHelperText({required int defaultValue}) {
+  String _adIntervalHelperText({
+    required int defaultValue,
+    required bool pausedByReward,
+  }) {
+    if (pausedByReward) {
+      return 'Temporarily disabled while rewarded ad pause is active. Auto re-enables when the countdown ends.';
+    }
     return 'Show an ad after every X tiles. Example: if you enter 3, an ad appears after every 3 tiles. Default: $defaultValue until you change it.';
   }
 
@@ -640,6 +688,65 @@ class SettingsScreenMaterial extends ConsumerWidget {
         body: 'Your ad interval preference will stay active until sign out.',
       );
     }
+  }
+
+  Future<void> _handleRewardedBrowseAdsToggle(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+  ) async {
+    final notifier = ref.read(adSessionProvider.notifier);
+    if (!enabled) {
+      await notifier.disableBrowseAdRewardMode();
+      if (!context.mounted) return;
+      UserNotification.show(
+        context: context,
+        title: 'Browse ads restored',
+        body: 'Collections, History, and Environments ads are enabled again.',
+      );
+      return;
+    }
+
+    final result = await notifier.enableBrowseAdRewardMode();
+    if (!context.mounted) return;
+    switch (result) {
+      case RewardBrowseAdsResult.earned:
+        UserNotification.show(
+          context: context,
+          title: 'Browse ads paused',
+          body:
+              'Collections, History, and Environments ads are turned off for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+        );
+      case RewardBrowseAdsResult.unavailable:
+        UserNotification.show(
+          context: context,
+          title: 'Rewarded ad unavailable',
+          body: 'Please try again in a moment.',
+        );
+      case RewardBrowseAdsResult.dismissed:
+        UserNotification.show(
+          context: context,
+          title: 'Reward not completed',
+          body: 'Browse ads stay on unless the rewarded ad is completed.',
+        );
+    }
+  }
+
+  String _formatPauseExpiry(DateTime? value) {
+    if (value == null) return 'soon';
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final suffix = value.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $suffix';
+  }
+
+  String _formatCountdown(DateTime? value, DateTime now) {
+    if (value == null) return '0m 0s';
+    final remaining = value.difference(now);
+    if (remaining <= Duration.zero) return '0m 0s';
+    final minutes = remaining.inMinutes;
+    final seconds = remaining.inSeconds % 60;
+    return '${minutes}m ${seconds}s';
   }
 
   Future<void> _confirmClearAll(BuildContext context, WidgetRef ref) async {

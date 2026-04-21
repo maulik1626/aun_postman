@@ -24,6 +24,7 @@ class StorageKeys {
   static const String adsCollectionsInterval = 'ads_collections_interval';
   static const String adsHistoryInterval = 'ads_history_interval';
   static const String adsEnvironmentsInterval = 'ads_environments_interval';
+  static const String browseAdsPausedUntil = 'browse_ads_paused_until';
   static const String backendSessionToken = 'backend_session_token';
   static const String backendSessionIssuedAt = 'backend_session_issued_at';
   static const String hasSignedInBefore = 'has_signed_in_before';
