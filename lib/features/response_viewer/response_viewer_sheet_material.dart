@@ -32,9 +32,69 @@ int _countCaseInsensitiveMat(String haystack, String needle) {
   return count;
 }
 
+class _BodyMatchMat {
+  const _BodyMatchMat({required this.lineIndex, required this.start});
+  final int lineIndex;
+  final int start;
+}
+
+List<_BodyMatchMat> _collectBodyMatchesMat(String text, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  final out = <_BodyMatchMat>[];
+  final lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    final lineLower = lines[i].toLowerCase();
+    var from = 0;
+    while (true) {
+      final at = lineLower.indexOf(q, from);
+      if (at < 0) break;
+      out.add(_BodyMatchMat(lineIndex: i, start: at));
+      from = at + q.length;
+    }
+  }
+  return out;
+}
+
 double _lineNumberGutterWidth(int lineCount) {
   final digits = lineCount.toString().length;
   return (digits * 8.5 + 12).clamp(30.0, 56.0);
+}
+
+Widget _withMaterialScrollbar({
+  required BuildContext context,
+  required ScrollController controller,
+  required Widget child,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return ScrollbarTheme(
+    data: ScrollbarThemeData(
+      thumbVisibility: const WidgetStatePropertyAll(false),
+      trackVisibility: const WidgetStatePropertyAll(false),
+      interactive: true,
+      radius: const Radius.circular(12),
+      thickness: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) return 5.0;
+        return 3.0;
+      }),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.dragged)) {
+          return cs.primary.withValues(alpha: 0.72);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return cs.primary.withValues(alpha: 0.5);
+        }
+        return cs.onSurface.withValues(alpha: 0.3);
+      }),
+    ),
+    child: Scrollbar(
+      controller: controller,
+      thumbVisibility: false,
+      trackVisibility: false,
+      interactive: true,
+      child: child,
+    ),
+  );
 }
 
 class ResponseViewerSheetMaterial extends StatefulWidget {
@@ -60,8 +120,12 @@ class _ResponseViewerSheetMaterialState
   bool _timingExpanded = false;
   bool _jsonSoftWrap = true;
   bool _jsonUnwrap = false;
-  late final ScrollController _scrollController;
+  late final ScrollController _prettyScrollController;
+  late final ScrollController _rawScrollController;
+  late final ScrollController _headersScrollController;
+  late final ScrollController _cookiesScrollController;
   late final TextEditingController _bodySearchController;
+  int _activeBodyMatchIndex = -1;
 
   bool? _cachedBodyIsJson;
   String? _cachedBodyFingerprint;
@@ -100,7 +164,10 @@ class _ResponseViewerSheetMaterialState
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
+    _prettyScrollController = ScrollController();
+    _rawScrollController = ScrollController();
+    _headersScrollController = ScrollController();
+    _cookiesScrollController = ScrollController();
     _bodySearchController = TextEditingController();
   }
 
@@ -116,9 +183,15 @@ class _ResponseViewerSheetMaterialState
   @override
   void dispose() {
     _bodySearchController.dispose();
-    _scrollController.dispose();
+    _prettyScrollController.dispose();
+    _rawScrollController.dispose();
+    _headersScrollController.dispose();
+    _cookiesScrollController.dispose();
     super.dispose();
   }
+
+  ScrollController get _activeBodyScrollController =>
+      _selectedTab == 0 ? _prettyScrollController : _rawScrollController;
 
   String get _bodySearchHaystack {
     final raw = widget.response.body;
@@ -133,6 +206,62 @@ class _ResponseViewerSheetMaterialState
         _bodySearchHaystack,
         _bodySearchController.text,
       );
+
+  List<_BodyMatchMat> get _bodyMatches =>
+      _collectBodyMatchesMat(_bodySearchHaystack, _bodySearchController.text);
+
+  void _syncActiveMatchForQuery() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) {
+      _activeBodyMatchIndex = -1;
+      return;
+    }
+    if (_activeBodyMatchIndex < 0 || _activeBodyMatchIndex >= matches.length) {
+      _activeBodyMatchIndex = 0;
+    }
+  }
+
+  void _jumpToActiveBodyMatch() {
+    final controller = _activeBodyScrollController;
+    if (!controller.hasClients) return;
+    final matches = _bodyMatches;
+    if (_activeBodyMatchIndex < 0 || _activeBodyMatchIndex >= matches.length) {
+      return;
+    }
+    const lineHeight = 18.0;
+    const topPad = 0.0;
+    final line = matches[_activeBodyMatchIndex].lineIndex;
+    final target = topPad + (line * lineHeight);
+    final max = controller.position.maxScrollExtent;
+    final clamped = target.clamp(0.0, max);
+    controller.jumpTo(clamped);
+  }
+
+  void _scheduleJumpToActiveBodyMatch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _jumpToActiveBodyMatch();
+    });
+  }
+
+  void _goToNextBodyMatch() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) return;
+    setState(() {
+      _activeBodyMatchIndex = (_activeBodyMatchIndex + 1) % matches.length;
+    });
+    _scheduleJumpToActiveBodyMatch();
+  }
+
+  void _goToPrevBodyMatch() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) return;
+    setState(() {
+      _activeBodyMatchIndex =
+          (_activeBodyMatchIndex - 1 + matches.length) % matches.length;
+    });
+    _scheduleJumpToActiveBodyMatch();
+  }
 
   Future<void> _shareResponse(
       BuildContext context, HttpResponse response) async {
@@ -222,6 +351,7 @@ class _ResponseViewerSheetMaterialState
         .withValues(alpha: 0.55);
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final dividerColor = Theme.of(context).dividerColor;
+    _syncActiveMatchForQuery();
 
     return Column(
       children: [
@@ -469,7 +599,9 @@ class _ResponseViewerSheetMaterialState
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => setState(() {
+                      _activeBodyMatchIndex = 0;
+                    }),
                   ),
                 ),
                 if (_bodySearchController.text
@@ -477,7 +609,9 @@ class _ResponseViewerSheetMaterialState
                     .isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Text(
-                    '$_bodyMatchCount',
+                    _bodyMatchCount > 0
+                        ? '${_activeBodyMatchIndex + 1}/$_bodyMatchCount'
+                        : '0/0',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -486,6 +620,19 @@ class _ResponseViewerSheetMaterialState
                       ],
                       color: secondary,
                     ),
+                  ),
+                  const SizedBox(width: 2),
+                  IconButton(
+                    tooltip: 'Previous match',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+                    onPressed: _bodyMatchCount > 0 ? _goToPrevBodyMatch : null,
+                  ),
+                  IconButton(
+                    tooltip: 'Next match',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                    onPressed: _bodyMatchCount > 0 ? _goToNextBodyMatch : null,
                   ),
                 ],
               ],
@@ -500,23 +647,27 @@ class _ResponseViewerSheetMaterialState
                 prettyBody: prettyPair.$1,
                 language: prettyPair.$2,
                 isDark: isDark,
-                scrollController: _scrollController,
+                scrollController: _prettyScrollController,
                 searchQuery: _bodySearchController.text,
                 softWrap:
                     _prettyBodyIsJson ? _jsonSoftWrap : true,
+                activeMatch: _activeBodyMatchIndex,
+                matches: _bodyMatches,
               ),
               _RawTabMaterial(
                 body: response.body,
-                scrollController: _scrollController,
+                scrollController: _rawScrollController,
                 searchQuery: _bodySearchController.text,
+                activeMatch: _activeBodyMatchIndex,
+                matches: _bodyMatches,
               ),
               _HeadersTabMaterial(
                 headers: response.headers,
-                scrollController: _scrollController,
+                scrollController: _headersScrollController,
               ),
               _CookiesTabMaterial(
                 cookies: response.cookies,
-                scrollController: _scrollController,
+                scrollController: _cookiesScrollController,
               ),
             ],
           ),
@@ -581,63 +732,12 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
     const gap = 8.0;
 
     if (softWrap) {
-      return ListView.builder(
+      return _withMaterialScrollbar(
+        context: context,
         controller: scrollController,
-        padding: const EdgeInsets.all(outerPad),
-        itemCount: lines.length,
-        itemBuilder: (context, i) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SelectionContainer.disabled(
-                child: SizedBox(
-                  width: gutterW,
-                  child: Text(
-                    '${i + 1}',
-                    textAlign: TextAlign.right,
-                    style: numStyle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: gap),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: sep, width: 1),
-                    ),
-                  ),
-                  child: softWrapLineContentBackground != null
-                      ? ColoredBox(
-                          color: softWrapLineContentBackground!,
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 10),
-                            child: buildLine(context, i, lines[i]),
-                          ),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: buildLine(context, i, lines[i]),
-                        ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final innerMaxW = constraints.maxWidth - outerPad * 2;
-        final contentW =
-            (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
-        final innerMinW =
-            (contentW - 10).clamp(0.0, double.infinity);
-
-        return ListView.builder(
+        child: ListView.builder(
           controller: scrollController,
-          padding: const EdgeInsets.all(outerPad),
+          padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
           itemCount: lines.length,
           itemBuilder: (context, i) {
             return Row(
@@ -654,29 +754,88 @@ class _LineNumberedBodyMaterial extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: gap),
-                SizedBox(
-                  width: contentW,
+                Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       border: Border(
                         left: BorderSide(color: sep, width: 1),
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minWidth: innerMinW),
-                          child: buildLine(context, i, lines[i]),
-                        ),
-                      ),
-                    ),
+                    child: softWrapLineContentBackground != null
+                        ? ColoredBox(
+                            color: softWrapLineContentBackground!,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 10),
+                              child: buildLine(context, i, lines[i]),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: buildLine(context, i, lines[i]),
+                          ),
                   ),
                 ),
               ],
             );
           },
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerMaxW = constraints.maxWidth - outerPad * 2;
+        final contentW =
+            (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
+        final innerMinW =
+            (contentW - 10).clamp(0.0, double.infinity);
+
+        return _withMaterialScrollbar(
+          context: context,
+          controller: scrollController,
+          child: ListView.builder(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
+            itemCount: lines.length,
+            itemBuilder: (context, i) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectionContainer.disabled(
+                    child: SizedBox(
+                      width: gutterW,
+                      child: Text(
+                        '${i + 1}',
+                        textAlign: TextAlign.right,
+                        style: numStyle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: gap),
+                  SizedBox(
+                    width: contentW,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: sep, width: 1),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: innerMinW),
+                            child: buildLine(context, i, lines[i]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
@@ -693,6 +852,8 @@ class _PrettyTabMaterial extends StatelessWidget {
     required this.scrollController,
     required this.searchQuery,
     required this.softWrap,
+    required this.activeMatch,
+    required this.matches,
   });
 
   final String prettyBody;
@@ -701,6 +862,8 @@ class _PrettyTabMaterial extends StatelessWidget {
   final ScrollController scrollController;
   final String searchQuery;
   final bool softWrap;
+  final int activeMatch;
+  final List<_BodyMatchMat> matches;
 
   static const _mono = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -738,7 +901,11 @@ class _PrettyTabMaterial extends StatelessWidget {
       text: prettyBody,
       searchQuery: searchQuery,
       scrollController: scrollController,
-      softWrap: softWrap,
+      // Keep deterministic line heights while searching so arrow navigation
+      // lands on the correct match instead of drifting with wrapped lines.
+      softWrap: false,
+      activeMatch: activeMatch,
+      matches: matches,
     );
   }
 }
@@ -750,11 +917,15 @@ class _RawTabMaterial extends StatelessWidget {
     required this.body,
     required this.scrollController,
     required this.searchQuery,
+    required this.activeMatch,
+    required this.matches,
   });
 
   final String body;
   final ScrollController scrollController;
   final String searchQuery;
+  final int activeMatch;
+  final List<_BodyMatchMat> matches;
 
   static const _textStyle = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -780,7 +951,11 @@ class _RawTabMaterial extends StatelessWidget {
       text: body,
       searchQuery: searchQuery,
       scrollController: scrollController,
-      softWrap: true,
+      // Keep deterministic line heights while searching so arrow navigation
+      // lands on the correct match instead of drifting with wrapped lines.
+      softWrap: false,
+      activeMatch: activeMatch,
+      matches: matches,
     );
   }
 }
@@ -793,12 +968,16 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
     required this.searchQuery,
     required this.scrollController,
     required this.softWrap,
+    required this.activeMatch,
+    required this.matches,
   });
 
   final String text;
   final String searchQuery;
   final ScrollController scrollController;
   final bool softWrap;
+  final int activeMatch;
+  final List<_BodyMatchMat> matches;
 
   static const TextStyle _base = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -810,6 +989,10 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
     String line,
     String q,
     Color highlightBg,
+    Color activeHighlightBg,
+    int lineIndex,
+    int activeMatchIndex,
+    List<_BodyMatchMat> matches,
   ) {
     if (q.isEmpty) {
       return [TextSpan(text: line, style: _base)];
@@ -818,21 +1001,38 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
     final lower = line.toLowerCase();
     final nq = q.toLowerCase();
     var start = 0;
+    var matchOrdinal = 0;
     var i = lower.indexOf(nq);
     while (i >= 0) {
       if (i > start) {
         spans.add(
             TextSpan(text: line.substring(start, i), style: _base));
       }
+      final currentMatchOrdinal = matchOrdinal;
+      var absoluteMatchIndex = -1;
+      var seen = 0;
+      for (final m in matches) {
+        if (m.lineIndex == lineIndex) {
+          if (seen == currentMatchOrdinal && m.start == i) {
+            absoluteMatchIndex = matches.indexOf(m);
+            break;
+          }
+          seen++;
+        }
+      }
+      final isActive = absoluteMatchIndex == activeMatchIndex;
       spans.add(
         TextSpan(
           text: line.substring(i, i + q.length),
           style: _base.copyWith(
-            backgroundColor: highlightBg.withValues(alpha: 0.45),
+            backgroundColor: (isActive ? activeHighlightBg : highlightBg)
+                .withValues(alpha: 0.7),
+            color: isActive ? Colors.black : null,
             fontWeight: FontWeight.w700,
           ),
         ),
       );
+      matchOrdinal++;
       start = i + q.length;
       i = lower.indexOf(nq, start);
     }
@@ -847,6 +1047,7 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
     const highlightBg = Colors.amber;
+    const activeHighlightBg = Colors.deepOrangeAccent;
     final lines = text.split('\n');
 
     return SelectableRegion(
@@ -856,7 +1057,17 @@ class _SearchHighlightedScrollBodyMaterial extends StatelessWidget {
         scrollController: scrollController,
         softWrap: softWrap,
         buildLine: (context, index, line) => Text.rich(
-          TextSpan(children: _spansForLine(line, q, highlightBg)),
+          TextSpan(
+            children: _spansForLine(
+              line,
+              q,
+              highlightBg,
+              activeHighlightBg,
+              index,
+              activeMatch,
+              matches,
+            ),
+          ),
           softWrap: softWrap,
         ),
       ),
@@ -877,40 +1088,44 @@ class _HeadersTabMaterial extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = headers.entries.toList();
     final primary = Theme.of(context).colorScheme.primary;
-    return ListView.separated(
+    return _withMaterialScrollbar(
+      context: context,
       controller: scrollController,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => Divider(
-        height: 0.5,
-        color: Theme.of(context).dividerColor,
-      ),
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.key,
-                style: TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 12,
-                  color: primary,
+      child: ListView.separated(
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => Divider(
+          height: 0.5,
+          color: Theme.of(context).dividerColor,
+        ),
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.key,
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 12,
+                    color: primary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                entry.value,
-                style: const TextStyle(
-                    fontFamily: 'JetBrainsMono', fontSize: 12),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 2),
+                Text(
+                  entry.value,
+                  style: const TextStyle(
+                      fontFamily: 'JetBrainsMono', fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -939,25 +1154,29 @@ class _CookiesTabMaterial extends StatelessWidget {
         ),
       );
     }
-    return ListView.builder(
+    return _withMaterialScrollbar(
+      context: context,
       controller: scrollController,
-      itemCount: cookies.length,
-      itemBuilder: (context, index) {
-        final cookie = cookies[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(cookie.name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600)),
-              Text(cookie.value),
-            ],
-          ),
-        );
-      },
+      child: ListView.builder(
+        controller: scrollController,
+        itemCount: cookies.length,
+        itemBuilder: (context, index) {
+          final cookie = cookies[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(cookie.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600)),
+                Text(cookie.value),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

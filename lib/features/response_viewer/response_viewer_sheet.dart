@@ -17,10 +17,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
 
 /// Shared by [ResponseViewerSheet] search and [_PrettyTab] highlighting.
-(String, String) prettifyResponseBody(
-  String raw, {
-  bool unwrapJson = false,
-}) {
+(String, String) prettifyResponseBody(String raw, {bool unwrapJson = false}) {
   try {
     final decoded = jsonDecode(raw);
     return (
@@ -42,6 +39,31 @@ import 'package:xml/xml.dart';
 double _lineNumberGutterWidth(int lineCount) {
   final digits = lineCount.toString().length;
   return (digits * 8.5 + 12).clamp(30.0, 56.0);
+}
+
+Widget _withCupertinoScrollbar({
+  required BuildContext context,
+  required ScrollController controller,
+  required Widget child,
+}) {
+  return MediaQuery(
+    data: MediaQuery.of(context).removePadding(
+      removeLeft: true,
+      removeTop: true,
+      removeRight: true,
+      removeBottom: true,
+    ),
+    child: CupertinoScrollbar(
+      controller: controller,
+      thumbVisibility: false,
+      thickness: 3,
+      thicknessWhileDragging: 5,
+      radius: const Radius.circular(12),
+      radiusWhileDragging: const Radius.circular(12),
+      mainAxisMargin: 0,
+      child: child,
+    ),
+  );
 }
 
 /// Pretty / raw body: monospace line index column + bordered content.
@@ -84,62 +106,12 @@ class _LineNumberedBody extends StatelessWidget {
     const gap = 8.0;
 
     if (softWrap) {
-      return ListView.builder(
+      return _withCupertinoScrollbar(
+        context: context,
         controller: scrollController,
-        padding: const EdgeInsets.all(outerPad),
-        itemCount: lines.length,
-        itemBuilder: (context, i) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SelectionContainer.disabled(
-                child: SizedBox(
-                  width: gutterW,
-                  child: Text(
-                    '${i + 1}',
-                    textAlign: TextAlign.right,
-                    style: numStyle,
-                  ),
-                ),
-              ),
-              SizedBox(width: gap),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border(
-                      left: BorderSide(color: sep, width: 1),
-                    ),
-                  ),
-                  child: softWrapLineContentBackground != null
-                      ? ColoredBox(
-                          color: softWrapLineContentBackground!,
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 10),
-                            child: buildLine(context, i, lines[i]),
-                          ),
-                        )
-                      : Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: buildLine(context, i, lines[i]),
-                        ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final innerMaxW = constraints.maxWidth - outerPad * 2;
-        final contentW =
-            (innerMaxW - gutterW - gap).clamp(0.0, double.infinity);
-        final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
-
-        return ListView.builder(
+        child: ListView.builder(
           controller: scrollController,
-          padding: const EdgeInsets.all(outerPad),
+          padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
           itemCount: lines.length,
           itemBuilder: (context, i) {
             return Row(
@@ -156,29 +128,85 @@ class _LineNumberedBody extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: gap),
-                SizedBox(
-                  width: contentW,
+                Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(color: sep, width: 1),
-                      ),
+                      border: Border(left: BorderSide(color: sep, width: 1)),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minWidth: innerMinW),
-                          child: buildLine(context, i, lines[i]),
-                        ),
-                      ),
-                    ),
+                    child: softWrapLineContentBackground != null
+                        ? ColoredBox(
+                            color: softWrapLineContentBackground!,
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 10),
+                              child: buildLine(context, i, lines[i]),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: buildLine(context, i, lines[i]),
+                          ),
                   ),
                 ),
               ],
             );
           },
+        ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final innerMaxW = constraints.maxWidth - outerPad * 2;
+        final contentW = (innerMaxW - gutterW - gap).clamp(
+          0.0,
+          double.infinity,
+        );
+        final innerMinW = (contentW - 10).clamp(0.0, double.infinity);
+
+        return _withCupertinoScrollbar(
+          context: context,
+          controller: scrollController,
+          child: ListView.builder(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(outerPad, 0, outerPad, outerPad),
+            itemCount: lines.length,
+            itemBuilder: (context, i) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectionContainer.disabled(
+                    child: SizedBox(
+                      width: gutterW,
+                      child: Text(
+                        '${i + 1}',
+                        textAlign: TextAlign.right,
+                        style: numStyle,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: gap),
+                  SizedBox(
+                    width: contentW,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border(left: BorderSide(color: sep, width: 1)),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 10),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minWidth: innerMinW),
+                            child: buildLine(context, i, lines[i]),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         );
       },
     );
@@ -196,6 +224,31 @@ int _countCaseInsensitive(String haystack, String needle) {
     i = h.indexOf(n, i + n.length);
   }
   return count;
+}
+
+class _BodyMatch {
+  const _BodyMatch({required this.lineIndex, required this.start});
+
+  final int lineIndex;
+  final int start;
+}
+
+List<_BodyMatch> _collectBodyMatches(String text, String query) {
+  final q = query.trim().toLowerCase();
+  if (q.isEmpty) return const [];
+  final out = <_BodyMatch>[];
+  final lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    final lineLower = lines[i].toLowerCase();
+    var from = 0;
+    while (true) {
+      final at = lineLower.indexOf(q, from);
+      if (at < 0) break;
+      out.add(_BodyMatch(lineIndex: i, start: at));
+      from = at + q.length;
+    }
+  }
+  return out;
 }
 
 class ResponseViewerSheet extends StatefulWidget {
@@ -217,12 +270,18 @@ class ResponseViewerSheet extends StatefulWidget {
 class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   int _selectedTab = 0;
   bool _timingExpanded = false;
+
   /// Pretty JSON: wrap long lines within the viewport.
   bool _jsonSoftWrap = true;
+
   /// Pretty JSON: single-line minified JSON (vs indented).
   bool _jsonUnwrap = false;
-  late final ScrollController _scrollController;
+  late final ScrollController _prettyScrollController;
+  late final ScrollController _rawScrollController;
+  late final ScrollController _headersScrollController;
+  late final ScrollController _cookiesScrollController;
   late final TextEditingController _bodySearchController;
+  int _activeBodyMatchIndex = -1;
 
   /// Cached [jsonDecode] result for the current [HttpResponse.body].
   bool? _cachedBodyIsJson;
@@ -263,7 +322,10 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
+    _prettyScrollController = ScrollController();
+    _rawScrollController = ScrollController();
+    _headersScrollController = ScrollController();
+    _cookiesScrollController = ScrollController();
     _bodySearchController = TextEditingController();
   }
 
@@ -279,9 +341,15 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   @override
   void dispose() {
     _bodySearchController.dispose();
-    _scrollController.dispose();
+    _prettyScrollController.dispose();
+    _rawScrollController.dispose();
+    _headersScrollController.dispose();
+    _cookiesScrollController.dispose();
     super.dispose();
   }
+
+  ScrollController get _activeBodyScrollController =>
+      _selectedTab == 0 ? _prettyScrollController : _rawScrollController;
 
   String get _bodySearchHaystack {
     final raw = widget.response.body;
@@ -295,8 +363,66 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   int get _bodyMatchCount =>
       _countCaseInsensitive(_bodySearchHaystack, _bodySearchController.text);
 
+  List<_BodyMatch> get _bodyMatches =>
+      _collectBodyMatches(_bodySearchHaystack, _bodySearchController.text);
+
+  void _syncActiveMatchForQuery() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) {
+      _activeBodyMatchIndex = -1;
+      return;
+    }
+    if (_activeBodyMatchIndex < 0 || _activeBodyMatchIndex >= matches.length) {
+      _activeBodyMatchIndex = 0;
+    }
+  }
+
+  void _jumpToActiveBodyMatch() {
+    final controller = _activeBodyScrollController;
+    if (!controller.hasClients) return;
+    final matches = _bodyMatches;
+    if (_activeBodyMatchIndex < 0 || _activeBodyMatchIndex >= matches.length) {
+      return;
+    }
+    const lineHeight = 18.0;
+    const topPad = 0.0;
+    final line = matches[_activeBodyMatchIndex].lineIndex;
+    final target = topPad + (line * lineHeight);
+    final max = controller.position.maxScrollExtent;
+    final clamped = target.clamp(0.0, max);
+    controller.jumpTo(clamped);
+  }
+
+  void _scheduleJumpToActiveBodyMatch() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _jumpToActiveBodyMatch();
+    });
+  }
+
+  void _goToNextBodyMatch() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) return;
+    setState(() {
+      _activeBodyMatchIndex = (_activeBodyMatchIndex + 1) % matches.length;
+    });
+    _scheduleJumpToActiveBodyMatch();
+  }
+
+  void _goToPrevBodyMatch() {
+    final matches = _bodyMatches;
+    if (matches.isEmpty) return;
+    setState(() {
+      _activeBodyMatchIndex =
+          (_activeBodyMatchIndex - 1 + matches.length) % matches.length;
+    });
+    _scheduleJumpToActiveBodyMatch();
+  }
+
   Future<void> _shareResponse(
-      BuildContext context, HttpResponse response) async {
+    BuildContext context,
+    HttpResponse response,
+  ) async {
     try {
       final ext = _detectContentType(response) == 'JSON' ? 'json' : 'txt';
       final dir = await getTemporaryDirectory();
@@ -311,7 +437,12 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
         height: 1,
       );
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: ext == 'json' ? 'application/json' : 'text/plain')],
+        [
+          XFile(
+            file.path,
+            mimeType: ext == 'json' ? 'application/json' : 'text/plain',
+          ),
+        ],
         subject: 'Response ${response.statusCode}',
         sharePositionOrigin: origin,
       );
@@ -367,10 +498,10 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     _syncPrettyCache();
     final canExportHar =
         widget.harRequest != null && widget.harStartedAt != null;
-    final isDark =
-        CupertinoTheme.brightnessOf(context) == Brightness.dark;
+    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final statusColor = AppColors.statusColor(response.statusCode);
     final prettyPair = _prettyCache!;
+    _syncActiveMatchForQuery();
 
     return Column(
       children: [
@@ -566,19 +697,49 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
                   child: CupertinoSearchTextField(
                     controller: _bodySearchController,
                     placeholder: 'Find in body',
-                    onChanged: (_) => setState(() {}),
+                    onChanged: (_) => setState(() {
+                      _activeBodyMatchIndex = 0;
+                    }),
                   ),
                 ),
                 if (_bodySearchController.text.trim().isNotEmpty) ...[
                   const SizedBox(width: 8),
-                  Text(
-                    '$_bodyMatchCount',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                  if (_bodyMatchCount > 0)
+                    Text(
+                      '${_activeBodyMatchIndex + 1}/$_bodyMatchCount',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      '0/0',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
+                        ),
+                      ),
                     ),
+                  const SizedBox(width: 4),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minSize: 30,
+                    onPressed: _bodyMatchCount > 0 ? _goToPrevBodyMatch : null,
+                    child: const Icon(CupertinoIcons.chevron_up, size: 16),
+                  ),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minSize: 30,
+                    onPressed: _bodyMatchCount > 0 ? _goToNextBodyMatch : null,
+                    child: const Icon(CupertinoIcons.chevron_down, size: 16),
                   ),
                 ],
               ],
@@ -593,22 +754,26 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
                 prettyBody: prettyPair.$1,
                 language: prettyPair.$2,
                 isDark: isDark,
-                scrollController: _scrollController,
+                scrollController: _prettyScrollController,
                 searchQuery: _bodySearchController.text,
                 softWrap: _prettyBodyIsJson ? _jsonSoftWrap : true,
+                activeMatch: _activeBodyMatchIndex,
+                matches: _bodyMatches,
               ),
               _RawTab(
                 body: response.body,
-                scrollController: _scrollController,
+                scrollController: _rawScrollController,
                 searchQuery: _bodySearchController.text,
+                activeMatch: _activeBodyMatchIndex,
+                matches: _bodyMatches,
               ),
               _HeadersTab(
                 headers: response.headers,
-                scrollController: _scrollController,
+                scrollController: _headersScrollController,
               ),
               _CookiesTab(
                 cookies: response.cookies,
-                scrollController: _scrollController,
+                scrollController: _cookiesScrollController,
               ),
             ],
           ),
@@ -618,7 +783,8 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   }
 
   String _detectContentType(HttpResponse response) {
-    final ct = response.headers['content-type'] ??
+    final ct =
+        response.headers['content-type'] ??
         response.headers['Content-Type'] ??
         '';
     if (ct.contains('json')) return 'JSON';
@@ -642,6 +808,8 @@ class _PrettyTab extends StatelessWidget {
     required this.scrollController,
     required this.searchQuery,
     required this.softWrap,
+    required this.activeMatch,
+    required this.matches,
   });
 
   final String prettyBody;
@@ -650,6 +818,8 @@ class _PrettyTab extends StatelessWidget {
   final ScrollController scrollController;
   final String searchQuery;
   final bool softWrap;
+  final int activeMatch;
+  final List<_BodyMatch> matches;
 
   static const _mono = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -686,7 +856,11 @@ class _PrettyTab extends StatelessWidget {
       text: prettyBody,
       searchQuery: searchQuery,
       scrollController: scrollController,
-      softWrap: softWrap,
+      // Keep deterministic line heights while searching so arrow navigation
+      // lands on the correct match instead of drifting with wrapped lines.
+      softWrap: false,
+      activeMatch: activeMatch,
+      matches: matches,
     );
   }
 }
@@ -696,10 +870,15 @@ class _RawTab extends StatelessWidget {
     required this.body,
     required this.scrollController,
     required this.searchQuery,
+    required this.activeMatch,
+    required this.matches,
   });
+
   final String body;
   final ScrollController scrollController;
   final String searchQuery;
+  final int activeMatch;
+  final List<_BodyMatch> matches;
 
   static const _textStyle = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -725,7 +904,11 @@ class _RawTab extends StatelessWidget {
       text: body,
       searchQuery: searchQuery,
       scrollController: scrollController,
-      softWrap: true,
+      // Keep deterministic line heights while searching so arrow navigation
+      // lands on the correct match instead of drifting with wrapped lines.
+      softWrap: false,
+      activeMatch: activeMatch,
+      matches: matches,
     );
   }
 }
@@ -736,12 +919,16 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
     required this.searchQuery,
     required this.scrollController,
     required this.softWrap,
+    required this.activeMatch,
+    required this.matches,
   });
 
   final String text;
   final String searchQuery;
   final ScrollController scrollController;
   final bool softWrap;
+  final int activeMatch;
+  final List<_BodyMatch> matches;
 
   static const TextStyle _base = TextStyle(
     fontFamily: 'JetBrainsMono',
@@ -754,26 +941,47 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
     String line,
     String q,
     Color highlightBg,
+    Color activeHighlightBg,
+    int lineIndex,
+    int activeMatchIndex,
+    List<_BodyMatch> matches,
   ) {
     if (q.isEmpty) return [TextSpan(text: line, style: _base)];
     final spans = <InlineSpan>[];
     final lower = line.toLowerCase();
     final nq = q.toLowerCase();
     var start = 0;
+    var matchOrdinal = 0;
     var i = lower.indexOf(nq);
     while (i >= 0) {
       if (i > start) {
         spans.add(TextSpan(text: line.substring(start, i), style: _base));
       }
+      final currentMatchOrdinal = matchOrdinal;
+      var absoluteMatchIndex = -1;
+      var seen = 0;
+      for (final m in matches) {
+        if (m.lineIndex == lineIndex) {
+          if (seen == currentMatchOrdinal && m.start == i) {
+            absoluteMatchIndex = matches.indexOf(m);
+            break;
+          }
+          seen++;
+        }
+      }
+      final isActive = absoluteMatchIndex == activeMatchIndex;
       spans.add(
         TextSpan(
           text: line.substring(i, i + q.length),
           style: _base.copyWith(
-            backgroundColor: highlightBg.withValues(alpha: 0.45),
+            backgroundColor: (isActive ? activeHighlightBg : highlightBg)
+                .withValues(alpha: 0.7),
+            color: isActive ? CupertinoColors.black : CupertinoColors.label,
             fontWeight: FontWeight.w700,
           ),
         ),
       );
+      matchOrdinal++;
       start = i + q.length;
       i = lower.indexOf(nq, start);
     }
@@ -787,6 +995,7 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final q = searchQuery.trim();
     final highlightBg = CupertinoColors.systemYellow.resolveFrom(context);
+    final activeHighlightBg = CupertinoColors.systemOrange.resolveFrom(context);
     final lines = text.split('\n');
 
     return SelectableRegion(
@@ -796,7 +1005,17 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
         scrollController: scrollController,
         softWrap: softWrap,
         buildLine: (context, index, line) => Text.rich(
-          TextSpan(children: _spansForLine(line, q, highlightBg)),
+          TextSpan(
+            children: _spansForLine(
+              line,
+              q,
+              highlightBg,
+              activeHighlightBg,
+              index,
+              activeMatch,
+              matches,
+            ),
+          ),
           softWrap: softWrap,
         ),
       ),
@@ -806,51 +1025,59 @@ class _SearchHighlightedScrollBody extends StatelessWidget {
 
 class _HeadersTab extends StatelessWidget {
   const _HeadersTab({required this.headers, required this.scrollController});
+
   final Map<String, String> headers;
   final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context) {
     final entries = headers.entries.toList();
-    return ListView.separated(
+    return _withCupertinoScrollbar(
+      context: context,
       controller: scrollController,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => Container(
-        height: 0.5,
-        color: CupertinoColors.separator.resolveFrom(context),
-      ),
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.key,
-                style: TextStyle(
-                  fontFamily: 'JetBrainsMono',
-                  fontSize: 12,
-                  color: CupertinoTheme.of(context).primaryColor,
+      child: ListView.separated(
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        itemCount: entries.length,
+        separatorBuilder: (_, __) => Container(
+          height: 0.5,
+          color: CupertinoColors.separator.resolveFrom(context),
+        ),
+        itemBuilder: (context, index) {
+          final entry = entries[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.key,
+                  style: TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 12,
+                    color: CupertinoTheme.of(context).primaryColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                entry.value,
-                style: const TextStyle(
-                    fontFamily: 'JetBrainsMono', fontSize: 12),
-              ),
-            ],
-          ),
-        );
-      },
+                const SizedBox(height: 2),
+                Text(
+                  entry.value,
+                  style: const TextStyle(
+                    fontFamily: 'JetBrainsMono',
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _CookiesTab extends StatelessWidget {
   const _CookiesTab({required this.cookies, required this.scrollController});
+
   final List cookies;
   final ScrollController scrollController;
 
@@ -866,29 +1093,36 @@ class _CookiesTab extends StatelessWidget {
         ),
       );
     }
-    return ListView.builder(
+    return _withCupertinoScrollbar(
+      context: context,
       controller: scrollController,
-      itemCount: cookies.length,
-      itemBuilder: (context, index) {
-        final cookie = cookies[index];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(cookie.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(cookie.value),
-            ],
-          ),
-        );
-      },
+      child: ListView.builder(
+        controller: scrollController,
+        itemCount: cookies.length,
+        itemBuilder: (context, index) {
+          final cookie = cookies[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cookie.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(cookie.value),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.label, required this.color});
+
   final String label;
   final Color color;
 
