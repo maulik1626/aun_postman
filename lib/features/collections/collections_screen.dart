@@ -92,8 +92,8 @@ class CollectionsScreen extends ConsumerWidget {
               leading: CupertinoButton(
                 padding: EdgeInsets.zero,
                 onPressed: () => context.push(AppRoutes.settings),
+                minimumSize: const Size(44, 44),
                 child: const Icon(CupertinoIcons.settings),
-                minimumSize: Size(44, 44),
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -101,14 +101,14 @@ class CollectionsScreen extends ConsumerWidget {
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => context.push(AppRoutes.importExport),
+                    minimumSize: const Size(44, 44),
                     child: const Icon(CupertinoIcons.square_arrow_down),
-                    minimumSize: Size(44, 44),
                   ),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => _showCreateDialog(context, ref),
+                    minimumSize: const Size(44, 44),
                     child: const Icon(CupertinoIcons.add),
-                    minimumSize: Size(44, 44),
                   ),
                 ],
               ),

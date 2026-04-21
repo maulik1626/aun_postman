@@ -80,8 +80,8 @@ class EnvironmentsScreen extends ConsumerWidget {
             largeTitle: const Text('Environments'),
             trailing: CupertinoButton(
               padding: EdgeInsets.zero,
-              minSize: 44,
               onPressed: () => _showCreateDialog(context, ref),
+              minimumSize: const Size(44, 44),
               child: const Icon(CupertinoIcons.add),
             ),
           ),
@@ -242,12 +242,12 @@ class EnvironmentsScreen extends ConsumerWidget {
                                       if (!env.isActive)
                                         CupertinoButton(
                                           padding: EdgeInsets.zero,
-                                          minSize: 30,
                                           onPressed: () => ref
                                               .read(
                                                 environmentsProvider.notifier,
                                               )
                                               .setActive(env.uid),
+                                          minimumSize: const Size(30, 30),
                                           child: const Text(
                                             'Activate',
                                             style: TextStyle(fontSize: 14),

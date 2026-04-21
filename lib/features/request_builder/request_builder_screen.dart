@@ -527,8 +527,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                   children: [
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      minSize: 44,
                       onPressed: _copyAsCurl,
+                      minimumSize: const Size(44, 44),
                       child: Icon(
                         CupertinoIcons.doc_on_clipboard,
                         size: 22,
@@ -538,7 +538,6 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                     if (state.isDirty && state.collectionUid != null)
                       CupertinoButton(
                         padding: EdgeInsets.zero,
-                        minSize: 44,
                         onPressed: () {
                           AppHaptics.light();
                           unawaited(
@@ -547,6 +546,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                             ),
                           );
                         },
+                        minimumSize: const Size(44, 44),
                         child: Text(
                           'Save',
                           style: TextStyle(
@@ -604,7 +604,6 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                 suffix: _urlController.text.isNotEmpty
                                     ? CupertinoButton(
                                         padding: EdgeInsets.zero,
-                                        minSize: 24,
                                         onPressed: () {
                                           _urlController.clear();
                                           ref
@@ -613,6 +612,7 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                               )
                                               .setUrl('');
                                         },
+                                        minimumSize: const Size(24, 24),
                                         child: const Icon(
                                           CupertinoIcons.clear_circled,
                                           size: 16,
@@ -771,9 +771,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                       ),
                       CupertinoButton(
                         padding: const EdgeInsets.only(left: 4),
-                        minSize: 32,
                         onPressed: () =>
                             _showVariablesPreview(context, activeEnv),
+                        minimumSize: const Size(32, 32),
                         child: Icon(
                           CupertinoIcons.list_bullet_below_rectangle,
                           size: 20,
@@ -881,8 +881,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                           horizontal: 8,
                           vertical: 4,
                         ),
-                        minSize: 0,
                         onPressed: () => _showPreRequestSheet(context),
+                        minimumSize: const Size(0, 0),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -910,8 +910,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                           horizontal: 8,
                           vertical: 4,
                         ),
-                        minSize: 0,
                         onPressed: () => _pasteCurlIntoBuilder(context),
+                        minimumSize: const Size(0, 0),
                         child: Text(
                           'Paste cURL',
                           style: TextStyle(
@@ -1170,8 +1170,8 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                   const Spacer(),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    minSize: 32,
                     onPressed: () => Navigator.pop(ctx),
+                    minimumSize: const Size(32, 32),
                     child: const Text('Done'),
                   ),
                 ],
@@ -1269,11 +1269,11 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                                     ),
                                   CupertinoButton(
                                     padding: EdgeInsets.zero,
-                                    minSize: 32,
                                     onPressed: () => _copyVariablePlaceholder(
                                       ctx,
                                       '{{${v.key}}}',
                                     ),
+                                    minimumSize: const Size(32, 32),
                                     child: Icon(
                                       CupertinoIcons.doc_on_clipboard,
                                       size: 18,
@@ -1336,9 +1336,9 @@ class _RequestBuilderScreenState extends ConsumerState<RequestBuilderScreen>
                           ),
                           CupertinoButton(
                             padding: EdgeInsets.zero,
-                            minSize: 32,
                             onPressed: () =>
                                 _copyVariablePlaceholder(ctx, '{{$name}}'),
+                            minimumSize: const Size(32, 32),
                             child: Icon(
                               CupertinoIcons.doc_on_clipboard,
                               size: 18,
@@ -1779,9 +1779,9 @@ class _MethodSelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.4)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Text(
           method.value,
@@ -1817,7 +1817,7 @@ class _ResponseSummaryBar extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         child: Row(
           children: [
             _Chip(label: '$statusCode', color: color),
@@ -1867,7 +1867,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

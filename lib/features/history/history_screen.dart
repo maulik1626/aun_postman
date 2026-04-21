@@ -103,7 +103,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 ? CupertinoButton(
                     padding: EdgeInsets.zero,
                     onPressed: () => _confirmClearAll(context),
-                    minimumSize: Size(44, 44),
+                    minimumSize: const Size(44, 44),
                     child: const Icon(CupertinoIcons.trash),
                   )
                 : null,

@@ -49,7 +49,7 @@ class SettingsScreen extends ConsumerWidget {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      _SectionHeader(title: 'Appearance'),
+                      const _SectionHeader(title: 'Appearance'),
                       _SettingsGroup(
                         children: [
                           GestureDetector(
@@ -97,7 +97,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      _SectionHeader(title: 'Account'),
+                      const _SectionHeader(title: 'Account'),
                       _SettingsGroup(
                         children: [
                           Padding(
@@ -140,7 +140,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      _SectionHeader(title: 'Requests'),
+                      const _SectionHeader(title: 'Requests'),
                       _SettingsGroup(
                         children: [
                           GestureDetector(
@@ -536,7 +536,7 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ],
                       ),
-                      _SectionHeader(title: 'Ads'),
+                      const _SectionHeader(title: 'Ads'),
                       _SettingsGroup(
                         children: [
                           Padding(
@@ -738,7 +738,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      _SectionHeader(title: 'Danger Zone'),
+                      const _SectionHeader(title: 'Danger Zone'),
                       _SettingsGroup(
                         children: [
                           CupertinoButton(
@@ -775,7 +775,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      _SectionHeader(title: 'About'),
+                      const _SectionHeader(title: 'About'),
                       FutureBuilder<PackageInfo>(
                         future: PackageInfo.fromPlatform(),
                         builder: (context, snapshot) {
@@ -858,7 +858,7 @@ class SettingsScreen extends ConsumerWidget {
                           );
                         },
                       ),
-                      _SectionHeader(title: 'Legal'),
+                      const _SectionHeader(title: 'Legal'),
                       _SettingsGroup(
                         children: [
                           GestureDetector(
@@ -1024,7 +1024,7 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      _SectionHeader(title: 'Session'),
+                      const _SectionHeader(title: 'Session'),
                       _SettingsGroup(
                         children: [
                           CupertinoButton(
@@ -1190,7 +1190,7 @@ class SettingsScreen extends ConsumerWidget {
         content: Column(
           children: [
             const SizedBox(height: 8),
-            Text(AdConfig.supportMessage),
+            const Text(AdConfig.supportMessage),
             const SizedBox(height: 12),
             CupertinoTextField(
               controller: controller,

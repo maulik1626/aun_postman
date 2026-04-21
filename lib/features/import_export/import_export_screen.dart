@@ -98,8 +98,8 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
             largeTitle: const Text('Import / Export'),
             leading: CupertinoButton(
               padding: EdgeInsets.zero,
-              minSize: 44,
               onPressed: () => Navigator.pop(context),
+              minimumSize: const Size(44, 44),
               child: const Icon(CupertinoIcons.xmark),
             ),
           ),
@@ -112,7 +112,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      _SectionHeader(title: 'Full backup'),
+                      const _SectionHeader(title: 'Full backup'),
                       const SizedBox(height: 8),
                       Text(
                         'Export or restore collections, environments, request history, '
@@ -215,7 +215,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                           decoration: BoxDecoration(
                             color: CupertinoTheme.of(
                               context,
-                            ).primaryColor.withOpacity(0.12),
+                            ).primaryColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(
@@ -246,13 +246,13 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                                 const SizedBox(height: 8),
                                 CupertinoButton(
                                   padding: EdgeInsets.zero,
-                                  minSize: 0,
                                   onPressed: () {
                                     Navigator.pop(context);
                                     context.push(
                                       '${AppRoutes.environments}/$_lastImportedEnvUid',
                                     );
                                   },
+                                  minimumSize: const Size(0, 0),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -282,7 +282,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                           ),
                         ),
 
-                      _SectionHeader(title: 'Import'),
+                      const _SectionHeader(title: 'Import'),
                       const SizedBox(height: 12),
 
                       _OptionCard(
@@ -308,7 +308,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
                       ),
 
                       const SizedBox(height: 24),
-                      _SectionHeader(title: 'Export'),
+                      const _SectionHeader(title: 'Export'),
                       const SizedBox(height: 12),
 
                       if (collections.isEmpty)
@@ -933,7 +933,7 @@ class _OptionCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: CupertinoTheme.of(
                     context,
-                  ).primaryColor.withOpacity(0.15),
+                  ).primaryColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(

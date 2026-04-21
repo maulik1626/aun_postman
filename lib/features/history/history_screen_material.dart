@@ -106,11 +106,11 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                   vertical: 8,
                 ),
                 child: TextField(
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Search by URL, method, status',
-                    prefixIcon: const Icon(Icons.search_outlined, size: 20),
+                    prefixIcon: Icon(Icons.search_outlined, size: 20),
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
+                    contentPadding: EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 10,
                     ),
