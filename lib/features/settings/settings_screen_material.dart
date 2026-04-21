@@ -179,7 +179,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               _ScaledSwitchTile(
-                leading: Icon(Icons.swap_horiz_outlined, color: Colors.blue),
+                leading: const Icon(Icons.swap_horiz_outlined, color: Colors.blue),
                 title: 'Follow Redirects',
                 value: settings.followRedirects,
                 onChanged: (v) => ref
@@ -208,7 +208,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               _ScaledSwitchTile(
-                leading: Icon(
+                leading: const Icon(
                   Icons.verified_user_outlined,
                   color: Colors.green,
                 ),
@@ -227,7 +227,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.list_alt_outlined, color: Colors.teal),
+                leading: const Icon(Icons.list_alt_outlined, color: Colors.teal),
                 title: const Text('Default Headers'),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -239,7 +239,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.mediation_outlined, color: Colors.indigo),
+                leading: const Icon(Icons.mediation_outlined, color: Colors.indigo),
                 title: const Text('HTTP Proxy'),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -293,7 +293,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
           _SettingsGroupMaterial(
             children: [
               ListTile(
-                leading: Icon(Icons.favorite_outline, color: Colors.pinkAccent),
+                leading: const Icon(Icons.favorite_outline, color: Colors.pinkAccent),
                 title: const Text('Why ads matter'),
                 subtitle: Text(
                   AdConfig.supportMessage,
@@ -324,7 +324,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.folder_copy_outlined, color: Colors.blue),
+                leading: const Icon(Icons.folder_copy_outlined, color: Colors.blue),
                 title: const Text('Collections ad interval'),
                 subtitle: Text(
                   _adIntervalHelperText(
@@ -358,7 +358,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.history, color: Colors.deepOrange),
+                leading: const Icon(Icons.history, color: Colors.deepOrange),
                 title: const Text('History ad interval'),
                 subtitle: Text(
                   _adIntervalHelperText(
@@ -392,7 +392,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.tune, color: Colors.teal),
+                leading: const Icon(Icons.tune, color: Colors.teal),
                 title: const Text('Environments ad interval'),
                 subtitle: Text(
                   _adIntervalHelperText(
@@ -452,7 +452,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               return _SettingsGroupMaterial(
                 children: [
                   ListTile(
-                    leading: Icon(
+                    leading: const Icon(
                       Icons.info_outline_rounded,
                       color: Colors.blue,
                     ),
@@ -478,7 +478,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
                   ),
                   _settingsDivider(context),
                   ListTile(
-                    leading: Icon(Icons.apps_outlined, color: Colors.indigo),
+                    leading: const Icon(Icons.apps_outlined, color: Colors.indigo),
                     title: const Text('App Name'),
                     trailing: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -503,7 +503,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
           _SettingsGroupMaterial(
             children: [
               ListTile(
-                leading: Icon(Icons.help_outline_rounded, color: Colors.blue),
+                leading: const Icon(Icons.help_outline_rounded, color: Colors.blue),
                 title: const Text('Support'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () =>
@@ -511,7 +511,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.privacy_tip_outlined, color: Colors.teal),
+                leading: const Icon(Icons.privacy_tip_outlined, color: Colors.teal),
                 title: const Text('Privacy Policy'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () => _launchLegalUrl(
@@ -522,7 +522,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.description_outlined, color: Colors.indigo),
+                leading: const Icon(Icons.description_outlined, color: Colors.indigo),
                 title: const Text('Terms of Service'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () => _launchLegalUrl(
@@ -533,7 +533,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: Icon(Icons.shield_outlined, color: Colors.green),
+                leading: const Icon(Icons.shield_outlined, color: Colors.green),
                 title: const Text('Open Source Licenses'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () => showLicensePage(context: context),
@@ -644,7 +644,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
               controller: controller,
               keyboardType: TextInputType.number,
               autofocus: true,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Show an ad after every X tiles',
                 helperText:
                     'Example: enter 3 to show an ad after every 3 tiles. Allowed range: ${AdConfig.minInlineAdInterval}-${AdConfig.maxInlineAdInterval}.',

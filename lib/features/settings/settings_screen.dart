@@ -545,7 +545,7 @@ class SettingsScreen extends ConsumerWidget {
                               vertical: 13,
                             ),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Icon(
                                   CupertinoIcons.heart,
