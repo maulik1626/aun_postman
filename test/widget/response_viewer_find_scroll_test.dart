@@ -34,6 +34,10 @@ String _veryLongBodyWithMatches() {
   return lines.join('\n');
 }
 
+String _hugeSingleLineBody() {
+  return List<String>.filled(220000, 'x').join();
+}
+
 ScrollableState _firstVerticalScrollableState(WidgetTester tester) {
   final vertical = find.byWidgetPredicate(
     (w) =>
@@ -173,5 +177,64 @@ void main() {
     await tester.tap(find.byIcon(Icons.keyboard_arrow_up));
     await tester.pump();
     expect(find.text('1/3'), findsOneWidget);
+  });
+
+  testWidgets('Huge single-line body renders without crashing on both platforms',
+      (tester) async {
+    final response = _testResponseWithBody(_hugeSingleLineBody());
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: ResponseViewerSheet(response: response),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ResponseViewerSheet), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ResponseViewerSheetMaterial(response: response),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ResponseViewerSheetMaterial), findsOneWidget);
+  });
+
+  testWidgets('Material response sheet open-close cycle is stable', (tester) async {
+    final response = _testResponseWithBody(_veryLongBodyWithMatches());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (ctx) => SizedBox(
+                    height: MediaQuery.of(ctx).size.height * 0.85,
+                    child: ResponseViewerSheetMaterial(response: response),
+                  ),
+                );
+              },
+              child: const Text('Open sheet'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('Open sheet'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ResponseViewerSheetMaterial), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(ResponseViewerSheetMaterial), findsNothing);
+    }
   });
 }

@@ -6,6 +6,7 @@ import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/har_exporter.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_performance_policy.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_processing_controller.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_text_engine.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_models.dart';
@@ -120,6 +121,7 @@ class _ResponseViewerSheetMaterialState
   bool? _prettyCacheUnwrap;
   late final ResponseProcessingController _processingController;
   List<_BodyMatchMat> _bodyMatchesCache = const [];
+  int _searchSyncCharsLimit = 120000;
 
   bool get _prettyBodyIsJson {
     final b = widget.response.body;
@@ -219,10 +221,12 @@ class _ResponseViewerSheetMaterialState
       _processingController.setSearchState(ResponseSearchState.idle);
       return;
     }
-    setState(() {
-      _bodyMatchesCache = _collectBodyMatchesMat(_bodySearchHaystack, query);
-      _syncActiveMatchForQuery();
-    });
+    if (_bodySearchHaystack.length <= _searchSyncCharsLimit) {
+      setState(() {
+        _bodyMatchesCache = _collectBodyMatchesMat(_bodySearchHaystack, query);
+        _syncActiveMatchForQuery();
+      });
+    }
     final matches = await _processingController.computeSearchMatches(
       text: _bodySearchHaystack,
       query: query,
@@ -363,6 +367,11 @@ class _ResponseViewerSheetMaterialState
 
   @override
   Widget build(BuildContext context) {
+    final policy = ResponsePerformancePolicy.fromViewportWidth(
+      MediaQuery.of(context).size.width,
+    );
+    _searchSyncCharsLimit = policy.searchSyncCharsLimit;
+    HighlightedLineWidget.configureCacheLimit(policy.highlightCacheEntries);
     final response = widget.response;
     final processing = _processingController;
     final prettyPair = _prettyCache!;

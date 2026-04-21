@@ -1,9 +1,14 @@
 import 'package:aun_reqstudio/features/response_viewer/core/jobs/pretty_format_job.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/jobs/search_index_job.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_models.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_telemetry.dart';
 import 'package:flutter/foundation.dart';
 
 class ResponseProcessingController extends ChangeNotifier {
+  ResponseProcessingController({ResponseViewerTelemetry? telemetry})
+      : _telemetry = telemetry ?? const NoopResponseViewerTelemetry();
+
+  final ResponseViewerTelemetry _telemetry;
   ResponsePrettyState prettyState = ResponsePrettyState.idle;
   ResponseSearchState searchState = ResponseSearchState.idle;
 
@@ -25,6 +30,7 @@ class ResponseProcessingController extends ChangeNotifier {
     required String raw,
     required bool unwrapJson,
   }) async {
+    final stopwatch = Stopwatch()..start();
     setPrettyState(ResponsePrettyState.loading);
     try {
       final result = await compute(
@@ -32,9 +38,23 @@ class ResponseProcessingController extends ChangeNotifier {
         (raw: raw, unwrapJson: unwrapJson),
       );
       setPrettyState(ResponsePrettyState.ready);
+      _telemetry.record(
+        ResponseViewerTelemetryEvent(
+          name: 'pretty_ready',
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: {'raw_length': raw.length, 'unwrap': unwrapJson},
+        ),
+      );
       return result;
     } catch (_) {
       setPrettyState(ResponsePrettyState.error);
+      _telemetry.record(
+        ResponseViewerTelemetryEvent(
+          name: 'pretty_error',
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: {'raw_length': raw.length},
+        ),
+      );
       rethrow;
     }
   }
@@ -43,11 +63,23 @@ class ResponseProcessingController extends ChangeNotifier {
     required String text,
     required String query,
   }) async {
+    final stopwatch = Stopwatch()..start();
     final requestToken = ++_searchToken;
     setSearchState(ResponseSearchState.indexing);
     final result = await compute(runSearchIndexJob, (text: text, query: query));
     if (requestToken != _searchToken) return const [];
     setSearchState(ResponseSearchState.ready);
+    _telemetry.record(
+      ResponseViewerTelemetryEvent(
+        name: 'search_ready',
+        durationMs: stopwatch.elapsedMilliseconds,
+        metadata: {
+          'text_length': text.length,
+          'query_length': query.length,
+          'matches': result.length,
+        },
+      ),
+    );
     return result;
   }
 }

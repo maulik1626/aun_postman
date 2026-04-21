@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:highlight/highlight.dart' show highlight, Node;
 
 class _HighlightSpanCache {
-  static const _maxEntries = 300;
+  static int _maxEntries = 300;
   static final _cache = <String, List<TextSpan>>{};
   static final _keys = <String>[];
 
@@ -14,6 +14,14 @@ class _HighlightSpanCache {
     }
     _cache[key] = value;
     _keys.add(key);
+    while (_keys.length > _maxEntries) {
+      final oldest = _keys.removeAt(0);
+      _cache.remove(oldest);
+    }
+  }
+
+  static void updateLimit(int entries) {
+    _maxEntries = entries;
     while (_keys.length > _maxEntries) {
       final oldest = _keys.removeAt(0);
       _cache.remove(oldest);
@@ -88,6 +96,10 @@ class HighlightedLineWidget extends StatelessWidget {
   final TextStyle? textStyle;
   final bool softWrap;
   final int tabSize;
+
+  static void configureCacheLimit(int entries) {
+    _HighlightSpanCache.updateLimit(entries);
+  }
 
   @override
   Widget build(BuildContext context) {
