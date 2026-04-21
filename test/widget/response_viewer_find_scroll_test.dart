@@ -62,6 +62,7 @@ void main() {
       'target-word',
     );
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('1/3'), findsOneWidget);
     expect(find.byType(CupertinoScrollbar), findsWidgets);
@@ -86,6 +87,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, 'target-word');
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('1/3'), findsOneWidget);
     expect(find.byType(Scrollbar), findsWidgets);
@@ -145,6 +147,7 @@ void main() {
       'target-word',
     );
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(CupertinoIcons.chevron_down));
     await tester.pump();
@@ -162,6 +165,7 @@ void main() {
     );
     await tester.enterText(find.byType(TextField).first, 'target-word');
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
     await tester.pump();

@@ -1,6 +1,26 @@
 import 'package:flutter/widgets.dart';
 import 'package:highlight/highlight.dart' show highlight, Node;
 
+class _HighlightSpanCache {
+  static const _maxEntries = 300;
+  static final _cache = <String, List<TextSpan>>{};
+  static final _keys = <String>[];
+
+  static List<TextSpan>? get(String key) => _cache[key];
+
+  static void put(String key, List<TextSpan> value) {
+    if (_cache.containsKey(key)) {
+      _keys.remove(key);
+    }
+    _cache[key] = value;
+    _keys.add(key);
+    while (_keys.length > _maxEntries) {
+      final oldest = _keys.removeAt(0);
+      _cache.remove(oldest);
+    }
+  }
+}
+
 /// Converts highlight.js [Node] tree to [TextSpan]s using [theme].
 List<TextSpan> highlightNodesToTextSpans(
   List<Node> nodes,
@@ -80,11 +100,15 @@ class HighlightedLineWidget extends StatelessWidget {
     }
 
     final normalized = line.replaceAll('\t', ' ' * tabSize);
-    final parsed = highlight.parse(normalized, language: language);
-    final nodes = parsed.nodes;
-    var children = nodes == null
-        ? <TextSpan>[]
-        : highlightNodesToTextSpans(nodes, theme);
+    final cacheKey =
+        '${language ?? 'plain'}|${theme.hashCode}|${merged.hashCode}|$normalized';
+    var children = _HighlightSpanCache.get(cacheKey) ?? <TextSpan>[];
+    if (children.isEmpty) {
+      final parsed = highlight.parse(normalized, language: language);
+      final nodes = parsed.nodes;
+      children = nodes == null ? <TextSpan>[] : highlightNodesToTextSpans(nodes, theme);
+      _HighlightSpanCache.put(cacheKey, children);
+    }
     if (children.isEmpty) {
       children = [TextSpan(text: normalized, style: merged)];
     }

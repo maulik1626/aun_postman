@@ -6,9 +6,9 @@ import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/har_exporter.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_processing_controller.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_text_engine.dart';
-import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet.dart'
-    show prettifyResponseBody;
+import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_models.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_syntax.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,22 +16,6 @@ import 'package:flutter_highlight/themes/atom-one-dark.dart';
 import 'package:flutter_highlight/themes/atom-one-light.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-
-export 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet.dart'
-    show prettifyResponseBody;
-
-int _countCaseInsensitiveMat(String haystack, String needle) {
-  final n = needle.trim().toLowerCase();
-  if (n.isEmpty) return 0;
-  final h = haystack.toLowerCase();
-  var count = 0;
-  var i = h.indexOf(n);
-  while (i >= 0) {
-    count++;
-    i = h.indexOf(n, i + n.length);
-  }
-  return count;
-}
 
 class _BodyMatchMat {
   const _BodyMatchMat({required this.lineIndex, required this.start});
@@ -134,6 +118,8 @@ class _ResponseViewerSheetMaterialState
   (String, String)? _prettyCache;
   String? _prettyCacheBodyFingerprint;
   bool? _prettyCacheUnwrap;
+  late final ResponseProcessingController _processingController;
+  List<_BodyMatchMat> _bodyMatchesCache = const [];
 
   bool get _prettyBodyIsJson {
     final b = widget.response.body;
@@ -149,7 +135,7 @@ class _ResponseViewerSheetMaterialState
     return _cachedBodyIsJson ?? false;
   }
 
-  void _syncPrettyCache() {
+  Future<void> _syncPrettyCache() async {
     final raw = widget.response.body;
     final unwrap = _prettyBodyIsJson && _jsonUnwrap;
     if (_prettyCacheBodyFingerprint == raw &&
@@ -159,7 +145,17 @@ class _ResponseViewerSheetMaterialState
     }
     _prettyCacheBodyFingerprint = raw;
     _prettyCacheUnwrap = unwrap;
-    _prettyCache = prettifyResponseBody(raw, unwrapJson: unwrap);
+    final result = await _processingController.computePretty(
+      raw: raw,
+      unwrapJson: unwrap,
+    );
+    if (!mounted) return;
+    setState(() {
+      _prettyCache = (result.text, result.language);
+    });
+    if (_bodySearchController.text.trim().isNotEmpty) {
+      _refreshBodyMatches();
+    }
   }
 
   @override
@@ -170,6 +166,9 @@ class _ResponseViewerSheetMaterialState
     _headersScrollController = ScrollController();
     _cookiesScrollController = ScrollController();
     _bodySearchController = TextEditingController();
+    _processingController = ResponseProcessingController();
+    _prettyCache = (widget.response.body, 'plaintext');
+    _syncPrettyCache();
   }
 
   @override
@@ -178,6 +177,9 @@ class _ResponseViewerSheetMaterialState
     if (oldWidget.response.body != widget.response.body) {
       _cachedBodyFingerprint = null;
       _prettyCacheBodyFingerprint = null;
+      _prettyCache = (widget.response.body, 'plaintext');
+      _syncPrettyCache();
+      _refreshBodyMatches();
     }
   }
 
@@ -188,6 +190,7 @@ class _ResponseViewerSheetMaterialState
     _rawScrollController.dispose();
     _headersScrollController.dispose();
     _cookiesScrollController.dispose();
+    _processingController.dispose();
     super.dispose();
   }
 
@@ -197,19 +200,41 @@ class _ResponseViewerSheetMaterialState
   String get _bodySearchHaystack {
     final raw = widget.response.body;
     if (_selectedTab == 0) {
-      _syncPrettyCache();
       return _prettyCache!.$1;
     }
     return raw;
   }
 
-  int get _bodyMatchCount => _countCaseInsensitiveMat(
-        _bodySearchHaystack,
-        _bodySearchController.text,
-      );
+  int get _bodyMatchCount => _bodyMatchesCache.length;
+  List<_BodyMatchMat> get _bodyMatches => _bodyMatchesCache;
 
-  List<_BodyMatchMat> get _bodyMatches =>
-      _collectBodyMatchesMat(_bodySearchHaystack, _bodySearchController.text);
+  Future<void> _refreshBodyMatches() async {
+    final query = _bodySearchController.text;
+    if (query.trim().isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _bodyMatchesCache = const [];
+        _activeBodyMatchIndex = -1;
+      });
+      _processingController.setSearchState(ResponseSearchState.idle);
+      return;
+    }
+    setState(() {
+      _bodyMatchesCache = _collectBodyMatchesMat(_bodySearchHaystack, query);
+      _syncActiveMatchForQuery();
+    });
+    final matches = await _processingController.computeSearchMatches(
+      text: _bodySearchHaystack,
+      query: query,
+    );
+    if (!mounted) return;
+    setState(() {
+      _bodyMatchesCache = matches
+          .map((m) => _BodyMatchMat(lineIndex: m.lineIndex, start: m.start))
+          .toList(growable: false);
+      _syncActiveMatchForQuery();
+    });
+  }
 
   void _syncActiveMatchForQuery() {
     final matches = _bodyMatches;
@@ -339,7 +364,7 @@ class _ResponseViewerSheetMaterialState
   @override
   Widget build(BuildContext context) {
     final response = widget.response;
-    _syncPrettyCache();
+    final processing = _processingController;
     final prettyPair = _prettyCache!;
     final canExportHar =
         widget.harRequest != null && widget.harStartedAt != null;
@@ -504,6 +529,7 @@ class _ResponseViewerSheetMaterialState
               onSelectionChanged: (s) {
                 if (s.isNotEmpty) {
                   setState(() => _selectedTab = s.first);
+                  _refreshBodyMatches();
                 }
               },
               showSelectedIcon: false,
@@ -567,8 +593,11 @@ class _ResponseViewerSheetMaterialState
                         alignment: Alignment.centerRight,
                         child: Switch(
                           value: _jsonUnwrap,
-                          onChanged: (v) =>
-                              setState(() => _jsonUnwrap = v),
+                          onChanged: (v) {
+                            setState(() => _jsonUnwrap = v);
+                            _syncPrettyCache();
+                            _refreshBodyMatches();
+                          },
                           activeThumbColor: primary,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
@@ -600,14 +629,22 @@ class _ResponseViewerSheetMaterialState
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
-                    onChanged: (_) => setState(() {
-                      _activeBodyMatchIndex = 0;
-                    }),
+                    onChanged: (_) {
+                      setState(() {
+                        _activeBodyMatchIndex = 0;
+                      });
+                      _refreshBodyMatches();
+                    },
                   ),
                 ),
                 if (_bodySearchController.text
                     .trim()
                     .isNotEmpty) ...[
+                  if (processing.searchState == ResponseSearchState.indexing)
+                    Text(
+                      'Indexing...',
+                      style: TextStyle(fontSize: 11, color: secondary),
+                    ),
                   const SizedBox(width: 8),
                   Text(
                     _bodyMatchCount > 0
