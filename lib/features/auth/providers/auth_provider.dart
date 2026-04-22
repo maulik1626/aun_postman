@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
@@ -8,7 +7,6 @@ import 'package:aun_reqstudio/features/collections/providers/collections_provide
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -154,34 +152,19 @@ class AuthController extends StateNotifier<AppAuthState> {
     await _runBusyAction(
       action: AuthAction.apple,
       run: () async {
+        _logAuthTrace('Starting Apple sign-in flow.');
         final isAvailable = await SignInWithApple.isAvailable();
+        _logAuthTrace('Apple sign-in availability: $isAvailable');
         if (!isAvailable) {
           throw const AuthFailure(
             'Apple sign-in is not available on this device right now. Make sure Sign in with Apple is enabled for the app and the device is signed in to an Apple ID.',
           );
         }
-        final rawNonce = _generateNonce();
-        final nonce = _sha256ofString(rawNonce);
-        final appleCredential = await SignInWithApple.getAppleIDCredential(
-          scopes: const [
-            AppleIDAuthorizationScopes.email,
-            AppleIDAuthorizationScopes.fullName,
-          ],
-          nonce: nonce,
-        );
-        final identityToken = appleCredential.identityToken;
-        if (identityToken == null || identityToken.isEmpty) {
-          throw const AuthFailure(
-            'Apple sign-in did not return a valid identity token. Try again from a physical iPhone or rebuild after enabling the Apple capability in Xcode.',
-          );
-        }
-        final oauthCredential = OAuthProvider(
-          'apple.com',
-        ).credential(idToken: identityToken, rawNonce: rawNonce);
-        await _signInOrLinkWithCredential(
-          credential: oauthCredential,
-          providerId: 'apple.com',
-        );
+        final appleProvider = AppleAuthProvider()
+          ..addScope('email')
+          ..addScope('name');
+        _logAuthTrace('Handing off to Firebase Apple provider.');
+        await _signInOrLinkWithAppleProvider(appleProvider);
       },
     );
   }
@@ -253,13 +236,47 @@ class AuthController extends StateNotifier<AppAuthState> {
     } on AuthFailure catch (error) {
       state = state.copyWith(errorMessage: error.message);
     } on FirebaseAuthException catch (error) {
+      _logFirebaseAuthException(error);
       state = state.copyWith(errorMessage: _mapFirebaseError(error));
     } on PlatformException catch (error) {
+      _logPlatformException(error);
       state = state.copyWith(errorMessage: _mapPlatformError(error));
     } catch (error) {
+      _logUnexpectedAuthError(error);
       state = state.copyWith(errorMessage: _mapUnknownAuthError(error));
     } finally {
       state = state.copyWith(isBusy: false, clearActiveAction: true);
+    }
+  }
+
+  Future<void> _signInOrLinkWithAppleProvider(
+    AppleAuthProvider appleProvider,
+  ) async {
+    try {
+      _logAuthTrace('Calling FirebaseAuth.signInWithProvider for Apple.');
+      await FirebaseAuth.instance.signInWithProvider(appleProvider);
+      _logAuthTrace('Apple sign-in completed via Firebase provider.');
+      return;
+    } on FirebaseAuthException catch (error) {
+      _logFirebaseAuthException(error);
+      if (error.code != 'account-exists-with-different-credential') {
+        rethrow;
+      }
+
+      _logAuthTrace(
+        'Apple account exists with different credential. Falling back to Google sign-in and provider linking.',
+      );
+      await signInWithGoogle();
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw const AuthFailure(
+          'Sign in with Google to finish connecting your Apple account.',
+        );
+      }
+
+      _logAuthTrace('Linking Apple provider to the signed-in Google user.');
+      await user.linkWithProvider(appleProvider);
+      _logAuthTrace('Apple provider linked successfully.');
     }
   }
 
@@ -326,9 +343,9 @@ class AuthController extends StateNotifier<AppAuthState> {
       case 'network-request-failed':
         return 'Network unavailable. Check connection and retry.';
       case 'invalid-credential':
-        return 'Credential is invalid or expired. Please sign in again.';
+        return 'Apple sign-in could not be completed with the returned credential. Check the Firebase Apple provider setup and try again.';
       case 'missing-or-invalid-nonce':
-        return 'Apple sign-in could not be verified. Rebuild the iOS app and try again.';
+        return 'Apple sign-in could not be verified. The Firebase Apple provider or native iOS capability still needs attention.';
       case 'user-disabled':
         return 'This account is disabled.';
       case 'too-many-requests':
@@ -368,7 +385,7 @@ class AuthController extends StateNotifier<AppAuthState> {
     if (combined.contains('invalid') ||
         combined.contains('missing') ||
         combined.contains('credential')) {
-      return 'Credential is invalid or incomplete. Please try again after restarting the app.';
+      return 'Apple sign-in returned a credential that Firebase could not accept. Verify the Firebase Apple provider configuration and try again.';
     }
     if (combined.contains('channel-error')) {
       return 'Sign-in service is not ready. Fully restart the app and try again.';
@@ -387,20 +404,36 @@ class AuthController extends StateNotifier<AppAuthState> {
     return 'Something went wrong. Please retry.';
   }
 
-  String _generateNonce([int length = 32]) {
-    const charset =
-        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(
-      length,
-      (_) => charset[random.nextInt(charset.length)],
-    ).join();
+  void _logFirebaseAuthException(FirebaseAuthException error) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      '[Auth] FirebaseAuthException code=${error.code} message=${error.message} email=${error.email} credentialProvider=${error.credential?.providerId}',
+    );
   }
 
-  String _sha256ofString(String input) {
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
+  void _logPlatformException(PlatformException error) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      '[Auth] PlatformException code=${error.code} message=${error.message} details=${error.details}',
+    );
+  }
+
+  void _logUnexpectedAuthError(Object error) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint('[Auth] Unexpected auth error: $error');
+  }
+
+  void _logAuthTrace(String message) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint('[Auth] $message');
   }
 
   @override
