@@ -171,7 +171,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                     ),
                   ),
-                  if (!adSession.browseAdsDisabledByReward &&
+                  if (AdConfig.ENABLE_ADS &&
+                      !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
                   SizedBox(height: bottomInset + 8),
@@ -413,7 +414,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 ),
                               ),
                             ),
-                            if (!adSession.browseAdsDisabledByReward &&
+                            if (AdConfig.ENABLE_ADS &&
+                                !adSession.browseAdsDisabledByReward &&
                                 AdConfig.history.shouldInsertAfterOrdinal(
                                   entryOrdinal,
                                   overrideEvery: settings.historyAdInterval,

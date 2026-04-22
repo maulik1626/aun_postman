@@ -146,7 +146,8 @@ class EnvironmentsScreen extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(height: bottomInset),
-                  if (!adSession.browseAdsDisabledByReward &&
+                  if (AdConfig.ENABLE_ADS &&
+                      !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.environments)
                     const BottomBannerAdSection(),
                 ],
@@ -262,7 +263,8 @@ class EnvironmentsScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (!adSession.browseAdsDisabledByReward &&
+                            if (AdConfig.ENABLE_ADS &&
+                                !adSession.browseAdsDisabledByReward &&
                                 AdConfig.environments.shouldInsertAfterOrdinal(
                                   index + 1,
                                   overrideEvery:

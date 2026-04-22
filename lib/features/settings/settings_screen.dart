@@ -536,208 +536,210 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ],
                       ),
-                      const _SectionHeader(title: 'Ads'),
-                      _SettingsGroup(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 13,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.heart,
-                                  color: CupertinoColors.systemPink.resolveFrom(
-                                    context,
+                      if (AdConfig.ENABLE_ADS) ...[
+                        const _SectionHeader(title: 'Ads'),
+                        _SettingsGroup(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 13,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.heart,
+                                    color: CupertinoColors.systemPink
+                                        .resolveFrom(context),
+                                    size: 22,
                                   ),
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Why ads matter',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        AdConfig.supportMessage,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: CupertinoColors.secondaryLabel
-                                              .resolveFrom(context),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Why ads matter',
+                                          style: TextStyle(fontSize: 16),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            height: 0.5,
-                            margin: const EdgeInsets.only(left: 50),
-                            color: CupertinoColors.separator.resolveFrom(
-                              context,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.play_rectangle,
-                                  color: CupertinoColors.systemYellow
-                                      .resolveFrom(context),
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Pause Browse Ads',
-                                        style: TextStyle(fontSize: 16),
-                                      ),
-                                      Text(
-                                        adSession.browseAdsDisabledByReward
-                                            ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
-                                            : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: CupertinoColors.secondaryLabel
-                                              .resolveFrom(context),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          AdConfig.supportMessage,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: CupertinoColors
+                                                .secondaryLabel
+                                                .resolveFrom(context),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                ScaledCupertinoSwitch(
-                                  value: adSession.browseAdsDisabledByReward,
-                                  onChanged: adSession.isLoadingRewardedAd
-                                      ? null
-                                      : (enabled) =>
-                                            _handleRewardedBrowseAdsToggle(
-                                              context,
-                                              ref,
-                                              enabled,
-                                            ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          Container(
-                            height: 0.5,
-                            margin: const EdgeInsets.only(left: 50),
-                            color: CupertinoColors.separator.resolveFrom(
-                              context,
+                            Container(
+                              height: 0.5,
+                              margin: const EdgeInsets.only(left: 50),
+                              color: CupertinoColors.separator.resolveFrom(
+                                context,
+                              ),
                             ),
-                          ),
-                          _CupertinoSettingsActionRow(
-                            icon: CupertinoIcons.folder,
-                            iconColor: CupertinoColors.systemBlue.resolveFrom(
-                              context,
-                            ),
-                            title: 'Collections ad interval',
-                            value: '${settings.collectionsAdInterval}',
-                            subtitle: _adIntervalHelperText(
-                              defaultValue:
-                                  AdConfig.defaultCollectionsInlineAdInterval,
-                              pausedByReward:
-                                  adSession.browseAdsDisabledByReward,
-                            ),
-                            enabled: !adSession.browseAdsDisabledByReward,
-                            onTap: adSession.browseAdsDisabledByReward
-                                ? null
-                                : () => _showAdIntervalEditor(
-                                    context,
-                                    ref,
-                                    title: 'Collections Ad Interval',
-                                    current: settings.collectionsAdInterval,
-                                    onSave: (value) => ref
-                                        .read(appSettingsProvider.notifier)
-                                        .setCollectionsAdInterval(value),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.play_rectangle,
+                                    color: CupertinoColors.systemYellow
+                                        .resolveFrom(context),
+                                    size: 22,
                                   ),
-                          ),
-                          Container(
-                            height: 0.5,
-                            margin: const EdgeInsets.only(left: 50),
-                            color: CupertinoColors.separator.resolveFrom(
-                              context,
-                            ),
-                          ),
-                          _CupertinoSettingsActionRow(
-                            icon: CupertinoIcons.time,
-                            iconColor: CupertinoColors.systemOrange.resolveFrom(
-                              context,
-                            ),
-                            title: 'History ad interval',
-                            value: '${settings.historyAdInterval}',
-                            subtitle: _adIntervalHelperText(
-                              defaultValue:
-                                  AdConfig.defaultHistoryInlineAdInterval,
-                              pausedByReward:
-                                  adSession.browseAdsDisabledByReward,
-                            ),
-                            enabled: !adSession.browseAdsDisabledByReward,
-                            onTap: adSession.browseAdsDisabledByReward
-                                ? null
-                                : () => _showAdIntervalEditor(
-                                    context,
-                                    ref,
-                                    title: 'History Ad Interval',
-                                    current: settings.historyAdInterval,
-                                    onSave: (value) => ref
-                                        .read(appSettingsProvider.notifier)
-                                        .setHistoryAdInterval(value),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Pause Browse Ads',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        Text(
+                                          adSession.browseAdsDisabledByReward
+                                              ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
+                                              : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: CupertinoColors
+                                                .secondaryLabel
+                                                .resolveFrom(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                          ),
-                          Container(
-                            height: 0.5,
-                            margin: const EdgeInsets.only(left: 50),
-                            color: CupertinoColors.separator.resolveFrom(
-                              context,
-                            ),
-                          ),
-                          _CupertinoSettingsActionRow(
-                            icon: CupertinoIcons.slider_horizontal_3,
-                            iconColor: CupertinoColors.systemTeal.resolveFrom(
-                              context,
-                            ),
-                            title: 'Environments ad interval',
-                            value: '${settings.environmentsAdInterval}',
-                            subtitle: _adIntervalHelperText(
-                              defaultValue:
-                                  AdConfig.defaultEnvironmentsInlineAdInterval,
-                              pausedByReward:
-                                  adSession.browseAdsDisabledByReward,
-                            ),
-                            enabled: !adSession.browseAdsDisabledByReward,
-                            onTap: adSession.browseAdsDisabledByReward
-                                ? null
-                                : () => _showAdIntervalEditor(
-                                    context,
-                                    ref,
-                                    title: 'Environments Ad Interval',
-                                    current: settings.environmentsAdInterval,
-                                    onSave: (value) => ref
-                                        .read(appSettingsProvider.notifier)
-                                        .setEnvironmentsAdInterval(value),
+                                  ScaledCupertinoSwitch(
+                                    value: adSession.browseAdsDisabledByReward,
+                                    onChanged: adSession.isLoadingRewardedAd
+                                        ? null
+                                        : (enabled) =>
+                                              _handleRewardedBrowseAdsToggle(
+                                                context,
+                                                ref,
+                                                enabled,
+                                              ),
                                   ),
-                          ),
-                        ],
-                      ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              height: 0.5,
+                              margin: const EdgeInsets.only(left: 50),
+                              color: CupertinoColors.separator.resolveFrom(
+                                context,
+                              ),
+                            ),
+                            _CupertinoSettingsActionRow(
+                              icon: CupertinoIcons.folder,
+                              iconColor: CupertinoColors.systemBlue.resolveFrom(
+                                context,
+                              ),
+                              title: 'Collections ad interval',
+                              value: '${settings.collectionsAdInterval}',
+                              subtitle: _adIntervalHelperText(
+                                defaultValue:
+                                    AdConfig.defaultCollectionsInlineAdInterval,
+                                pausedByReward:
+                                    adSession.browseAdsDisabledByReward,
+                              ),
+                              enabled: !adSession.browseAdsDisabledByReward,
+                              onTap: adSession.browseAdsDisabledByReward
+                                  ? null
+                                  : () => _showAdIntervalEditor(
+                                      context,
+                                      ref,
+                                      title: 'Collections Ad Interval',
+                                      current: settings.collectionsAdInterval,
+                                      onSave: (value) => ref
+                                          .read(appSettingsProvider.notifier)
+                                          .setCollectionsAdInterval(value),
+                                    ),
+                            ),
+                            Container(
+                              height: 0.5,
+                              margin: const EdgeInsets.only(left: 50),
+                              color: CupertinoColors.separator.resolveFrom(
+                                context,
+                              ),
+                            ),
+                            _CupertinoSettingsActionRow(
+                              icon: CupertinoIcons.time,
+                              iconColor: CupertinoColors.systemOrange
+                                  .resolveFrom(context),
+                              title: 'History ad interval',
+                              value: '${settings.historyAdInterval}',
+                              subtitle: _adIntervalHelperText(
+                                defaultValue:
+                                    AdConfig.defaultHistoryInlineAdInterval,
+                                pausedByReward:
+                                    adSession.browseAdsDisabledByReward,
+                              ),
+                              enabled: !adSession.browseAdsDisabledByReward,
+                              onTap: adSession.browseAdsDisabledByReward
+                                  ? null
+                                  : () => _showAdIntervalEditor(
+                                      context,
+                                      ref,
+                                      title: 'History Ad Interval',
+                                      current: settings.historyAdInterval,
+                                      onSave: (value) => ref
+                                          .read(appSettingsProvider.notifier)
+                                          .setHistoryAdInterval(value),
+                                    ),
+                            ),
+                            Container(
+                              height: 0.5,
+                              margin: const EdgeInsets.only(left: 50),
+                              color: CupertinoColors.separator.resolveFrom(
+                                context,
+                              ),
+                            ),
+                            _CupertinoSettingsActionRow(
+                              icon: CupertinoIcons.slider_horizontal_3,
+                              iconColor: CupertinoColors.systemTeal.resolveFrom(
+                                context,
+                              ),
+                              title: 'Environments ad interval',
+                              value: '${settings.environmentsAdInterval}',
+                              subtitle: _adIntervalHelperText(
+                                defaultValue: AdConfig
+                                    .defaultEnvironmentsInlineAdInterval,
+                                pausedByReward:
+                                    adSession.browseAdsDisabledByReward,
+                              ),
+                              enabled: !adSession.browseAdsDisabledByReward,
+                              onTap: adSession.browseAdsDisabledByReward
+                                  ? null
+                                  : () => _showAdIntervalEditor(
+                                      context,
+                                      ref,
+                                      title: 'Environments Ad Interval',
+                                      current: settings.environmentsAdInterval,
+                                      onSave: (value) => ref
+                                          .read(appSettingsProvider.notifier)
+                                          .setEnvironmentsAdInterval(value),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const _SectionHeader(title: 'Danger Zone'),
                       _SettingsGroup(
                         children: [

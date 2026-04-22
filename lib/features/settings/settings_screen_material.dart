@@ -179,7 +179,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               _ScaledSwitchTile(
-                leading: const Icon(Icons.swap_horiz_outlined, color: Colors.blue),
+                leading: const Icon(
+                  Icons.swap_horiz_outlined,
+                  color: Colors.blue,
+                ),
                 title: 'Follow Redirects',
                 value: settings.followRedirects,
                 onChanged: (v) => ref
@@ -227,7 +230,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: const Icon(Icons.list_alt_outlined, color: Colors.teal),
+                leading: const Icon(
+                  Icons.list_alt_outlined,
+                  color: Colors.teal,
+                ),
                 title: const Text('Default Headers'),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -239,7 +245,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: const Icon(Icons.mediation_outlined, color: Colors.indigo),
+                leading: const Icon(
+                  Icons.mediation_outlined,
+                  color: Colors.indigo,
+                ),
                 title: const Text('HTTP Proxy'),
                 trailing: _settingsTrailingChevron(
                   context,
@@ -289,143 +298,155 @@ class SettingsScreenMaterial extends ConsumerWidget {
             ],
           ),
 
-          _SectionHeaderMaterial(title: 'Ads', color: sectionColor),
-          _SettingsGroupMaterial(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.favorite_outline, color: Colors.pinkAccent),
-                title: const Text('Why ads matter'),
-                subtitle: Text(
-                  AdConfig.supportMessage,
-                  style: Theme.of(
+          if (AdConfig.ENABLE_ADS) ...[
+            _SectionHeaderMaterial(title: 'Ads', color: sectionColor),
+            _SettingsGroupMaterial(
+              children: [
+                ListTile(
+                  leading: const Icon(
+                    Icons.favorite_outline,
+                    color: Colors.pinkAccent,
+                  ),
+                  title: const Text('Why ads matter'),
+                  subtitle: Text(
+                    AdConfig.supportMessage,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: onVar),
+                  ),
+                ),
+                _settingsDivider(context),
+                _ScaledSwitchTile(
+                  leading: Icon(Icons.ondemand_video, color: Colors.amber[700]),
+                  title: 'Pause Browse Ads',
+                  subtitle: Text(
+                    adSession.browseAdsDisabledByReward
+                        ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
+                        : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: onVar),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  value: adSession.browseAdsDisabledByReward,
+                  onChanged: adSession.isLoadingRewardedAd
+                      ? (_) {}
+                      : (enabled) => _handleRewardedBrowseAdsToggle(
+                          context,
+                          ref,
+                          enabled,
+                        ),
+                ),
+                _settingsDivider(context),
+                ListTile(
+                  leading: const Icon(
+                    Icons.folder_copy_outlined,
+                    color: Colors.blue,
+                  ),
+                  title: const Text('Collections ad interval'),
+                  subtitle: Text(
+                    _adIntervalHelperText(
+                      defaultValue: AdConfig.defaultCollectionsInlineAdInterval,
+                      pausedByReward: adSession.browseAdsDisabledByReward,
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: adSession.browseAdsDisabledByReward
+                          ? tertiary
+                          : onVar,
+                    ),
+                  ),
+                  trailing: _settingsTrailingChevron(
                     context,
-                  ).textTheme.bodySmall?.copyWith(color: onVar),
+                    '${settings.collectionsAdInterval}',
+                    secondary,
+                    tertiary,
+                  ),
+                  enabled: !adSession.browseAdsDisabledByReward,
+                  onTap: adSession.browseAdsDisabledByReward
+                      ? null
+                      : () => _showAdIntervalEditor(
+                          context,
+                          ref,
+                          title: 'Collections Ad Interval',
+                          current: settings.collectionsAdInterval,
+                          onSave: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setCollectionsAdInterval(value),
+                        ),
                 ),
-              ),
-              _settingsDivider(context),
-              _ScaledSwitchTile(
-                leading: Icon(Icons.ondemand_video, color: Colors.amber[700]),
-                title: 'Pause Browse Ads',
-                subtitle: Text(
-                  adSession.browseAdsDisabledByReward
-                      ? 'Browse ads are paused until ${_formatPauseExpiry(adSession.browseAdsPausedUntil)}. Auto resets in ${_formatCountdown(adSession.browseAdsPausedUntil, adSessionNow)}.'
-                      : 'Watch a rewarded ad to pause Collections, History, and Environments ads for ${AdConfig.rewardedBrowseAdsPauseMinutes} minutes.',
-                  style: Theme.of(
+                _settingsDivider(context),
+                ListTile(
+                  leading: const Icon(Icons.history, color: Colors.deepOrange),
+                  title: const Text('History ad interval'),
+                  subtitle: Text(
+                    _adIntervalHelperText(
+                      defaultValue: AdConfig.defaultHistoryInlineAdInterval,
+                      pausedByReward: adSession.browseAdsDisabledByReward,
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: adSession.browseAdsDisabledByReward
+                          ? tertiary
+                          : onVar,
+                    ),
+                  ),
+                  trailing: _settingsTrailingChevron(
                     context,
-                  ).textTheme.bodySmall?.copyWith(color: onVar),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                value: adSession.browseAdsDisabledByReward,
-                onChanged: adSession.isLoadingRewardedAd
-                    ? (_) {}
-                    : (enabled) =>
-                          _handleRewardedBrowseAdsToggle(context, ref, enabled),
-              ),
-              _settingsDivider(context),
-              ListTile(
-                leading: const Icon(Icons.folder_copy_outlined, color: Colors.blue),
-                title: const Text('Collections ad interval'),
-                subtitle: Text(
-                  _adIntervalHelperText(
-                    defaultValue: AdConfig.defaultCollectionsInlineAdInterval,
-                    pausedByReward: adSession.browseAdsDisabledByReward,
+                    '${settings.historyAdInterval}',
+                    secondary,
+                    tertiary,
                   ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: adSession.browseAdsDisabledByReward
-                        ? tertiary
-                        : onVar,
+                  enabled: !adSession.browseAdsDisabledByReward,
+                  onTap: adSession.browseAdsDisabledByReward
+                      ? null
+                      : () => _showAdIntervalEditor(
+                          context,
+                          ref,
+                          title: 'History Ad Interval',
+                          current: settings.historyAdInterval,
+                          onSave: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setHistoryAdInterval(value),
+                        ),
+                ),
+                _settingsDivider(context),
+                ListTile(
+                  leading: const Icon(Icons.tune, color: Colors.teal),
+                  title: const Text('Environments ad interval'),
+                  subtitle: Text(
+                    _adIntervalHelperText(
+                      defaultValue:
+                          AdConfig.defaultEnvironmentsInlineAdInterval,
+                      pausedByReward: adSession.browseAdsDisabledByReward,
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: adSession.browseAdsDisabledByReward
+                          ? tertiary
+                          : onVar,
+                    ),
                   ),
-                ),
-                trailing: _settingsTrailingChevron(
-                  context,
-                  '${settings.collectionsAdInterval}',
-                  secondary,
-                  tertiary,
-                ),
-                enabled: !adSession.browseAdsDisabledByReward,
-                onTap: adSession.browseAdsDisabledByReward
-                    ? null
-                    : () => _showAdIntervalEditor(
-                        context,
-                        ref,
-                        title: 'Collections Ad Interval',
-                        current: settings.collectionsAdInterval,
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setCollectionsAdInterval(value),
-                      ),
-              ),
-              _settingsDivider(context),
-              ListTile(
-                leading: const Icon(Icons.history, color: Colors.deepOrange),
-                title: const Text('History ad interval'),
-                subtitle: Text(
-                  _adIntervalHelperText(
-                    defaultValue: AdConfig.defaultHistoryInlineAdInterval,
-                    pausedByReward: adSession.browseAdsDisabledByReward,
+                  trailing: _settingsTrailingChevron(
+                    context,
+                    '${settings.environmentsAdInterval}',
+                    secondary,
+                    tertiary,
                   ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: adSession.browseAdsDisabledByReward
-                        ? tertiary
-                        : onVar,
-                  ),
+                  enabled: !adSession.browseAdsDisabledByReward,
+                  onTap: adSession.browseAdsDisabledByReward
+                      ? null
+                      : () => _showAdIntervalEditor(
+                          context,
+                          ref,
+                          title: 'Environments Ad Interval',
+                          current: settings.environmentsAdInterval,
+                          onSave: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setEnvironmentsAdInterval(value),
+                        ),
                 ),
-                trailing: _settingsTrailingChevron(
-                  context,
-                  '${settings.historyAdInterval}',
-                  secondary,
-                  tertiary,
-                ),
-                enabled: !adSession.browseAdsDisabledByReward,
-                onTap: adSession.browseAdsDisabledByReward
-                    ? null
-                    : () => _showAdIntervalEditor(
-                        context,
-                        ref,
-                        title: 'History Ad Interval',
-                        current: settings.historyAdInterval,
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setHistoryAdInterval(value),
-                      ),
-              ),
-              _settingsDivider(context),
-              ListTile(
-                leading: const Icon(Icons.tune, color: Colors.teal),
-                title: const Text('Environments ad interval'),
-                subtitle: Text(
-                  _adIntervalHelperText(
-                    defaultValue: AdConfig.defaultEnvironmentsInlineAdInterval,
-                    pausedByReward: adSession.browseAdsDisabledByReward,
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: adSession.browseAdsDisabledByReward
-                        ? tertiary
-                        : onVar,
-                  ),
-                ),
-                trailing: _settingsTrailingChevron(
-                  context,
-                  '${settings.environmentsAdInterval}',
-                  secondary,
-                  tertiary,
-                ),
-                enabled: !adSession.browseAdsDisabledByReward,
-                onTap: adSession.browseAdsDisabledByReward
-                    ? null
-                    : () => _showAdIntervalEditor(
-                        context,
-                        ref,
-                        title: 'Environments Ad Interval',
-                        current: settings.environmentsAdInterval,
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setEnvironmentsAdInterval(value),
-                      ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
 
           // ── Danger Zone ───────────────────────────────────────────
           _SectionHeaderMaterial(title: 'Danger zone', color: sectionColor),
@@ -478,7 +499,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
                   ),
                   _settingsDivider(context),
                   ListTile(
-                    leading: const Icon(Icons.apps_outlined, color: Colors.indigo),
+                    leading: const Icon(
+                      Icons.apps_outlined,
+                      color: Colors.indigo,
+                    ),
                     title: const Text('App Name'),
                     trailing: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -503,7 +527,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
           _SettingsGroupMaterial(
             children: [
               ListTile(
-                leading: const Icon(Icons.help_outline_rounded, color: Colors.blue),
+                leading: const Icon(
+                  Icons.help_outline_rounded,
+                  color: Colors.blue,
+                ),
                 title: const Text('Support'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () =>
@@ -511,7 +538,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined, color: Colors.teal),
+                leading: const Icon(
+                  Icons.privacy_tip_outlined,
+                  color: Colors.teal,
+                ),
                 title: const Text('Privacy Policy'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () => _launchLegalUrl(
@@ -522,7 +552,10 @@ class SettingsScreenMaterial extends ConsumerWidget {
               ),
               _settingsDivider(context),
               ListTile(
-                leading: const Icon(Icons.description_outlined, color: Colors.indigo),
+                leading: const Icon(
+                  Icons.description_outlined,
+                  color: Colors.indigo,
+                ),
                 title: const Text('Terms of Service'),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
                 onTap: () => _launchLegalUrl(

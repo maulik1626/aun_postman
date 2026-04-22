@@ -326,7 +326,8 @@ class CollectionsScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              if (!adSession.browseAdsDisabledByReward &&
+                              if (AdConfig.ENABLE_ADS &&
+                                  !adSession.browseAdsDisabledByReward &&
                                   AdConfig.collections.shouldInsertAfterOrdinal(
                                     index + 1,
                                     overrideEvery:

@@ -3,6 +3,10 @@
 /// Keep all placement pacing and enable/disable switches here so ad behavior
 /// can be tuned without editing feature screens or ad service logic.
 abstract final class AdConfig {
+  /// Master app-wide switch for all ad behavior and ad settings UI.
+  // ignore: constant_identifier_names
+  static const bool ENABLE_ADS = true;
+
   /// Default Collections insertion interval used before any user override.
   static const int defaultCollectionsInlineAdInterval = 5;
 
@@ -17,7 +21,7 @@ abstract final class AdConfig {
 
   /// Small helper copy shown in settings near ad controls.
   static const String supportMessage =
-      'Ads support the app. Keeping them enabled helps us improve and maintain ReqStudio.';
+      'Ads support the app. Keeping them enabled helps us improve and maintain Aun ReqStudio.';
 
   /// Minimum inline ad interval a user can configure from Settings.
   static const int minInlineAdInterval = 1;
@@ -26,7 +30,7 @@ abstract final class AdConfig {
   static const int maxInlineAdInterval = 8;
 
   /// Rewarded browse-ad pause duration, in minutes.
-  static const int rewardedBrowseAdsPauseMinutes = 15;
+  static const int rewardedBrowseAdsPauseMinutes = 2;
 
   /// Module-level inline ad configuration for the Collections screen.
   static const AdInlineModuleConfig collections = AdInlineModuleConfig(

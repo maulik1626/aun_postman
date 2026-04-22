@@ -335,7 +335,8 @@ class _CollectionsScreenMaterialState
                           ),
                         ),
                       ),
-                      if (!sessionBrowseAdsDisabled &&
+                      if (AdConfig.ENABLE_ADS &&
+                          !sessionBrowseAdsDisabled &&
                           AdConfig.collections.shouldInsertAfterOrdinal(
                             index + 1,
                             overrideEvery: adInterval,

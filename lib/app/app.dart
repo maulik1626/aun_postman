@@ -1,4 +1,5 @@
 import 'dart:ui' show PlatformDispatcher;
+import 'dart:async';
 
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_router.dart';
@@ -6,17 +7,77 @@ import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/theme/app_theme.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
+import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Root widget — branches to the correct app shell based on platform.
-class App extends ConsumerWidget {
+class App extends ConsumerStatefulWidget {
   const App({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<App> createState() => _AppState();
+}
+
+class _AppState extends ConsumerState<App> {
+  VoidCallback? _notificationListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationListener = () {
+      _handleNotificationPayload(UserNotification.notificationTapPayload.value);
+    };
+    UserNotification.notificationTapPayload.addListener(_notificationListener!);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleNotificationPayload(UserNotification.consumeLaunchPayload());
+    });
+  }
+
+  Future<void> _handleNotificationPayload(String? payload) async {
+    if (!mounted || !AdConfig.ENABLE_ADS) return;
+    if (payload != UserNotification.browseAdsExtendPayload) return;
+
+    UserNotification.notificationTapPayload.value = null;
+    final notifier = ref.read(adSessionProvider.notifier);
+    final result = await notifier.extendBrowseAdRewardMode();
+    if (!mounted) return;
+
+    switch (result) {
+      case RewardBrowseAdsResult.earned:
+        await UserNotification.show(
+          title: 'Ad pause extended',
+          body:
+              'Browse ads are extended for another ${AdConfig.rewardedBrowseAdsPauseMinutes} mins.',
+          context: context,
+        );
+      case RewardBrowseAdsResult.unavailable:
+        await UserNotification.show(
+          title: 'Rewarded ad unavailable',
+          body: 'Please try again in a moment.',
+          context: context,
+        );
+      case RewardBrowseAdsResult.dismissed:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_notificationListener != null) {
+      UserNotification.notificationTapPayload.removeListener(
+        _notificationListener!,
+      );
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return AppPlatform.isAndroid
         ? const _MaterialAppShell()
         : const _CupertinoAppShell();

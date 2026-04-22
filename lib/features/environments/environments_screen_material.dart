@@ -129,7 +129,8 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (!adSession.browseAdsDisabledByReward &&
+                if (AdConfig.ENABLE_ADS &&
+                    !adSession.browseAdsDisabledByReward &&
                     AdConfig.emptyStateBottomBanners.environments)
                   const BottomBannerAdSection(),
               ],
@@ -225,7 +226,8 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      if (!adSession.browseAdsDisabledByReward &&
+                      if (AdConfig.ENABLE_ADS &&
+                          !adSession.browseAdsDisabledByReward &&
                           AdConfig.environments.shouldInsertAfterOrdinal(
                             index + 1,
                             overrideEvery: settings.environmentsAdInterval,

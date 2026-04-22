@@ -162,7 +162,8 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                       ),
                     ),
                   ),
-                  if (!adSession.browseAdsDisabledByReward &&
+                  if (AdConfig.ENABLE_ADS &&
+                      !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
                 ],
@@ -366,7 +367,8 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                         ),
                       ),
                     ),
-                    if (!adSession.browseAdsDisabledByReward &&
+                    if (AdConfig.ENABLE_ADS &&
+                        !adSession.browseAdsDisabledByReward &&
                         AdConfig.history.shouldInsertAfterOrdinal(
                           entryOrdinal,
                           overrideEvery: settings.historyAdInterval,
