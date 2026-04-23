@@ -4,6 +4,8 @@ import 'dart:async';
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_router.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope.dart';
+import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope_material.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/theme/app_theme.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
@@ -131,6 +133,9 @@ class _CupertinoAppShell extends ConsumerWidget {
         DefaultCupertinoLocalizations.delegate,
         DefaultWidgetsLocalizations.delegate,
       ],
+      builder: (context, child) => ScreenshotFeedbackScope(
+        child: child ?? const SizedBox.shrink(),
+      ),
       routerConfig: router,
     );
   }
@@ -187,15 +192,17 @@ class _MaterialAppShell extends ConsumerWidget {
         );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: overlayStyle,
-          child: ColoredBox(
-            color: systemNavColor,
-            child: SafeArea(
-              top: false,
-              left: false,
-              right: false,
-              bottom: true,
-              maintainBottomViewPadding: true,
-              child: child ?? const SizedBox.shrink(),
+          child: ScreenshotFeedbackScopeMaterial(
+            child: ColoredBox(
+              color: systemNavColor,
+              child: SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                bottom: true,
+                maintainBottomViewPadding: true,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );

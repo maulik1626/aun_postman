@@ -58,3 +58,6 @@ android/app/google-services.json
 ios/Runner/GoogleService-Info.plist
 **/aun-release-metadata.txt
 **/README-LOCAL.md
+
+# Local AdMob ID catalog (duplicates production strings; keep out of VCS)
+docs/admob_ids.local.md

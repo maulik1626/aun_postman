@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import UserNotifications
 import flutter_local_notifications
+import MessageUI
 
 // MARK: - iCloud Documents backup (MethodChannel com.aun.reqstudio/icloud_backup)
 
@@ -182,8 +183,169 @@ private enum IcloudBackupPlugin {
   }
 }
 
+private final class ScreenshotEventsPlugin: NSObject, FlutterStreamHandler {
+  private let channel: FlutterEventChannel
+  private var eventSink: FlutterEventSink?
+  private var observer: NSObjectProtocol?
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterEventChannel(
+      name: "com.aun.reqstudio/screenshot_events",
+      binaryMessenger: messenger
+    )
+    super.init()
+    channel.setStreamHandler(self)
+  }
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    eventSink = events
+    observer = NotificationCenter.default.addObserver(
+      forName: UIApplication.userDidTakeScreenshotNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.eventSink?([
+        "platform": "ios",
+        "takenAtMs": Int(Date().timeIntervalSince1970 * 1000)
+      ])
+    }
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    if let observer {
+      NotificationCenter.default.removeObserver(observer)
+      self.observer = nil
+    }
+    eventSink = nil
+    return nil
+  }
+}
+
+private final class FeedbackEmailPlugin: NSObject, MFMailComposeViewControllerDelegate {
+  private let channel: FlutterMethodChannel
+  private weak var presenter: UIViewController?
+  private var pendingResult: FlutterResult?
+
+  init(messenger: FlutterBinaryMessenger, presenter: UIViewController) {
+    channel = FlutterMethodChannel(
+      name: "com.aun.reqstudio/feedback_email",
+      binaryMessenger: messenger
+    )
+    self.presenter = presenter
+    super.init()
+    channel.setMethodCallHandler(handle)
+  }
+
+  func updatePresenter(_ presenter: UIViewController) {
+    self.presenter = presenter
+  }
+
+  func handle(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard call.method == "composeEmail" else {
+      result(FlutterMethodNotImplemented)
+      return
+    }
+
+    guard MFMailComposeViewController.canSendMail() else {
+      result(
+        FlutterError(
+          code: "mail_unavailable",
+          message: "No mail account is configured on this device.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    guard pendingResult == nil else {
+      result(
+        FlutterError(
+          code: "mail_busy",
+          message: "An email composer is already open.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    guard
+      let args = call.arguments as? [String: Any],
+      let to = args["to"] as? [String],
+      let subject = args["subject"] as? String,
+      let body = args["body"] as? String,
+      let attachmentPath = args["attachmentPath"] as? String
+    else {
+      result(FlutterError(code: "bad_args", message: "Missing email fields.", details: nil))
+      return
+    }
+
+    let mimeType = (args["attachmentMimeType"] as? String) ?? "image/png"
+    let attachmentName = (args["attachmentName"] as? String) ?? "aun_reqstudio_feedback.png"
+
+    guard let presenter = topPresenter(from: presenter) else {
+      result(FlutterError(code: "no_presenter", message: "Cannot present email composer.", details: nil))
+      return
+    }
+
+    let composer = MFMailComposeViewController()
+    composer.mailComposeDelegate = self
+    composer.setToRecipients(to)
+    composer.setSubject(subject)
+    composer.setMessageBody(body, isHTML: false)
+
+    do {
+      let data = try Data(contentsOf: URL(fileURLWithPath: attachmentPath))
+      composer.addAttachmentData(data, mimeType: mimeType, fileName: attachmentName)
+    } catch {
+      result(
+        FlutterError(
+          code: "attachment_read_failed",
+          message: "Could not read the screenshot attachment.",
+          details: nil
+        )
+      )
+      return
+    }
+
+    pendingResult = result
+    presenter.present(composer, animated: true)
+  }
+
+  func mailComposeController(
+    _ controller: MFMailComposeViewController,
+    didFinishWith result: MFMailComposeResult,
+    error: Error?
+  ) {
+    controller.dismiss(animated: true)
+    if let error {
+      pendingResult?(
+        FlutterError(
+          code: "mail_failed",
+          message: error.localizedDescription,
+          details: nil
+        )
+      )
+    } else {
+      pendingResult?(nil)
+    }
+    pendingResult = nil
+  }
+
+  private func topPresenter(from root: UIViewController?) -> UIViewController? {
+    var current = root
+    while let presented = current?.presentedViewController {
+      current = presented
+    }
+    return current
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var screenshotEventsPlugin: ScreenshotEventsPlugin?
+  private var feedbackEmailPlugin: FeedbackEmailPlugin?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -199,5 +361,16 @@ private enum IcloudBackupPlugin {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
     IcloudBackupPlugin.register(messenger: messenger)
+    screenshotEventsPlugin = ScreenshotEventsPlugin(messenger: messenger)
+    if let rootController = window?.rootViewController {
+      if let feedbackEmailPlugin {
+        feedbackEmailPlugin.updatePresenter(rootController)
+      } else {
+        feedbackEmailPlugin = FeedbackEmailPlugin(
+          messenger: messenger,
+          presenter: rootController
+        )
+      }
+    }
   }
 }

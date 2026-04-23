@@ -16,22 +16,22 @@ class AdService {
 
   static final AdService instance = AdService._();
 
-  // TODO: Replace Google test IDs with production IDs before release.
-  static const String _androidAppId = 'ca-app-pub-3940256099942544~3347511713';
-  static const String _iosAppId = 'ca-app-pub-3940256099942544~1458002511';
+  // Android + iOS AdMob IDs (production).
+  static const String _androidAppId = 'ca-app-pub-7715109286748953~3701420942';
+  static const String _iosAppId = 'ca-app-pub-7715109286748953~9608353748';
   static const String _androidBannerId =
-      'ca-app-pub-3940256099942544/6300978111';
-  static const String _iosBannerId = 'ca-app-pub-3940256099942544/2934735716';
+      'ca-app-pub-7715109286748953/3740327276';
+  static const String _iosBannerId = 'ca-app-pub-7715109286748953/9539448862';
   static const String _androidInterstitialId =
-      'ca-app-pub-3940256099942544/1033173712';
+      'ca-app-pub-7715109286748953/8862248284';
   static const String _iosInterstitialId =
-      'ca-app-pub-3940256099942544/4411468910';
+      'ca-app-pub-7715109286748953/4287122182';
   static const String _androidNativeId =
-      'ca-app-pub-3940256099942544/2247696110';
-  static const String _iosNativeId = 'ca-app-pub-3940256099942544/3986624511';
+      'ca-app-pub-7715109286748953/2520201216';
+  static const String _iosNativeId = 'ca-app-pub-7715109286748953/2974040512';
   static const String _androidRewardedId =
-      'ca-app-pub-3940256099942544/5224354917';
-  static const String _iosRewardedId = 'ca-app-pub-3940256099942544/1712485313';
+      'ca-app-pub-7715109286748953/7549166613';
+  static const String _iosRewardedId = 'ca-app-pub-7715109286748953/9020574112';
 
   static String get appId => Platform.isAndroid ? _androidAppId : _iosAppId;
 
