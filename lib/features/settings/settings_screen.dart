@@ -861,6 +861,19 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                       const _SectionHeader(title: 'Legal'),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Text(
+                          'Sign-in uses Google, Apple, and Firebase. Ads use Google AdMob. See the Privacy Policy.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: CupertinoColors.secondaryLabel.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        ),
+                      ),
                       _SettingsGroup(
                         children: [
                           GestureDetector(

@@ -8,13 +8,13 @@ abstract final class AdConfig {
   static const bool ENABLE_ADS = true;
 
   /// Default Collections insertion interval used before any user override.
-  static const int defaultCollectionsInlineAdInterval = 5;
+  static const int defaultCollectionsInlineAdInterval = 10;
 
   /// Default History insertion interval used before any user override.
-  static const int defaultHistoryInlineAdInterval = 5;
+  static const int defaultHistoryInlineAdInterval = 10;
 
   /// Default Environments insertion interval used before any user override.
-  static const int defaultEnvironmentsInlineAdInterval = 5;
+  static const int defaultEnvironmentsInlineAdInterval = 8;
 
   /// Master switch for inline native ads rendered inside list-based screens.
   static const bool nativeAdsEnabled = true;
@@ -27,7 +27,7 @@ abstract final class AdConfig {
   static const int minInlineAdInterval = 1;
 
   /// Maximum inline ad interval a user can configure from Settings.
-  static const int maxInlineAdInterval = 8;
+  static const int maxInlineAdInterval = 10;
 
   /// Rewarded browse-ad pause duration, in minutes.
   static const int rewardedBrowseAdsPauseMinutes = 30;
@@ -54,8 +54,8 @@ abstract final class AdConfig {
   static const AdEmptyStateBannerConfig emptyStateBottomBanners =
       AdEmptyStateBannerConfig(
         collections: false,
-        history: true,
-        environments: true,
+        history: false,
+        environments: false,
       );
 
   /// Controls the post-response interstitial shown after successful requests.
@@ -63,7 +63,7 @@ abstract final class AdConfig {
       AdInterstitialConfig(
         enabled: true,
         eligibleActionsPerInterstitial: 3,
-        cooldownMinutes: 2,
+        cooldownMinutes: 5,
       );
 
   /// Controls the post-success interstitial shown in import/export flows.
@@ -71,7 +71,7 @@ abstract final class AdConfig {
       AdInterstitialConfig(
         enabled: true,
         eligibleActionsPerInterstitial: 3,
-        cooldownMinutes: 2,
+        cooldownMinutes: 5,
       );
 }
 

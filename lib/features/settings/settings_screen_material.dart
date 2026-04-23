@@ -524,6 +524,16 @@ class SettingsScreenMaterial extends ConsumerWidget {
 
           // ── Legal ─────────────────────────────────────────────────
           _SectionHeaderMaterial(title: 'Legal', color: sectionColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              'Sign-in uses Google, Apple, and Firebase. Ads use Google AdMob. See the Privacy Policy.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: secondary,
+                height: 1.35,
+              ),
+            ),
+          ),
           _SettingsGroupMaterial(
             children: [
               ListTile(

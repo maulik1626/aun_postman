@@ -33,19 +33,44 @@ class AdService {
       'ca-app-pub-7715109286748953/7549166613';
   static const String _iosRewardedId = 'ca-app-pub-7715109286748953/9020574112';
 
+  /// Google-provided sample ad units (always fill). Use only in debug.
+  /// https://developers.google.com/admob/flutter/test-ads
+  static const String _testAndroidBannerId =
+      'ca-app-pub-3940256099942544/6300978111';
+  static const String _testIosBannerId =
+      'ca-app-pub-3940256099942544/2934735716';
+  static const String _testAndroidInterstitialId =
+      'ca-app-pub-3940256099942544/1033173712';
+  static const String _testIosInterstitialId =
+      'ca-app-pub-3940256099942544/4411468910';
+  static const String _testAndroidNativeId =
+      'ca-app-pub-3940256099942544/2247696110';
+  static const String _testIosNativeId =
+      'ca-app-pub-3940256099942544/3986624511';
+  static const String _testAndroidRewardedId =
+      'ca-app-pub-3940256099942544/5224354917';
+  static const String _testIosRewardedId =
+      'ca-app-pub-3940256099942544/1712485313';
+
   static String get appId => Platform.isAndroid ? _androidAppId : _iosAppId;
 
-  static String get _bannerId =>
-      Platform.isAndroid ? _androidBannerId : _iosBannerId;
+  static String get _bannerId => kDebugMode
+      ? (Platform.isAndroid ? _testAndroidBannerId : _testIosBannerId)
+      : (Platform.isAndroid ? _androidBannerId : _iosBannerId);
 
-  static String get _interstitialId =>
-      Platform.isAndroid ? _androidInterstitialId : _iosInterstitialId;
+  static String get _interstitialId => kDebugMode
+      ? (Platform.isAndroid
+          ? _testAndroidInterstitialId
+          : _testIosInterstitialId)
+      : (Platform.isAndroid ? _androidInterstitialId : _iosInterstitialId);
 
-  static String get _nativeId =>
-      Platform.isAndroid ? _androidNativeId : _iosNativeId;
+  static String get _nativeId => kDebugMode
+      ? (Platform.isAndroid ? _testAndroidNativeId : _testIosNativeId)
+      : (Platform.isAndroid ? _androidNativeId : _iosNativeId);
 
-  static String get _rewardedId =>
-      Platform.isAndroid ? _androidRewardedId : _iosRewardedId;
+  static String get _rewardedId => kDebugMode
+      ? (Platform.isAndroid ? _testAndroidRewardedId : _testIosRewardedId)
+      : (Platform.isAndroid ? _androidRewardedId : _iosRewardedId);
 
   bool _initialized = false;
   bool _loadingInterstitial = false;
@@ -71,6 +96,9 @@ class AdService {
     try {
       await MobileAds.instance.initialize();
       _initialized = true;
+      if (kDebugMode) {
+        debugPrint('AdService: using Google test ad units (debug build)');
+      }
       await preloadInterstitial();
       await preloadRewardedAd();
       debugPrint('AdService: Mobile Ads initialized');
