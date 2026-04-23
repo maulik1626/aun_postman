@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:aun_reqstudio/domain/models/http_response.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet_material.dart';
@@ -43,12 +46,41 @@ String _hugeJsonBody() {
   return '{"payload":"${List<String>.filled(350000, 'x').join()}"}';
 }
 
+String _largePrettyJsonBody() {
+  return const JsonEncoder.withIndent('  ').convert({
+    'items': List<Map<String, Object>>.generate(
+      12000,
+      (i) => {'id': i, 'name': 'item_$i', 'active': i.isEven},
+    ),
+  });
+}
+
 String _wideJsonBody() {
   return '{"payload":"${List<String>.filled(240, 'x').join()}","meta":"tail"}';
 }
 
 String _nestedJsonBody() {
   return '{"outer":{"inner":{"target":"needle"}}}';
+}
+
+String _apiFixtureBody() {
+  return File(
+    'test/fixtures/response_viewer_master_data.json',
+  ).readAsStringSync();
+}
+
+Widget _phoneViewport(Widget child) {
+  return MediaQuery(
+    data: const MediaQueryData(size: Size(390, 844)),
+    child: child,
+  );
+}
+
+String _apiFixtureSearchSampleBody() {
+  final full = _apiFixtureBody();
+  const sampleChars = 140000;
+  if (full.length <= sampleChars) return full;
+  return full.substring(0, sampleChars);
 }
 
 ScrollableState _firstVerticalScrollableState(WidgetTester tester) {
@@ -71,6 +103,20 @@ Iterable<Scrollable> _horizontalScrollables(WidgetTester tester) {
       )
       .evaluate()
       .map((e) => e.widget as Scrollable);
+}
+
+Future<void> _pumpUntilVisible(
+  WidgetTester tester,
+  Finder finder, {
+  int maxPumps = 20,
+  Duration step = const Duration(milliseconds: 200),
+}) async {
+  for (var i = 0; i < maxPumps; i++) {
+    if (finder.evaluate().isNotEmpty) {
+      return;
+    }
+    await tester.pump(step);
+  }
 }
 
 void main() {
@@ -185,31 +231,31 @@ void main() {
         find.byType(CupertinoSearchTextField),
         'target-word',
       );
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 300));
+      await _pumpUntilVisible(tester, find.text('1/3'));
 
       await tester.tap(find.byIcon(CupertinoIcons.chevron_down));
       await tester.pump();
-      expect(find.text('2/3'), findsOneWidget);
+      await _pumpUntilVisible(tester, find.text('2/3'));
       await tester.tap(find.byIcon(CupertinoIcons.chevron_up));
       await tester.pump();
-      expect(find.text('1/3'), findsOneWidget);
+      await _pumpUntilVisible(tester, find.text('1/3'));
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+          home: _phoneViewport(
+            Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+          ),
         ),
       );
       await tester.enterText(find.byType(TextField).first, 'target-word');
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 300));
+      await _pumpUntilVisible(tester, find.text('1/3'));
 
       await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
       await tester.pump();
-      expect(find.text('2/3'), findsOneWidget);
+      await _pumpUntilVisible(tester, find.text('2/3'));
       await tester.tap(find.byIcon(Icons.keyboard_arrow_up));
       await tester.pump();
-      expect(find.text('1/3'), findsOneWidget);
+      await _pumpUntilVisible(tester, find.text('1/3'));
     },
   );
 
@@ -220,8 +266,10 @@ void main() {
 
       await tester.pumpWidget(
         CupertinoApp(
-          home: CupertinoPageScaffold(
-            child: ResponseViewerSheet(response: response),
+          home: _phoneViewport(
+            CupertinoPageScaffold(
+              child: ResponseViewerSheet(response: response),
+            ),
           ),
         ),
       );
@@ -230,7 +278,9 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+          home: _phoneViewport(
+            Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -238,10 +288,78 @@ void main() {
     },
   );
 
+  testWidgets('Huge JSON keeps syntax highlighting on both platforms', (
+    tester,
+  ) async {
+    final body = _hugeJsonBody();
+    final response = HttpResponse(
+      statusCode: 200,
+      statusMessage: 'OK',
+      headers: const {'content-type': 'application/json'},
+      body: body,
+      durationMs: 42,
+      sizeBytes: body.length,
+      receivedAt: DateTime(2026, 4, 20),
+    );
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: ResponseViewerSheet(response: response),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(HighlightedLineWidget), findsWidgets);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(HighlightedLineWidget), findsWidgets);
+  });
+
+  testWidgets('Large pretty JSON keeps unwrap enabled on both platforms', (
+    tester,
+  ) async {
+    final body = _largePrettyJsonBody();
+    final response = HttpResponse(
+      statusCode: 200,
+      statusMessage: 'OK',
+      headers: const {'content-type': 'application/json'},
+      body: body,
+      durationMs: 42,
+      sizeBytes: body.length,
+      receivedAt: DateTime(2026, 4, 20),
+    );
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: ResponseViewerSheet(response: response),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(CupertinoSwitch), findsNWidgets(2));
+    expect(find.text('Too large'), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(Switch), findsNWidgets(2));
+    expect(find.text('Too large'), findsNothing);
+  });
+
   testWidgets(
-    'Huge JSON disables syntax highlighting fallback on both platforms',
+    'Material large-response search shows loader during debounce and resolves',
     (tester) async {
-      final body = _hugeJsonBody();
+      final body = _apiFixtureSearchSampleBody();
       final response = HttpResponse(
         statusCode: 200,
         statusMessage: 'OK',
@@ -249,18 +367,8 @@ void main() {
         body: body,
         durationMs: 42,
         sizeBytes: body.length,
-        receivedAt: DateTime(2026, 4, 20),
+        receivedAt: DateTime(2026, 4, 24),
       );
-
-      await tester.pumpWidget(
-        CupertinoApp(
-          home: CupertinoPageScaffold(
-            child: ResponseViewerSheet(response: response),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(HighlightedLineWidget), findsNothing);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -268,7 +376,53 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(HighlightedLineWidget), findsNothing);
+
+      await tester.enterText(find.byType(TextField).first, 'territoryName');
+      await tester.pump();
+
+      expect(find.text('Waiting...'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
+
+      await _pumpUntilVisible(tester, find.text('1/1'));
+
+      expect(find.text('1/1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Cupertino large-response search starts loader without blocking typing',
+    (tester) async {
+      final body = _apiFixtureSearchSampleBody();
+      final response = HttpResponse(
+        statusCode: 200,
+        statusMessage: 'OK',
+        headers: const {'content-type': 'application/json'},
+        body: body,
+        durationMs: 42,
+        sizeBytes: body.length,
+        receivedAt: DateTime(2026, 4, 24),
+      );
+
+      await tester.pumpWidget(
+        CupertinoApp(
+          home: _phoneViewport(
+            CupertinoPageScaffold(
+              child: ResponseViewerSheet(response: response),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byType(CupertinoSearchTextField),
+        'territoryName',
+      );
+      await tester.pump();
+
+      expect(find.text('Waiting...'), findsOneWidget);
+      expect(find.byType(CupertinoActivityIndicator), findsWidgets);
+      expect(find.text('territoryName'), findsOneWidget);
     },
   );
 
@@ -295,13 +449,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(HighlightedLineWidget), findsNothing);
-      await tester.tap(find.text('Text').first);
-      await tester.pumpAndSettle();
       expect(find.byType(HighlightedLineWidget), findsWidgets);
       await tester.tap(find.text('Tree').first);
       await tester.pumpAndSettle();
       expect(find.byType(HighlightedLineWidget), findsNothing);
+      await tester.tap(find.text('Text').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(HighlightedLineWidget), findsWidgets);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -310,15 +464,62 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(HighlightedLineWidget), findsNothing);
-      await tester.tap(find.text('Text').first);
-      await tester.pumpAndSettle();
       expect(find.byType(HighlightedLineWidget), findsWidgets);
       await tester.tap(find.text('Tree').first);
       await tester.pumpAndSettle();
       expect(find.byType(HighlightedLineWidget), findsNothing);
+      await tester.tap(find.text('Text').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(HighlightedLineWidget), findsWidgets);
     },
   );
+
+  testWidgets('JSON tree can open when unwrap is enabled', (tester) async {
+    final body = _nestedJsonBody();
+    final response = HttpResponse(
+      statusCode: 200,
+      statusMessage: 'OK',
+      headers: const {'content-type': 'application/json'},
+      body: body,
+      durationMs: 42,
+      sizeBytes: body.length,
+      receivedAt: DateTime(2026, 4, 20),
+    );
+
+    await tester.pumpWidget(
+      CupertinoApp(
+        home: CupertinoPageScaffold(
+          child: ResponseViewerSheet(response: response),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final cupertinoSwitches = find.byType(CupertinoSwitch);
+    expect(cupertinoSwitches, findsNWidgets(2));
+    await tester.tap(cupertinoSwitches.at(1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tree').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(HighlightedLineWidget), findsNothing);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final materialSwitches = find.byType(Switch);
+    expect(materialSwitches, findsNWidgets(2));
+    await tester.tap(materialSwitches.at(1));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tree').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(HighlightedLineWidget), findsNothing);
+  });
 
   testWidgets(
     'Structured JSON search expands nested matches on both platforms',
@@ -342,6 +543,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Tree').first);
+      await tester.pumpAndSettle();
       expect(find.textContaining('needle'), findsNothing);
 
       await tester.enterText(find.byType(CupertinoSearchTextField), 'needle');
@@ -355,6 +558,8 @@ void main() {
           home: Scaffold(body: ResponseViewerSheetMaterial(response: response)),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tree').first);
       await tester.pumpAndSettle();
       expect(find.textContaining('needle'), findsNothing);
 

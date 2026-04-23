@@ -14,12 +14,11 @@ import 'package:aun_reqstudio/features/environments/providers/environments_provi
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/features/settings/widgets/legal_document_sheet.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -257,7 +256,7 @@ class SettingsScreen extends ConsumerWidget {
                                         style: TextStyle(fontSize: 16),
                                       ),
                                       Text(
-                                        'Unsaved edits are kept locally if the app closes.',
+                                        'When a URL is present, edits sync into the open collection. Drafts still cover quick app restarts.',
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: CupertinoColors.secondaryLabel
@@ -861,26 +860,13 @@ class SettingsScreen extends ConsumerWidget {
                         },
                       ),
                       const _SectionHeader(title: 'Legal'),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: Text(
-                          'Sign-in uses Google, Apple, and Firebase. Ads use Google AdMob. See the Privacy Policy.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: CupertinoColors.secondaryLabel.resolveFrom(
-                              context,
-                            ),
-                          ),
-                        ),
-                      ),
                       _SettingsGroup(
                         children: [
                           GestureDetector(
-                            onTap: () => _launchLegalUrl(
+                            onTap: () => showLegalDocumentSheetCupertino(
                               context,
-                              LegalUrls.support,
-                              'Support',
+                              url: LegalUrls.support,
+                              title: 'Support',
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -920,10 +906,10 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => _launchLegalUrl(
+                            onTap: () => showLegalDocumentSheetCupertino(
                               context,
-                              LegalUrls.privacyPolicy,
-                              'Privacy Policy',
+                              url: LegalUrls.privacyPolicy,
+                              title: 'Privacy Policy',
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -963,10 +949,10 @@ class SettingsScreen extends ConsumerWidget {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () => _launchLegalUrl(
+                            onTap: () => showLegalDocumentSheetCupertino(
                               context,
-                              LegalUrls.termsOfService,
-                              'Terms of Service',
+                              url: LegalUrls.termsOfService,
+                              title: 'Terms of Service',
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -1368,39 +1354,6 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _launchLegalUrl(
-    BuildContext context,
-    String url,
-    String label,
-  ) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        await Clipboard.setData(ClipboardData(text: url));
-        if (!context.mounted) return;
-        UserNotification.show(
-          context: context,
-          title: label,
-          body:
-              'Could not open Safari. The URL was copied — paste it in a browser.',
-        );
-      }
-    } on PlatformException catch (e) {
-      // Common after hot restart when a native plugin was added: rebuild the app.
-      await Clipboard.setData(ClipboardData(text: url));
-      if (!context.mounted) return;
-      final isChannel = e.code == 'channel-error';
-      UserNotification.show(
-        context: context,
-        title: label,
-        body: isChannel
-            ? 'URL copied. Fully stop the app, run flutter run (or Build from Xcode) once — hot restart does not load new plugins. Then paste the link if needed.'
-            : 'URL copied. Paste it in Safari.',
-      );
-    }
-  }
 }
 
 class _SectionHeader extends StatelessWidget {

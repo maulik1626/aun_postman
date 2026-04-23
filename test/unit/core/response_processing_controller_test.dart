@@ -16,6 +16,18 @@ void main() {
     expect(controller.prettyState, ResponsePrettyState.ready);
   });
 
+  test('computePretty unwrap compacts formatted JSON', () async {
+    final controller = ResponseProcessingController();
+    final raw = '{\n  "items": [\n    1,\n    2,\n    3\n  ],\n  "ok": true\n}';
+
+    final result = await controller.computePretty(raw: raw, unwrapJson: true);
+
+    expect(result.language, 'json');
+    expect(result.text.contains('\n'), isFalse);
+    expect(result.text, '{"items":[1,2,3],"ok":true}');
+    expect(controller.prettyState, ResponsePrettyState.ready);
+  });
+
   test('computeSearchMatches returns match positions', () async {
     final controller = ResponseProcessingController();
     final body = 'line one\\nline two target\\nline three target';

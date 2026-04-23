@@ -35,7 +35,7 @@ class AppSettingsState {
   /// When true, WebSocket reconnects after an unexpected disconnect.
   final bool wsAutoReconnect;
 
-  /// When true, unsaved request edits are written to local storage and restored after relaunch.
+  /// When true, request edits are auto-persisted (collection when a URL is present; otherwise drafts).
   final bool requestAutoSave;
 
   /// When true (iOS), a full JSON backup is written to iCloud shortly after the app backgrounds.

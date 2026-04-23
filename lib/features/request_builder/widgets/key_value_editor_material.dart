@@ -1,15 +1,13 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/key_value_bulk_parser.dart';
 import 'package:flutter/material.dart';
 
 class KeyValueRow {
-  KeyValueRow({
-    String key = '',
-    String value = '',
-    bool isEnabled = true,
-  })  : keyController = TextEditingController(text: key),
-        valueController = TextEditingController(text: value),
-        isEnabled = ValueNotifier(isEnabled);
+  KeyValueRow({String key = '', String value = '', bool isEnabled = true})
+    : keyController = TextEditingController(text: key),
+      valueController = TextEditingController(text: value),
+      isEnabled = ValueNotifier(isEnabled);
 
   final TextEditingController keyController;
   final TextEditingController valueController;
@@ -34,7 +32,7 @@ class KeyValueEditorMaterial extends StatefulWidget {
 
   final List<({String key, String value, bool isEnabled})> rows;
   final void Function(List<({String key, String value, bool isEnabled})>)
-      onChanged;
+  onChanged;
   final String keyPlaceholder;
   final String valuePlaceholder;
 
@@ -56,8 +54,10 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
       _scrollController = ScrollController();
     }
     _rows = widget.rows
-        .map((r) =>
-            KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled))
+        .map(
+          (r) =>
+              KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled),
+        )
         .toList();
     if (_rows.isEmpty) _rows.add(KeyValueRow());
   }
@@ -71,14 +71,74 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
     super.dispose();
   }
 
+  List<({String key, String value, bool isEnabled})>
+      _rowsSnapshotFromControllers() {
+    return _rows
+        .map(
+          (r) => (
+            key: r.keyController.text,
+            value: r.valueController.text,
+            isEnabled: r.isEnabled.value,
+          ),
+        )
+        .toList();
+  }
+
+  /// Provider may pass `[]`; the editor always shows at least one blank row.
+  List<({String key, String value, bool isEnabled})> _normalizedForCompare(
+    List<({String key, String value, bool isEnabled})> rows,
+  ) {
+    if (rows.isEmpty) {
+      return const [(key: '', value: '', isEnabled: true)];
+    }
+    return rows;
+  }
+
+  bool _sameRowTuples(
+    List<({String key, String value, bool isEnabled})> a,
+    List<({String key, String value, bool isEnabled})> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].key != b[i].key ||
+          a[i].value != b[i].value ||
+          a[i].isEnabled != b[i].isEnabled) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  void didUpdateWidget(KeyValueEditorMaterial oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _normalizedForCompare(widget.rows);
+    final current = _normalizedForCompare(_rowsSnapshotFromControllers());
+    if (_sameRowTuples(next, current)) return;
+
+    for (final row in _rows) {
+      row.dispose();
+    }
+    _rows = widget.rows
+        .map(
+          (r) =>
+              KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled),
+        )
+        .toList();
+    if (_rows.isEmpty) _rows.add(KeyValueRow());
+    setState(() {});
+  }
+
   void _notify() {
     widget.onChanged(
       _rows
-          .map((r) => (
-                key: r.keyController.text,
-                value: r.valueController.text,
-                isEnabled: r.isEnabled.value,
-              ))
+          .map(
+            (r) => (
+              key: r.keyController.text,
+              value: r.valueController.text,
+              isEnabled: r.isEnabled.value,
+            ),
+          )
           .toList(),
     );
   }
@@ -108,42 +168,21 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
   }
 
   String _rowsToBulkText() {
-    return _rows
-        .where((r) =>
-            r.keyController.text.trim().isNotEmpty ||
-            r.valueController.text.trim().isNotEmpty)
-        .map((r) => '${r.keyController.text}:${r.valueController.text}')
-        .join('\n');
+    return bulkKeyValueRowsToText(
+      _rows.map(
+        (r) => (
+          key: r.keyController.text,
+          value: r.valueController.text,
+          isEnabled: r.isEnabled.value,
+        ),
+      ),
+    );
   }
 
   List<KeyValueRow> _parseBulkRows(String raw) {
-    final parsed = <KeyValueRow>[];
-    for (final line in raw.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      final tabIndex = trimmed.indexOf('\t');
-      final colonIndex = trimmed.indexOf(':');
-      final eqIndex = trimmed.indexOf('=');
-      var splitAt = -1;
-      if (tabIndex > 0) {
-        splitAt = tabIndex;
-      } else if (colonIndex > 0 && (eqIndex <= 0 || colonIndex < eqIndex)) {
-        splitAt = colonIndex;
-      } else if (eqIndex > 0) {
-        splitAt = eqIndex;
-      }
-      if (splitAt <= 0) {
-        parsed.add(KeyValueRow(key: trimmed));
-        continue;
-      }
-      parsed.add(
-        KeyValueRow(
-          key: trimmed.substring(0, splitAt).trim(),
-          value: trimmed.substring(splitAt + 1).trim(),
-        ),
-      );
-    }
-    return parsed.isEmpty ? [KeyValueRow()] : parsed;
+    return parseBulkKeyValueRows(
+      raw,
+    ).map((row) => KeyValueRow(key: row.key, value: row.value)).toList();
   }
 
   Future<void> _showBulkEditor() async {
@@ -153,9 +192,7 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
       useSafeArea: true,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SafeArea(
           top: false,
           child: GestureDetector(
@@ -257,19 +294,16 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
   }
 
   Widget _buildColumnHeader(BuildContext context) {
-    final secondary = Theme.of(context)
-        .colorScheme
-        .onSurface
-        .withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
     final dividerColor = Theme.of(context).dividerColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        border: Border(
-          bottom: BorderSide(color: dividerColor, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: dividerColor, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -341,8 +375,7 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
 
   Widget _buildRow(BuildContext context, int index) {
     final row = _rows[index];
-    final surfaceColor =
-        Theme.of(context).colorScheme.surfaceContainerLow;
+    final surfaceColor = Theme.of(context).colorScheme.surfaceContainerLow;
     final dividerColor = Theme.of(context).dividerColor;
     final monoStyle = TextStyle(
       fontFamily: 'JetBrainsMono',
@@ -414,11 +447,7 @@ class _KeyValueEditorMaterialState extends State<KeyValueEditorMaterial> {
                 onTap: () => _removeRow(index),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.remove_circle,
-                    size: 20,
-                    color: Colors.red,
-                  ),
+                  child: Icon(Icons.remove_circle, size: 20, color: Colors.red),
                 ),
               ),
             ],

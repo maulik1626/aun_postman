@@ -7,6 +7,7 @@ class ResponsePerformancePolicy {
     required this.highlightCacheEntries,
     required this.syntaxHighlightCharsLimit,
     required this.prettyFormatCharsLimit,
+    required this.jsonUnwrapCharsLimit,
     required this.jsonTreeCharsLimit,
     required this.searchDebounceMs,
   });
@@ -16,6 +17,7 @@ class ResponsePerformancePolicy {
   final int highlightCacheEntries;
   final int syntaxHighlightCharsLimit;
   final int prettyFormatCharsLimit;
+  final int jsonUnwrapCharsLimit;
   final int jsonTreeCharsLimit;
   final int searchDebounceMs;
 
@@ -65,12 +67,17 @@ class ResponsePerformancePolicy {
             : isTablet
             ? 420000
             : 260000,
+        jsonUnwrapCharsLimit: isDesktopWide
+            ? 16000000
+            : isTablet
+            ? 12000000
+            : 8000000,
         jsonTreeCharsLimit: isDesktopWide
             ? 10000000
             : isTablet
             ? 7000000
             : 5000000,
-        searchDebounceMs: 140,
+        searchDebounceMs: 180,
       );
     }
 
@@ -81,8 +88,9 @@ class ResponsePerformancePolicy {
         highlightCacheEntries: isDesktopWide ? 320 : 180,
         syntaxHighlightCharsLimit: isDesktopWide ? 260000 : 0,
         prettyFormatCharsLimit: isDesktopWide ? 360000 : 220000,
+        jsonUnwrapCharsLimit: isDesktopWide ? 20000000 : 10000000,
         jsonTreeCharsLimit: isDesktopWide ? 8000000 : 5000000,
-        searchDebounceMs: 180,
+        searchDebounceMs: 280,
       );
     }
 
@@ -92,13 +100,22 @@ class ResponsePerformancePolicy {
         searchSyncCharsLimit: 0,
         highlightCacheEntries: 0,
         syntaxHighlightCharsLimit: 0,
-        prettyFormatCharsLimit: 0,
+        prettyFormatCharsLimit: isDesktopWide
+            ? 5000000
+            : isTablet
+            ? 3000000
+            : 1500000,
+        jsonUnwrapCharsLimit: isDesktopWide
+            ? 24000000
+            : isTablet
+            ? 16000000
+            : 10000000,
         jsonTreeCharsLimit: isDesktopWide
             ? 6000000
             : isTablet
             ? 4500000
             : 3000000,
-        searchDebounceMs: 220,
+        searchDebounceMs: 360,
       );
     }
 
@@ -108,12 +125,17 @@ class ResponsePerformancePolicy {
       highlightCacheEntries: 0,
       syntaxHighlightCharsLimit: 0,
       prettyFormatCharsLimit: 0,
+      jsonUnwrapCharsLimit: isDesktopWide
+          ? 24000000
+          : isTablet
+          ? 16000000
+          : 10000000,
       jsonTreeCharsLimit: isDesktopWide
           ? 5000000
           : isTablet
           ? 3500000
           : 2200000,
-      searchDebounceMs: 280,
+      searchDebounceMs: 420,
     );
   }
 }

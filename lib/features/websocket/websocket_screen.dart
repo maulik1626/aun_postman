@@ -25,6 +25,73 @@ import 'package:intl/intl.dart';
 
 const int _kMaxWsTabs = 8;
 
+final DateFormat _kWsMessageTimeFormat = DateFormat('h:mm:ss a');
+
+void _showWebsocketCopiedToast(BuildContext context) {
+  if (!context.mounted) return;
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
+
+  late final OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (ctx) {
+      final topInset = MediaQuery.of(ctx).padding.top + 8;
+      final isDark = CupertinoTheme.brightnessOf(ctx) == Brightness.dark;
+      return Positioned(
+        left: 0,
+        right: 0,
+        top: topInset,
+        child: IgnorePointer(
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemBackground
+                    .resolveFrom(ctx)
+                    .withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: CupertinoColors.separator
+                      .resolveFrom(ctx)
+                      .withValues(alpha: isDark ? 0.55 : 0.45),
+                  width: 0.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: CupertinoColors.black
+                        .withValues(alpha: isDark ? 0.42 : 0.12),
+                    blurRadius: isDark ? 20 : 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 11,
+                ),
+                child: Text(
+                  'Copied to clipboard',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: CupertinoColors.label.resolveFrom(ctx),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+  overlay.insert(entry);
+  Future<void>.delayed(const Duration(milliseconds: 2000), () {
+    if (!entry.mounted) return;
+    entry.remove();
+    entry.dispose();
+  });
+}
+
 /// Dismisses the keyboard when the user scrolls (not programmatic scroll).
 bool _unfocusOnUserScrollNotification(ScrollNotification n) {
   if (n is ScrollUpdateNotification && n.dragDetails != null) {
@@ -55,7 +122,7 @@ class WebSocketScreen extends ConsumerStatefulWidget {
 
 class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
   late final PageController _pageController;
-  final ScrollController _tabStripScrollController = ScrollController();
+  final Map<String, GlobalKey> _tabStripKeys = {};
   bool _storageLoadRequested = false;
 
   @override
@@ -67,8 +134,42 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _tabStripScrollController.dispose();
     super.dispose();
+  }
+
+  void _syncTabStripKeys(Set<String> sessionIds) {
+    _tabStripKeys.removeWhere((id, _) => !sessionIds.contains(id));
+    for (final id in sessionIds) {
+      _tabStripKeys.putIfAbsent(id, GlobalKey.new);
+    }
+  }
+
+  void _scrollTabChipIntoView(
+    String sessionId, {
+    bool waitExtraLayoutFrame = false,
+  }) {
+    void scroll() {
+      if (!mounted) return;
+      final ctx = _tabStripKeys[sessionId]?.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.35,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    void schedule() {
+      if (!mounted) return;
+      if (waitExtraLayoutFrame) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => scroll());
+      } else {
+        scroll();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => schedule());
   }
 
   @override
@@ -82,6 +183,12 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
       final reg = ref.read(webSocketRegistryProvider);
       if (reg.ready && _pageController.hasClients) {
         _pageController.jumpToPage(reg.activeIndex);
+        if (reg.activeSessionId.isNotEmpty) {
+          _scrollTabChipIntoView(
+            reg.activeSessionId,
+            waitExtraLayoutFrame: true,
+          );
+        }
       }
     });
   }
@@ -154,24 +261,16 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
       if (prev == null || !prev.ready) return;
       if (prev.tabs.length != next.tabs.length) {
         final i = next.activeIndex.clamp(0, next.tabs.length - 1);
-        final addedTab = next.tabs.length > prev.tabs.length;
+        final activeId = next.tabs[i].id;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_pageController.hasClients) {
             _pageController.jumpToPage(i);
           }
-          if (addedTab) {
-            // Second frame: Row width is updated so maxScrollExtent is correct.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted || !_tabStripScrollController.hasClients) return;
-              final pos = _tabStripScrollController.position;
-              _tabStripScrollController.animateTo(
-                pos.maxScrollExtent,
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-              );
-            });
-          }
+          _scrollTabChipIntoView(
+            activeId,
+            waitExtraLayoutFrame: true,
+          );
         });
       }
     });
@@ -187,105 +286,112 @@ class _WebSocketScreenState extends ConsumerState<WebSocketScreen> {
         ? ref.watch(webSocketSessionNotifierProvider(activeId)).messages.isNotEmpty
         : false;
 
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: const Text('WebSocket'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(44, 44),
-              onPressed: _openSavedSheet,
-              child: const Icon(CupertinoIcons.bookmark),
-            ),
-            if (hasMsgs && activeId.isNotEmpty)
+    _syncTabStripKeys(reg.tabs.map((t) => t.id).toSet());
+
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: CupertinoPageScaffold(
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('WebSocket'),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               CupertinoButton(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size(44, 44),
-                onPressed: () => ref
-                    .read(webSocketSessionNotifierProvider(activeId).notifier)
-                    .clearMessages(),
-                child: const Icon(CupertinoIcons.trash),
+                onPressed: _openSavedSheet,
+                child: const Icon(CupertinoIcons.bookmark),
               ),
-          ],
+              if (hasMsgs && activeId.isNotEmpty)
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(44, 44),
+                  onPressed: () => ref
+                      .read(webSocketSessionNotifierProvider(activeId).notifier)
+                      .clearMessages(),
+                  child: const Icon(CupertinoIcons.trash),
+                ),
+            ],
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SingleChildScrollView(
-              controller: _tabStripScrollController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-              child: Row(
-                children: [
-                  for (var i = 0; i < reg.tabs.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _SessionTabChip(
-                        label: _tabChipLabel(reg.tabs[i].url),
-                        selected: reg.tabs[i].id == reg.activeSessionId,
-                        canClose: reg.tabs.length > 1,
-                        onTap: () {
-                          ref
-                              .read(webSocketRegistryProvider.notifier)
-                              .setActive(reg.tabs[i].id);
-                          _pageController.animateToPage(
-                            i,
-                            duration: const Duration(milliseconds: 280),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        onClose: reg.tabs.length > 1
-                            ? () => ref
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < reg.tabs.length; i++)
+                      Padding(
+                        key: _tabStripKeys[reg.tabs[i].id],
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _SessionTabChip(
+                          label: _tabChipLabel(reg.tabs[i].url),
+                          selected: reg.tabs[i].id == reg.activeSessionId,
+                          canClose: reg.tabs.length > 1,
+                          onTap: () {
+                            ref
                                 .read(webSocketRegistryProvider.notifier)
-                                .removeTab(reg.tabs[i].id)
-                            : null,
+                                .setActive(reg.tabs[i].id);
+                            _pageController.animateToPage(
+                              i,
+                              duration: const Duration(milliseconds: 280),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          onClose: reg.tabs.length > 1
+                              ? () => ref
+                                  .read(webSocketRegistryProvider.notifier)
+                                  .removeTab(reg.tabs[i].id)
+                              : null,
+                        ),
+                      ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      minimumSize: const Size(36, 36),
+                      onPressed: _tryAddTab,
+                      child: Icon(
+                        CupertinoIcons.add_circled,
+                        size: 26,
+                        color: CupertinoTheme.of(context).primaryColor,
                       ),
                     ),
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(36, 36),
-                    onPressed: _tryAddTab,
-                    child: Icon(
-                      CupertinoIcons.add_circled,
-                      size: 26,
-                      color: CupertinoTheme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              height: 0.5,
-              color: CupertinoColors.separator.resolveFrom(context),
-            ),
-            Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: const PageScrollPhysics(
-                  parent: BouncingScrollPhysics(),
+                  ],
                 ),
-                onPageChanged: (i) {
-                  final r = ref.read(webSocketRegistryProvider);
-                  if (i >= 0 && i < r.tabs.length) {
-                    ref
-                        .read(webSocketRegistryProvider.notifier)
-                        .setActive(r.tabs[i].id);
-                  }
-                },
-                children: [
-                  for (final t in reg.tabs)
-                    _WebSocketSessionPanel(
-                      key: ValueKey(t.id),
-                      sessionId: t.id,
-                    ),
-                ],
               ),
-            ),
-          ],
+              Container(
+                height: 0.5,
+                color: CupertinoColors.separator.resolveFrom(context),
+              ),
+              Expanded(
+                child: PageView(
+                  controller: _pageController,
+                  physics: const PageScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  onPageChanged: (i) {
+                    final r = ref.read(webSocketRegistryProvider);
+                    if (i >= 0 && i < r.tabs.length) {
+                      final id = r.tabs[i].id;
+                      ref
+                          .read(webSocketRegistryProvider.notifier)
+                          .setActive(id);
+                      _scrollTabChipIntoView(id);
+                    }
+                  },
+                  children: [
+                    for (final t in reg.tabs)
+                      _WebSocketSessionPanel(
+                        key: ValueKey(t.id),
+                        sessionId: t.id,
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1000,28 +1106,14 @@ class _WebSocketSessionPanelState extends ConsumerState<_WebSocketSessionPanel>
                     child: CupertinoSlidingSegmentedControl<
                         WsConnectionMode>(
                       groupValue: _connectionMode,
-                      thumbColor: CupertinoColors.tertiarySystemBackground
-                          .resolveFrom(context),
-                      children: {
+                      children: const {
                         WsConnectionMode.nativeWebSocket: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            'WebSocket',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: CupertinoColors.label.resolveFrom(context),
-                            ),
-                          ),
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('WebSocket'),
                         ),
                         WsConnectionMode.socketIo: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            'Socket.IO',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: CupertinoColors.label.resolveFrom(context),
-                            ),
-                          ),
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('Socket.IO'),
                         ),
                       },
                       onValueChanged: (v) {
@@ -1461,9 +1553,12 @@ class _WebSocketSessionPanelState extends ConsumerState<_WebSocketSessionPanel>
                               const SizedBox(height: 20),
                               Text(
                                 isConnected ? 'Connected' : 'Not connected',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
+                                  color: CupertinoColors.label.resolveFrom(
+                                    context,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -1890,41 +1985,48 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
     return Align(
       alignment: widget.isSent ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.82,
-        ),
-        decoration: BoxDecoration(
-          color: widget.isSent
-              ? CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.18)
-              : CupertinoColors.secondarySystemFill.resolveFrom(context),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(widget.isSent ? 14 : 3),
-            bottomRight: Radius.circular(widget.isSent ? 3 : 14),
+      child: GestureDetector(
+        onLongPress: () {
+          Clipboard.setData(ClipboardData(text: displayText));
+          AppHaptics.light();
+          _showWebsocketCopiedToast(context);
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.82,
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (sizeLabel != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Text(
-                  sizeLabel,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          decoration: BoxDecoration(
+            color: widget.isSent
+                ? CupertinoTheme.of(context)
+                    .primaryColor
+                    .withValues(alpha: 0.18)
+                : CupertinoColors.secondarySystemFill.resolveFrom(context),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(14),
+              topRight: const Radius.circular(14),
+              bottomLeft: Radius.circular(widget.isSent ? 14 : 3),
+              bottomRight: Radius.circular(widget.isSent ? 3 : 14),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (sizeLabel != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Text(
+                    sizeLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          CupertinoColors.secondaryLabel.resolveFrom(context),
+                    ),
                   ),
                 ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 4),
-              child: SelectableRegion(
-                selectionControls: cupertinoTextSelectionControls,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 4),
                 child: Text(
                   displayText,
                   style: TextStyle(
@@ -1934,68 +2036,55 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    DateFormat('HH:mm:ss').format(widget.message.timestamp),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
-                      ),
-                    ),
-                  ),
-                  if (isBinary) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _binaryAsHex = !_binaryAsHex),
-                      child: Text(
-                        _binaryAsHex ? 'Base64' : 'Hex',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoTheme.of(context).primaryColor,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _kWsMessageTimeFormat.format(widget.message.timestamp),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: CupertinoColors.secondaryLabel.resolveFrom(
+                          context,
                         ),
                       ),
                     ),
-                  ],
-                  if (isJson) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () =>
-                          setState(() => _isPrettyJson = !_isPrettyJson),
-                      child: Text(
-                        _isPrettyJson ? 'Raw' : 'Pretty',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: CupertinoTheme.of(context).primaryColor,
+                    if (isBinary) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _binaryAsHex = !_binaryAsHex),
+                        child: Text(
+                          _binaryAsHex ? 'Base64' : 'Hex',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoTheme.of(context).primaryColor,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(ClipboardData(text: displayText));
-                    },
-                    child: Icon(
-                      CupertinoIcons.doc_on_doc,
-                      size: 12,
-                      color: CupertinoColors.secondaryLabel.resolveFrom(
-                        context,
+                    ],
+                    if (isJson) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () =>
+                            setState(() => _isPrettyJson = !_isPrettyJson),
+                        child: Text(
+                          _isPrettyJson ? 'Raw' : 'Pretty',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: CupertinoTheme.of(context).primaryColor,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

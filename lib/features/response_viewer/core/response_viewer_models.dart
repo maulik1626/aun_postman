@@ -1,6 +1,6 @@
 enum ResponsePrettyState { idle, loading, ready, error }
 
-enum ResponseSearchState { idle, indexing, ready }
+enum ResponseSearchState { idle, debouncing, indexing, ready }
 
 enum ResponsePayloadTier { small, large, huge, extreme }
 

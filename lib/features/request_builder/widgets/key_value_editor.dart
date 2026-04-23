@@ -1,14 +1,12 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/key_value_bulk_parser.dart';
 import 'package:flutter/cupertino.dart';
 
 class KeyValueRow {
-  KeyValueRow({
-    String key = '',
-    String value = '',
-    bool isEnabled = true,
-  })  : keyController = TextEditingController(text: key),
-        valueController = TextEditingController(text: value),
-        isEnabled = ValueNotifier(isEnabled);
+  KeyValueRow({String key = '', String value = '', bool isEnabled = true})
+    : keyController = TextEditingController(text: key),
+      valueController = TextEditingController(text: value),
+      isEnabled = ValueNotifier(isEnabled);
 
   final TextEditingController keyController;
   final TextEditingController valueController;
@@ -28,6 +26,7 @@ class KeyValueEditor extends StatefulWidget {
     required this.onChanged,
     this.keyPlaceholder = 'Key',
     this.valuePlaceholder = 'Value',
+
     /// When true, builds a tight [Column] only — use inside a parent
     /// [ScrollView] (e.g. Body tab squeezed layout with unbounded height).
     this.shrinkWrap = false,
@@ -35,7 +34,7 @@ class KeyValueEditor extends StatefulWidget {
 
   final List<({String key, String value, bool isEnabled})> rows;
   final void Function(List<({String key, String value, bool isEnabled})>)
-      onChanged;
+  onChanged;
   final String keyPlaceholder;
   final String valuePlaceholder;
   final bool shrinkWrap;
@@ -55,8 +54,10 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
       _scrollController = ScrollController();
     }
     _rows = widget.rows
-        .map((r) =>
-            KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled))
+        .map(
+          (r) =>
+              KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled),
+        )
         .toList();
     if (_rows.isEmpty) _rows.add(KeyValueRow());
   }
@@ -70,13 +71,75 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
     super.dispose();
   }
 
-  void _notify() {
-    widget.onChanged(
-      _rows.map((r) => (
+  List<({String key, String value, bool isEnabled})>
+      _rowsSnapshotFromControllers() {
+    return _rows
+        .map(
+          (r) => (
             key: r.keyController.text,
             value: r.valueController.text,
             isEnabled: r.isEnabled.value,
-          )).toList(),
+          ),
+        )
+        .toList();
+  }
+
+  /// Provider may pass `[]`; the editor always shows at least one blank row.
+  List<({String key, String value, bool isEnabled})> _normalizedForCompare(
+    List<({String key, String value, bool isEnabled})> rows,
+  ) {
+    if (rows.isEmpty) {
+      return const [(key: '', value: '', isEnabled: true)];
+    }
+    return rows;
+  }
+
+  bool _sameRowTuples(
+    List<({String key, String value, bool isEnabled})> a,
+    List<({String key, String value, bool isEnabled})> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].key != b[i].key ||
+          a[i].value != b[i].value ||
+          a[i].isEnabled != b[i].isEnabled) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  void didUpdateWidget(KeyValueEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = _normalizedForCompare(widget.rows);
+    final current = _normalizedForCompare(_rowsSnapshotFromControllers());
+    if (_sameRowTuples(next, current)) return;
+
+    for (final row in _rows) {
+      row.dispose();
+    }
+    _rows = widget.rows
+        .map(
+          (r) =>
+              KeyValueRow(key: r.key, value: r.value, isEnabled: r.isEnabled),
+        )
+        .toList();
+    if (_rows.isEmpty) _rows.add(KeyValueRow());
+    setState(() {});
+  }
+
+  void _notify() {
+    widget.onChanged(
+      _rows
+          .map(
+            (r) => (
+              key: r.keyController.text,
+              value: r.valueController.text,
+              isEnabled: r.isEnabled.value,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -105,42 +168,21 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
   }
 
   String _rowsToBulkText() {
-    return _rows
-        .where((r) =>
-            r.keyController.text.trim().isNotEmpty ||
-            r.valueController.text.trim().isNotEmpty)
-        .map((r) => '${r.keyController.text}:${r.valueController.text}')
-        .join('\n');
+    return bulkKeyValueRowsToText(
+      _rows.map(
+        (r) => (
+          key: r.keyController.text,
+          value: r.valueController.text,
+          isEnabled: r.isEnabled.value,
+        ),
+      ),
+    );
   }
 
   List<KeyValueRow> _parseBulkRows(String raw) {
-    final parsed = <KeyValueRow>[];
-    for (final line in raw.split('\n')) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      final tabIndex = trimmed.indexOf('\t');
-      final colonIndex = trimmed.indexOf(':');
-      final eqIndex = trimmed.indexOf('=');
-      var splitAt = -1;
-      if (tabIndex > 0) {
-        splitAt = tabIndex;
-      } else if (colonIndex > 0 && (eqIndex <= 0 || colonIndex < eqIndex)) {
-        splitAt = colonIndex;
-      } else if (eqIndex > 0) {
-        splitAt = eqIndex;
-      }
-      if (splitAt <= 0) {
-        parsed.add(KeyValueRow(key: trimmed));
-        continue;
-      }
-      parsed.add(
-        KeyValueRow(
-          key: trimmed.substring(0, splitAt).trim(),
-          value: trimmed.substring(splitAt + 1).trim(),
-        ),
-      );
-    }
-    return parsed.isEmpty ? [KeyValueRow()] : parsed;
+    return parseBulkKeyValueRows(
+      raw,
+    ).map((row) => KeyValueRow(key: row.key, value: row.value)).toList();
   }
 
   Future<void> _showBulkEditor() async {
@@ -182,10 +224,7 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
                     'Bulk Edit',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -406,8 +445,9 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           decoration: BoxDecoration(
-            color:
-                CupertinoColors.tertiarySystemBackground.resolveFrom(context),
+            color: CupertinoColors.tertiarySystemBackground.resolveFrom(
+              context,
+            ),
             borderRadius: BorderRadius.circular(10),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
@@ -431,7 +471,10 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
                   onTapOutside: (_) =>
                       FocusManager.instance.primaryFocus?.unfocus(),
                   scrollPadding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   style: TextStyle(
                     fontFamily: 'JetBrainsMono',
                     fontSize: 13,
@@ -458,8 +501,10 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
                   onTapOutside: (_) =>
                       FocusManager.instance.primaryFocus?.unfocus(),
                   scrollPadding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   style: TextStyle(
                     fontFamily: 'JetBrainsMono',
                     fontSize: 13,
@@ -512,8 +557,7 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
     // Fixed column labels; only rows + Add Row scroll. Bottom padding uses
     // [MediaQuery.padding.bottom] (shell adds tab bar height) so the tail of
     // the list clears the floating bottom nav.
-    final bottomClearance =
-        MediaQuery.paddingOf(context).bottom + 16;
+    final bottomClearance = MediaQuery.paddingOf(context).bottom + 16;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -530,15 +574,12 @@ class _KeyValueEditorState extends State<KeyValueEditor> {
             slivers: [
               const SliverToBoxAdapter(child: SizedBox(height: 10)),
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Padding(
-                      padding: EdgeInsets.only(top: index > 0 ? 10 : 0),
-                      child: _buildRow(context, index),
-                    );
-                  },
-                  childCount: _rows.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return Padding(
+                    padding: EdgeInsets.only(top: index > 0 ? 10 : 0),
+                    child: _buildRow(context, index),
+                  );
+                }, childCount: _rows.length),
               ),
               SliverToBoxAdapter(
                 child: Padding(

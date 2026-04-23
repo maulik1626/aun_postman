@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/core/errors/app_exception.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_haptics.dart';
@@ -29,6 +30,9 @@ import 'package:aun_reqstudio/features/request_builder/tabs/body_tab_material.da
 import 'package:aun_reqstudio/features/request_builder/tabs/headers_tab_material.dart';
 import 'package:aun_reqstudio/features/request_builder/tabs/params_tab_material.dart';
 import 'package:aun_reqstudio/features/request_builder/tabs/tests_tab_material.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/key_value_bulk_parser.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/pre_request_variables_outcome.dart';
+import 'package:aun_reqstudio/features/request_builder/widgets/pre_request_variables_sheet_material.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_sheet_material.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
@@ -73,7 +77,8 @@ class _RequestBuilderScreenMaterialState
   late TextEditingController _urlController;
   late final FocusNode _urlFocusNode;
   late final PageController _tabPageController;
-  Timer? _draftSaveTimer;
+  Timer? _autoPersistTimer;
+  Future<void> _autoPersistSerial = Future<void>.value();
   bool _cachedRequestAutoSave = true;
   String? _appliedHistoryEntryUid;
 
@@ -132,8 +137,16 @@ class _RequestBuilderScreenMaterialState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
-      unawaited(_persistDraftImmediate());
+      unawaited(_flushAutoPersistImmediate());
     }
+  }
+
+  @override
+  void deactivate() {
+    if (_cachedRequestAutoSave) {
+      unawaited(_flushAutoPersistImmediate());
+    }
+    super.deactivate();
   }
 
   String _draftScope() => RequestBuilderDraftStorage.scopeKey(
@@ -150,13 +163,73 @@ class _RequestBuilderScreenMaterialState
     await RequestBuilderDraftStorage.save(box, _draftScope(), s);
   }
 
-  void _scheduleDraftSave(RequestBuilderState s) {
+  static const _autoPersistDebounce = Duration(milliseconds: 550);
+
+  void _scheduleAutoPersist(RequestBuilderState s) {
     if (!_cachedRequestAutoSave || !s.isDirty) return;
-    _draftSaveTimer?.cancel();
-    _draftSaveTimer = Timer(const Duration(milliseconds: 500), () {
+    _autoPersistTimer?.cancel();
+    _autoPersistTimer = Timer(_autoPersistDebounce, () {
       if (!mounted) return;
-      unawaited(_persistDraftImmediate());
+      unawaited(_runDebouncedAutoPersist());
     });
+  }
+
+  Future<void> _flushAutoPersistImmediate() async {
+    _autoPersistTimer?.cancel();
+    if (!_cachedRequestAutoSave || !mounted) return;
+    final s = ref.read(requestBuilderProvider);
+    if (!s.isDirty) return;
+    await _executeAutoPersist();
+  }
+
+  Future<void> _runDebouncedAutoPersist() async {
+    if (!_cachedRequestAutoSave || !mounted) return;
+    final s = ref.read(requestBuilderProvider);
+    if (!s.isDirty) return;
+    await _executeAutoPersist();
+  }
+
+  Future<void> _executeAutoPersist() async {
+    final previous = _autoPersistSerial;
+    late final Future<void> pending;
+    pending = previous.then((_) async {
+      if (!_cachedRequestAutoSave || !mounted) return;
+      final s = ref.read(requestBuilderProvider);
+      if (!s.isDirty) return;
+
+      if (widget.openedFromHistory != null) {
+        await _persistDraftImmediate();
+        return;
+      }
+
+      final collectionUid = s.collectionUid ?? widget.collectionUid;
+      if (collectionUid.isNotEmpty && s.url.trim().isNotEmpty) {
+        try {
+          await _saveToCollectionAndClearDraft(collectionUid);
+          return;
+        } catch (e, st) {
+          assert(() {
+            debugPrint('RequestBuilder auto-save failed: $e\n$st');
+            return true;
+          }());
+          await _persistDraftImmediate();
+          if (!mounted) return;
+          if (e is StorageException) {
+            await UserNotification.show(
+              context: context,
+              title: 'Could not auto-save',
+              body:
+                  'Your changes are kept as a draft. Try saving again in a moment.',
+            );
+          }
+        }
+        return;
+      }
+
+      await _persistDraftImmediate();
+    });
+    _autoPersistSerial = pending.catchError((Object _, StackTrace __) {});
+    await pending;
   }
 
   Future<void> _saveToCollectionAndClearDraft(String collectionUid) async {
@@ -335,7 +408,7 @@ class _RequestBuilderScreenMaterialState
 
   @override
   void dispose() {
-    _draftSaveTimer?.cancel();
+    _autoPersistTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     final scope = RequestBuilderDraftStorage.scopeKey(
       collectionUid: widget.collectionUid,
@@ -432,7 +505,7 @@ class _RequestBuilderScreenMaterialState
       }
     });
     ref.listen(requestBuilderProvider, (prev, next) {
-      _scheduleDraftSave(next);
+      _scheduleAutoPersist(next);
     });
     ref.listen(requestBuilderProvider.select((s) => s.url), (prev, next) {
       if (!mounted) return;
@@ -1341,129 +1414,26 @@ class _RequestBuilderScreenMaterialState
 
   Future<void> _showPreRequestSheet(BuildContext context) async {
     final initial = ref.read(requestBuilderProvider).preRequestVariables;
-    final controller = TextEditingController(
-      text: initial.entries.map((e) => '${e.key}=${e.value}').join('\n'),
+    final initialText = bulkKeyValueRowsToText(
+      initial.entries.map((e) => (key: e.key, value: e.value, isEnabled: true)),
     );
-    final result = await showModalBottomSheet<int>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: SafeArea(
-          top: false,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusScope.of(ctx).unfocus(),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 4),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(ctx).dividerColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 12, 20, 16),
-                    child: Text(
-                      'Pre-request variables',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text(
-                      'Applied on Send after the environment (or history snapshot). '
-                      'One line per key=value.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(
-                          ctx,
-                        ).colorScheme.onSurface.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      controller: controller,
-                      maxLines: 10,
-                      minLines: 5,
-                      style: const TextStyle(
-                        fontFamily: 'JetBrainsMono',
-                        fontSize: 14,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'baseUrl=https://api.example.com',
-                        labelText: 'Variables',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        AppGradientButton.material(
-                          fullWidth: true,
-                          onPressed: () => Navigator.pop(ctx, 1),
-                          child: const Text('Apply'),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, 2),
-                          child: Text(
-                            'Clear',
-                            style: TextStyle(
-                              color: Theme.of(ctx).colorScheme.error,
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, 0),
-                          child: const Text('Cancel'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+    final outcome = await showPreRequestVariablesSheetMaterial(
+      context,
+      initialLines: initialText,
     );
-    if (!mounted) {
-      controller.dispose();
-      return;
-    }
-    if (result == 1) {
+    if (!mounted) return;
+    if (outcome is PreRequestVariablesApplied) {
+      final rows = parseBulkKeyValueRows(outcome.linesText);
       final map = <String, String>{};
-      for (final line in controller.text.split('\n')) {
-        final t = line.trim();
-        if (t.isEmpty) continue;
-        final i = t.indexOf('=');
-        if (i <= 0) continue;
-        map[t.substring(0, i).trim()] = t.substring(i + 1).trim();
+      for (final r in rows) {
+        final k = r.key.trim();
+        if (k.isEmpty) continue;
+        map[k] = r.value;
       }
       ref.read(requestBuilderProvider.notifier).setPreRequestVariables(map);
-    } else if (result == 2) {
+    } else if (outcome is PreRequestVariablesCleared) {
       ref.read(requestBuilderProvider.notifier).clearPreRequestVariables();
     }
-    controller.dispose();
   }
 
   Future<void> _pasteCurlIntoBuilder(BuildContext context) async {

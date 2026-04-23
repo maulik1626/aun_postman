@@ -37,6 +37,10 @@
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-7715109286748953~3701420942" />
+        <!-- Disable Native Validator overlay on test native ads (debug / test devices). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.NATIVE_AD_DEBUGGER_ENABLED"
+            android:value="false" />
         <!--
           usesCleartextTraffic: allow http:// and ws:// to LAN / dev servers (API client).
           Restrict via network security config later if you ship a stricter release flavor.

@@ -9,6 +9,7 @@ import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/har_exporter.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
 import 'package:aun_reqstudio/domain/models/http_response.dart';
+import 'package:aun_reqstudio/features/response_viewer/core/response_body_share_spec.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_json_tree.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_performance_policy.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_processing_controller.dart';
@@ -16,6 +17,7 @@ import 'package:aun_reqstudio/features/response_viewer/core/response_search_matc
 import 'package:aun_reqstudio/features/response_viewer/core/response_text_engine.dart';
 import 'package:aun_reqstudio/features/response_viewer/core/response_viewer_models.dart';
 import 'package:aun_reqstudio/features/response_viewer/response_viewer_syntax.dart';
+import 'package:aun_reqstudio/features/response_viewer/widgets/response_html_preview_sheet.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_highlight/themes/atom-one-dark.dart';
@@ -313,7 +315,7 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   /// Pretty JSON: single-line minified JSON (vs indented).
   bool _jsonUnwrap = false;
   ResponseJsonPrettyViewMode _jsonPrettyViewMode =
-      ResponseJsonPrettyViewMode.tree;
+      ResponseJsonPrettyViewMode.text;
   late final ScrollController _prettyScrollController;
   late final ScrollController _rawScrollController;
   late final ScrollController _prettyHorizontalScrollController;
@@ -322,6 +324,7 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   late final ScrollController _cookiesScrollController;
   late final TextEditingController _bodySearchController;
   int _activeBodyMatchIndex = -1;
+  String _activeBodySearchQuery = '';
 
   /// Cached [jsonDecode] result for the current [HttpResponse.body].
   bool? _cachedBodyIsJson;
@@ -338,6 +341,7 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   int _searchSyncCharsLimit = 120000;
   int _syntaxHighlightCharsLimit = 180000;
   int _prettyFormatCharsLimit = 260000;
+  int _jsonUnwrapCharsLimit = 8000000;
   int _jsonTreeCharsLimit = 5000000;
   int _searchDebounceMs = 180;
   ResponsePayloadTier _payloadTier = ResponsePayloadTier.small;
@@ -368,15 +372,24 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     return widget.response.body.length <= _prettyFormatCharsLimit;
   }
 
+  bool get _jsonUnwrapEnabled {
+    return _prettyBodyIsJson &&
+        widget.response.body.length <= _jsonUnwrapCharsLimit;
+  }
+
   bool get _supportsStructuredJsonPrettyView {
     return _prettyBodyIsJson &&
-        !_jsonUnwrap &&
         widget.response.body.length <= _jsonTreeCharsLimit;
   }
 
   bool get _usesStructuredJsonPrettyView {
     return _supportsStructuredJsonPrettyView &&
         _jsonPrettyViewMode == ResponseJsonPrettyViewMode.tree;
+  }
+
+  bool get _forcesExtremeJsonTreeMode {
+    return _payloadTier == ResponsePayloadTier.extreme &&
+        _supportsStructuredJsonPrettyView;
   }
 
   Object? get _decodedJsonBody {
@@ -431,11 +444,27 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
       return;
     }
     if (!_prettyFormattingEnabled) {
+      if (unwrap && _jsonUnwrapEnabled) {
+        final result = await _processingController.computePretty(
+          raw: raw,
+          unwrapJson: true,
+        );
+        if (!mounted) return;
+        setState(() {
+          _prettyCache = (result.text, result.language);
+          _prettyTextEngine = ResponseTextEngine(result.text);
+          _prettyTextEngineFingerprint = result.text;
+        });
+        if (_bodySearchController.text.trim().isNotEmpty) {
+          _scheduleBodySearchRefresh(immediate: true);
+        }
+        return;
+      }
       _prettyCacheBodyFingerprint = raw;
-      _prettyCacheUnwrap = false;
+      _prettyCacheUnwrap = unwrap;
       if (!mounted) return;
       setState(() {
-        _prettyCache = (raw, 'plaintext');
+        _prettyCache = (raw, _prettyBodyIsJson ? 'json' : 'plaintext');
         _prettyTextEngine = _activeRawTextEngine;
         _prettyTextEngineFingerprint = raw;
       });
@@ -522,7 +551,17 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
       ? _prettyHorizontalScrollController
       : _rawHorizontalScrollController;
 
-  bool get _isSearchingBody => _bodySearchController.text.trim().isNotEmpty;
+  bool get _isSearchingBody => _activeBodySearchQuery.trim().isNotEmpty;
+
+  bool get _isBodySearchPending =>
+      _processingController.searchState == ResponseSearchState.debouncing ||
+      _processingController.searchState == ResponseSearchState.indexing;
+
+  bool get _showsBodySearchOverlay =>
+      _isBodySearchPending &&
+      (_payloadTier == ResponsePayloadTier.large ||
+          _payloadTier == ResponsePayloadTier.huge ||
+          _payloadTier == ResponsePayloadTier.extreme);
 
   bool get _activeBodySoftWrap {
     if (_selectedTab == 0) {
@@ -566,14 +605,43 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
 
   void _scheduleBodySearchRefresh({bool immediate = false}) {
     _searchDebounce?.cancel();
-    if (immediate || _bodySearchController.text.trim().isEmpty) {
-      _refreshBodyMatches();
+    final query = _bodySearchController.text.trim();
+    if (query.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _activeBodySearchQuery = '';
+        _bodyMatchesCache = const [];
+        _activeBodyMatchIndex = -1;
+      });
+      _processingController.invalidateSearch();
       return;
     }
-    _searchDebounce = Timer(
-      Duration(milliseconds: _searchDebounceMs),
-      _refreshBodyMatches,
+    if (immediate) {
+      _commitBodySearchQuery(query);
+      _refreshBodyMatches(query: query);
+      return;
+    }
+    _processingController.invalidateSearch(
+      nextState: ResponseSearchState.debouncing,
     );
+    _searchDebounce = Timer(Duration(milliseconds: _searchDebounceMs), () {
+      final debouncedQuery = _bodySearchController.text.trim();
+      if (debouncedQuery.isEmpty) {
+        _scheduleBodySearchRefresh(immediate: true);
+        return;
+      }
+      _commitBodySearchQuery(debouncedQuery);
+      _refreshBodyMatches(query: debouncedQuery);
+    });
+  }
+
+  void _commitBodySearchQuery(String query) {
+    if (!mounted) return;
+    setState(() {
+      _activeBodySearchQuery = query;
+      _bodyMatchesCache = const [];
+      _activeBodyMatchIndex = -1;
+    });
   }
 
   void _setJsonPrettyViewMode(ResponseJsonPrettyViewMode mode) {
@@ -585,9 +653,9 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     _scheduleBodySearchRefresh(immediate: true);
   }
 
-  Future<void> _refreshBodyMatches() async {
-    final query = _bodySearchController.text;
-    if (query.trim().isEmpty) {
+  Future<void> _refreshBodyMatches({String? query}) async {
+    final effectiveQuery = (query ?? _activeBodySearchQuery).trim();
+    if (effectiveQuery.isEmpty) {
       if (!mounted) return;
       setState(() {
         _bodyMatchesCache = const [];
@@ -597,34 +665,32 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
       return;
     }
     if (_selectedTab == 0 && _usesStructuredJsonPrettyView) {
-      _processingController.invalidateSearch(
-        nextState: ResponseSearchState.ready,
-      );
-      final presentation = _buildJsonTreePresentation(query);
+      _processingController.setSearchState(ResponseSearchState.indexing);
+      final presentation = _buildJsonTreePresentation(effectiveQuery);
       setState(() {
         _bodyMatchesCache = List<SearchMatch>.unmodifiable(
           presentation.matches,
         );
         _syncActiveMatchForQuery();
       });
+      _processingController.setSearchState(ResponseSearchState.ready);
       _scheduleJumpToActiveBodyMatch();
       return;
     }
     final haystack = _bodySearchHaystack;
     if (haystack.length <= _searchSyncCharsLimit) {
-      _processingController.invalidateSearch(
-        nextState: ResponseSearchState.ready,
-      );
+      _processingController.setSearchState(ResponseSearchState.indexing);
       setState(() {
-        _bodyMatchesCache = _collectBodyMatches(haystack, query);
+        _bodyMatchesCache = _collectBodyMatches(haystack, effectiveQuery);
         _syncActiveMatchForQuery();
       });
+      _processingController.setSearchState(ResponseSearchState.ready);
       _scheduleJumpToActiveBodyMatch();
       return;
     }
     final matches = await _processingController.computeSearchMatches(
       text: haystack,
-      query: query,
+      query: effectiveQuery,
     );
     if (!mounted) return;
     setState(() {
@@ -733,9 +799,11 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     HttpResponse response,
   ) async {
     try {
-      final ext = _detectContentType(response.body, response.headers) == 'JSON'
-          ? 'json'
-          : 'txt';
+      final spec = responseBodyShareSpec(
+        body: response.body,
+        headers: response.headers,
+        prettyBodyIsJson: _prettyBodyIsJson,
+      );
       final size = MediaQuery.sizeOf(context);
       final origin = Rect.fromCenter(
         center: Offset(size.width / 2, size.height / 2),
@@ -743,17 +811,12 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
         height: 1,
       );
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/response.$ext');
+      final file = File('${dir.path}/response.${spec.extension}');
       await file.writeAsString(response.body);
       // sharePositionOrigin is required on iOS for the share sheet anchor.
       // Use the centre of the screen as the origin.
       await Share.shareXFiles(
-        [
-          XFile(
-            file.path,
-            mimeType: ext == 'json' ? 'application/json' : 'text/plain',
-          ),
-        ],
+        [XFile(file.path, mimeType: spec.mimeType)],
         subject: 'Response ${response.statusCode}',
         sharePositionOrigin: origin,
       );
@@ -814,6 +877,7 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     _searchSyncCharsLimit = policy.searchSyncCharsLimit;
     _syntaxHighlightCharsLimit = policy.syntaxHighlightCharsLimit;
     _prettyFormatCharsLimit = policy.prettyFormatCharsLimit;
+    _jsonUnwrapCharsLimit = policy.jsonUnwrapCharsLimit;
     _jsonTreeCharsLimit = policy.jsonTreeCharsLimit;
     _searchDebounceMs = policy.searchDebounceMs;
     HighlightedLineWidget.configureCacheLimit(policy.highlightCacheEntries);
@@ -824,12 +888,15 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
     final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
     final statusColor = AppColors.statusColor(response.statusCode);
     final prettyPair = _prettyCache!;
-    final effectiveJsonPrettyViewMode = _supportsStructuredJsonPrettyView
+    final effectiveJsonPrettyViewMode = _forcesExtremeJsonTreeMode
+        ? ResponseJsonPrettyViewMode.tree
+        : _supportsStructuredJsonPrettyView
         ? _jsonPrettyViewMode
         : ResponseJsonPrettyViewMode.text;
-    final useStructuredJsonView = _usesStructuredJsonPrettyView;
+    final useStructuredJsonView =
+        _forcesExtremeJsonTreeMode || _usesStructuredJsonPrettyView;
     final jsonTreePresentation = useStructuredJsonView
-        ? _buildJsonTreePresentation(_bodySearchController.text)
+        ? _buildJsonTreePresentation(_activeBodySearchQuery)
         : null;
     _syncActiveMatchForQuery();
 
@@ -870,6 +937,19 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
                 color: CupertinoColors.systemIndigo,
               ),
               const Spacer(),
+              if (_detectContentType(response.body, response.headers) == 'HTML')
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size.square(44),
+                  onPressed: () {
+                    showResponseHtmlPreviewSheetCupertino(
+                      context,
+                      html: response.body,
+                      title: 'HTML preview',
+                    );
+                  },
+                  child: const Icon(CupertinoIcons.play_arrow, size: 22),
+                ),
               CupertinoButton(
                 padding: EdgeInsets.zero,
                 minimumSize: const Size.square(44),
@@ -977,70 +1057,11 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
           ),
         ),
 
-        if (_selectedTab == 0 && _prettyBodyIsJson)
+        if (_selectedTab == 0 &&
+            _prettyBodyIsJson &&
+            !_forcesExtremeJsonTreeMode)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        'Soft wrap',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ScaledCupertinoSwitch(
-                        value: _jsonSoftWrap,
-                        onChanged: (v) => setState(() => _jsonSoftWrap = v),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Unwrap',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.label.resolveFrom(context),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (_prettyFormattingEnabled)
-                        ScaledCupertinoSwitch(
-                          value: _jsonUnwrap,
-                          onChanged: (v) {
-                            setState(() => _jsonUnwrap = v);
-                            _syncPrettyCache();
-                            _scheduleBodySearchRefresh(immediate: true);
-                          },
-                        )
-                      else
-                        Text(
-                          'Large response',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: CupertinoColors.secondaryLabel.resolveFrom(
-                              context,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        if (_selectedTab == 0 && _prettyBodyIsJson)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(
               children: [
                 Expanded(
@@ -1103,6 +1124,104 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
             ),
           ),
 
+        if (_selectedTab == 0 && _prettyBodyIsJson)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        'Soft wrap',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: CupertinoColors.label.resolveFrom(context),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ScaledCupertinoSwitch(
+                        value: _jsonSoftWrap,
+                        onChanged: (v) => setState(() => _jsonSoftWrap = v),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_forcesExtremeJsonTreeMode && jsonTreePresentation != null)
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size.square(28),
+                          onPressed: () => _setAllJsonNodesExpanded(false),
+                          child: Text(
+                            'Collapse all',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size.square(28),
+                          onPressed: () => _setAllJsonNodesExpanded(true),
+                          child: Text(
+                            'Expand all',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: CupertinoTheme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (effectiveJsonPrettyViewMode !=
+                    ResponseJsonPrettyViewMode.tree)
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          'Unwrap',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: CupertinoColors.label.resolveFrom(context),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (_jsonUnwrapEnabled)
+                          ScaledCupertinoSwitch(
+                            value: _jsonUnwrap,
+                            onChanged: (v) {
+                              setState(() => _jsonUnwrap = v);
+                              _syncPrettyCache();
+                              _scheduleBodySearchRefresh(immediate: true);
+                            },
+                          )
+                        else
+                          Text(
+                            'Too large',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: CupertinoColors.secondaryLabel.resolveFrom(
+                                context,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
         if (_selectedTab == 0 && !_prettyFormattingEnabled)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -1110,8 +1229,8 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
               alignment: Alignment.centerLeft,
               child: Text(
                 _payloadTier == ResponsePayloadTier.extreme
-                    ? 'Extreme payload mode: pretty formatting is paused to keep the viewer stable.'
-                    : 'Large payload mode: pretty formatting is paused to keep scrolling and search responsive.',
+                    ? 'Extreme payload mode: optimized tree view is enabled to keep the viewer stable.'
+                    : 'Large payload mode: indented formatting is paused to keep scrolling and search responsive. Use unwrap for compact JSON.',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.35,
@@ -1122,115 +1241,219 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
           ),
 
         if (_selectedTab == 0 || _selectedTab == 1)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: CupertinoSearchTextField(
-                    controller: _bodySearchController,
-                    placeholder: 'Find in body',
-                    onChanged: (_) {
-                      setState(() => _activeBodyMatchIndex = 0);
-                      _scheduleBodySearchRefresh();
-                    },
-                  ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _bodySearchController,
+            builder: (context, value, _) {
+              final hasInput = value.text.trim().isNotEmpty;
+              final secondaryLabel = CupertinoColors.secondaryLabel.resolveFrom(
+                context,
+              );
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: AnimatedBuilder(
+                  animation: processing,
+                  builder: (context, _) {
+                    final isPending =
+                        processing.searchState ==
+                            ResponseSearchState.debouncing ||
+                        processing.searchState == ResponseSearchState.indexing;
+                    final statusLabel =
+                        processing.searchState == ResponseSearchState.debouncing
+                        ? 'Waiting...'
+                        : 'Searching...';
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: CupertinoSearchTextField(
+                            controller: _bodySearchController,
+                            placeholder: 'Find in body',
+                            onChanged: (_) => _scheduleBodySearchRefresh(),
+                          ),
+                        ),
+                        if (hasInput) ...[
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            child: isPending
+                                ? Padding(
+                                    key: const ValueKey(
+                                      'cupertino-search-loader',
+                                    ),
+                                    padding: const EdgeInsets.only(left: 8),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CupertinoActivityIndicator(
+                                          radius: 7,
+                                          color: CupertinoTheme.of(
+                                            context,
+                                          ).primaryColor,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          statusLabel,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: secondaryLabel,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : const SizedBox(
+                                    key: ValueKey('cupertino-search-idle'),
+                                  ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _bodyMatchCount > 0
+                                ? '${_activeBodyMatchIndex + 1}/$_bodyMatchCount'
+                                : '0/0',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                              color: secondaryLabel,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size.square(30),
+                            onPressed: _bodyMatchCount > 0 && !isPending
+                                ? _goToPrevBodyMatch
+                                : null,
+                            child: const Icon(
+                              CupertinoIcons.chevron_up,
+                              size: 16,
+                            ),
+                          ),
+                          CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size.square(30),
+                            onPressed: _bodyMatchCount > 0 && !isPending
+                                ? _goToNextBodyMatch
+                                : null,
+                            child: const Icon(
+                              CupertinoIcons.chevron_down,
+                              size: 16,
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
                 ),
-                if (_bodySearchController.text.trim().isNotEmpty) ...[
-                  if (processing.searchState == ResponseSearchState.indexing)
-                    Text(
-                      'Indexing...',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: CupertinoColors.secondaryLabel.resolveFrom(
-                          context,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  if (_bodyMatchCount > 0)
-                    Text(
-                      '${_activeBodyMatchIndex + 1}/$_bodyMatchCount',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        color: CupertinoColors.secondaryLabel.resolveFrom(
-                          context,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      '0/0',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                        color: CupertinoColors.secondaryLabel.resolveFrom(
-                          context,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 4),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size.square(30),
-                    onPressed: _bodyMatchCount > 0 ? _goToPrevBodyMatch : null,
-                    child: const Icon(CupertinoIcons.chevron_up, size: 16),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size.square(30),
-                    onPressed: _bodyMatchCount > 0 ? _goToNextBodyMatch : null,
-                    child: const Icon(CupertinoIcons.chevron_down, size: 16),
-                  ),
-                ],
-              ],
-            ),
+              );
+            },
           ),
 
         Expanded(
-          child: IndexedStack(
-            index: _selectedTab,
-            children: [
-              _PrettyTab(
-                jsonTreeEntries: jsonTreePresentation?.entries ?? const [],
-                onToggleJsonNodeExpansion: _toggleJsonNodeExpansion,
-                textEngine: _activePrettyTextEngine,
-                prettyBody: prettyPair.$1,
-                language: prettyPair.$2,
-                isDark: isDark,
-                scrollController: _prettyScrollController,
-                searchQuery: _bodySearchController.text,
-                softWrap: _prettyBodyIsJson ? _jsonSoftWrap : true,
-                activeMatch: _activeBodyMatchIndex,
-                matches: _bodyMatches,
-                enableSyntaxHighlight:
-                    _prettyFormattingEnabled &&
-                    _syntaxHighlightCharsLimit > 0 &&
-                    prettyPair.$1.length <= _syntaxHighlightCharsLimit,
-                horizontalScrollController: _prettyHorizontalScrollController,
-                useStructuredJsonView: useStructuredJsonView,
-              ),
-              _RawTab(
-                textEngine: _activeRawTextEngine,
-                body: response.body,
-                scrollController: _rawScrollController,
-                searchQuery: _bodySearchController.text,
-                activeMatch: _activeBodyMatchIndex,
-                matches: _bodyMatches,
-                horizontalScrollController: _rawHorizontalScrollController,
-              ),
-              _HeadersTab(
-                headers: response.headers,
-                scrollController: _headersScrollController,
-              ),
-              _CookiesTab(
-                cookies: response.cookies,
-                scrollController: _cookiesScrollController,
-              ),
-            ],
+          child: AnimatedBuilder(
+            animation: processing,
+            builder: (context, _) => Stack(
+              children: [
+                IndexedStack(
+                  index: _selectedTab,
+                  children: [
+                    _PrettyTab(
+                      jsonTreeEntries:
+                          jsonTreePresentation?.entries ?? const [],
+                      onToggleJsonNodeExpansion: _toggleJsonNodeExpansion,
+                      textEngine: _activePrettyTextEngine,
+                      prettyBody: prettyPair.$1,
+                      language: prettyPair.$2,
+                      isDark: isDark,
+                      scrollController: _prettyScrollController,
+                      searchQuery: _activeBodySearchQuery,
+                      softWrap: _prettyBodyIsJson ? _jsonSoftWrap : true,
+                      activeMatch: _activeBodyMatchIndex,
+                      matches: _bodyMatches,
+                      enableSyntaxHighlight:
+                          ((prettyPair.$2 == 'json'
+                                  ? _jsonTreeCharsLimit
+                                  : _syntaxHighlightCharsLimit) >
+                              0) &&
+                          response.body.length <=
+                              (prettyPair.$2 == 'json'
+                                  ? _jsonTreeCharsLimit
+                                  : _syntaxHighlightCharsLimit),
+                      horizontalScrollController:
+                          _prettyHorizontalScrollController,
+                      useStructuredJsonView: useStructuredJsonView,
+                    ),
+                    _RawTab(
+                      textEngine: _activeRawTextEngine,
+                      body: response.body,
+                      scrollController: _rawScrollController,
+                      searchQuery: _activeBodySearchQuery,
+                      activeMatch: _activeBodyMatchIndex,
+                      matches: _bodyMatches,
+                      horizontalScrollController:
+                          _rawHorizontalScrollController,
+                    ),
+                    _HeadersTab(
+                      headers: response.headers,
+                      scrollController: _headersScrollController,
+                    ),
+                    _CookiesTab(
+                      cookies: response.cookies,
+                      scrollController: _cookiesScrollController,
+                    ),
+                  ],
+                ),
+                if (_showsBodySearchOverlay)
+                  Positioned(
+                    top: 8,
+                    right: 12,
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemBackground
+                              .resolveFrom(context)
+                              .withValues(alpha: 0.92),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: CupertinoColors.separator.resolveFrom(
+                              context,
+                            ),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CupertinoActivityIndicator(
+                                radius: 7,
+                                color: CupertinoTheme.of(context).primaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                processing.searchState ==
+                                        ResponseSearchState.debouncing
+                                    ? 'Preparing search'
+                                    : 'Searching response',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: CupertinoColors.label.resolveFrom(
+                                    context,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1238,19 +1461,11 @@ class _ResponseViewerSheetState extends State<ResponseViewerSheet> {
   }
 
   String _detectContentType(String body, Map<String, String> headers) {
-    if (_prettyBodyIsJson) return 'JSON';
-    final trimmed = body.trimLeft();
-    if (trimmed.startsWith('<!DOCTYPE html') || trimmed.startsWith('<html')) {
-      return 'HTML';
-    }
-    if (trimmed.startsWith('<')) {
-      return 'XML';
-    }
-    final ct = headers['content-type'] ?? headers['Content-Type'] ?? '';
-    if (ct.contains('json')) return 'JSON';
-    if (ct.contains('xml')) return 'XML';
-    if (ct.contains('html')) return 'HTML';
-    return 'TEXT';
+    return detectResponseBodyKind(
+      body,
+      headers,
+      prettyBodyIsJson: _prettyBodyIsJson,
+    );
   }
 
   String _formatSize(int bytes) {

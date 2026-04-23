@@ -13,8 +13,21 @@ class ShellScreen extends StatelessWidget {
     // automatically adds the correct bottom inset — same as CupertinoTabScaffold does.
     const tabBarHeight = 50.0;
     final mq = MediaQuery.of(context);
+    // Reserve space for the floating tab bar by inflating padding.bottom.
+    // When the IME is open, the scaffold body is already laid out above the
+    // keyboard; SafeArea reads padding (not viewInsets) — keeping the full
+    // inflated bottom while the keyboard is tall would leave a dead band above
+    // the keyboard. When viewInsets.bottom is above [tabBarHeight], the tab bar
+    // is covered, so use only the home-indicator inset. As the keyboard
+    // dismisses and viewInsets shrinks below the tab bar height, blend the
+    // synthetic tab-bar reserve back in so content never slides behind the
+    // floating tab bar for a frame.
+    final keyboardOverTabBar =
+        (mq.viewInsets.bottom / tabBarHeight).clamp(0.0, 1.0);
+    final bottomForContent =
+        mq.padding.bottom + tabBarHeight * (1.0 - keyboardOverTabBar);
     final adjustedMq = mq.copyWith(
-      padding: mq.padding.copyWith(bottom: mq.padding.bottom + tabBarHeight),
+      padding: mq.padding.copyWith(bottom: bottomForContent),
     );
 
     return Stack(

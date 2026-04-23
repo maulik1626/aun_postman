@@ -24,6 +24,39 @@ import 'package:intl/intl.dart';
 
 const int _kMaxWsTabs = 8;
 
+final DateFormat _kWsMessageTimeFormat = DateFormat('h:mm:ss a');
+
+void _showWebsocketCopiedToastMaterial(BuildContext context) {
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  if (messenger == null) return;
+  final mq = MediaQuery.of(context);
+  final scheme = Theme.of(context).colorScheme;
+  const snackBarHeight = 52.0;
+  final top = mq.padding.top + 8;
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        backgroundColor: scheme.inverseSurface,
+        content: Text(
+          'Copied to clipboard',
+          style: TextStyle(
+            color: scheme.onInverseSurface,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          bottom: mq.size.height - top - snackBarHeight,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+}
+
 bool _unfocusOnUserScrollNotification(ScrollNotification n) {
   if (n is ScrollUpdateNotification && n.dragDetails != null) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -55,7 +88,7 @@ class WebSocketScreenMaterial extends ConsumerStatefulWidget {
 class _WebSocketScreenMaterialState
     extends ConsumerState<WebSocketScreenMaterial> {
   late final PageController _pageController;
-  final ScrollController _tabStripScrollController = ScrollController();
+  final Map<String, GlobalKey> _tabStripKeys = {};
   bool _storageLoadRequested = false;
 
   @override
@@ -67,8 +100,42 @@ class _WebSocketScreenMaterialState
   @override
   void dispose() {
     _pageController.dispose();
-    _tabStripScrollController.dispose();
     super.dispose();
+  }
+
+  void _syncTabStripKeys(Set<String> sessionIds) {
+    _tabStripKeys.removeWhere((id, _) => !sessionIds.contains(id));
+    for (final id in sessionIds) {
+      _tabStripKeys.putIfAbsent(id, GlobalKey.new);
+    }
+  }
+
+  void _scrollTabChipIntoView(
+    String sessionId, {
+    bool waitExtraLayoutFrame = false,
+  }) {
+    void scroll() {
+      if (!mounted) return;
+      final ctx = _tabStripKeys[sessionId]?.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.35,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    void schedule() {
+      if (!mounted) return;
+      if (waitExtraLayoutFrame) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => scroll());
+      } else {
+        scroll();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => schedule());
   }
 
   @override
@@ -82,6 +149,12 @@ class _WebSocketScreenMaterialState
       final reg = ref.read(webSocketRegistryProvider);
       if (reg.ready && _pageController.hasClients) {
         _pageController.jumpToPage(reg.activeIndex);
+        if (reg.activeSessionId.isNotEmpty) {
+          _scrollTabChipIntoView(
+            reg.activeSessionId,
+            waitExtraLayoutFrame: true,
+          );
+        }
       }
     });
   }
@@ -159,24 +232,16 @@ class _WebSocketScreenMaterialState
       if (prev == null || !prev.ready) return;
       if (prev.tabs.length != next.tabs.length) {
         final i = next.activeIndex.clamp(0, next.tabs.length - 1);
-        final addedTab = next.tabs.length > prev.tabs.length;
+        final activeId = next.tabs[i].id;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           if (_pageController.hasClients) {
             _pageController.jumpToPage(i);
           }
-          if (addedTab) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted ||
-                  !_tabStripScrollController.hasClients) return;
-              final pos = _tabStripScrollController.position;
-              _tabStripScrollController.animateTo(
-                pos.maxScrollExtent,
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-              );
-            });
-          }
+          _scrollTabChipIntoView(
+            activeId,
+            waitExtraLayoutFrame: true,
+          );
         });
       }
     });
@@ -192,6 +257,8 @@ class _WebSocketScreenMaterialState
             .messages
             .isNotEmpty
         : false;
+
+    _syncTabStripKeys(reg.tabs.map((t) => t.id).toSet());
 
     return Scaffold(
       appBar: AppBar(
@@ -221,13 +288,13 @@ class _WebSocketScreenMaterialState
         children: [
         // Tab strip
         SingleChildScrollView(
-          controller: _tabStripScrollController,
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
           child: Row(
             children: [
               for (var i = 0; i < reg.tabs.length; i++)
                 Padding(
+                  key: _tabStripKeys[reg.tabs[i].id],
                   padding: const EdgeInsets.only(right: 6),
                   child: _SessionTabChipMaterial(
                     label: _tabChipLabel(reg.tabs[i].url),
@@ -279,9 +346,11 @@ class _WebSocketScreenMaterialState
             onPageChanged: (i) {
               final r = ref.read(webSocketRegistryProvider);
               if (i >= 0 && i < r.tabs.length) {
+                final id = r.tabs[i].id;
                 ref
                     .read(webSocketRegistryProvider.notifier)
-                    .setActive(r.tabs[i].id);
+                    .setActive(id);
+                _scrollTabChipIntoView(id);
               }
             },
             children: [
@@ -1016,13 +1085,11 @@ class _WebSocketSessionPanelMaterialState
                     segments: const [
                       ButtonSegment(
                         value: WsConnectionMode.nativeWebSocket,
-                        label: Text('WebSocket',
-                            style: TextStyle(fontSize: 12)),
+                        label: Text('WebSocket'),
                       ),
                       ButtonSegment(
                         value: WsConnectionMode.socketIo,
-                        label: Text('Socket.IO',
-                            style: TextStyle(fontSize: 12)),
+                        label: Text('Socket.IO'),
                       ),
                     ],
                     selected: {_connectionMode},
@@ -1032,6 +1099,15 @@ class _WebSocketSessionPanelMaterialState
                       _scheduleDraftPersist();
                     },
                     showSelectedIcon: false,
+                    style: SegmentedButton.styleFrom(
+                      selectedBackgroundColor:
+                          primary.withValues(alpha: 0.15),
+                      selectedForegroundColor: primary,
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   if (_connectionMode ==
@@ -1844,43 +1920,47 @@ class _MessageBubbleMaterialState
       alignment: widget.isSent
           ? Alignment.centerRight
           : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.82,
-        ),
-        decoration: BoxDecoration(
-          color: widget.isSent
-              ? primary.withValues(alpha: 0.18)
-              : Theme.of(context)
-                  .colorScheme
-                  .surfaceContainerHighest
-                  .withValues(alpha: 0.7),
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft:
-                Radius.circular(widget.isSent ? 14 : 3),
-            bottomRight:
-                Radius.circular(widget.isSent ? 3 : 14),
+      child: GestureDetector(
+        onLongPress: () {
+          Clipboard.setData(ClipboardData(text: displayText));
+          AppHaptics.light();
+          _showWebsocketCopiedToastMaterial(context);
+        },
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.82,
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (sizeLabel != null)
+          decoration: BoxDecoration(
+            color: widget.isSent
+                ? primary.withValues(alpha: 0.18)
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.7),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(14),
+              topRight: const Radius.circular(14),
+              bottomLeft:
+                  Radius.circular(widget.isSent ? 14 : 3),
+              bottomRight:
+                  Radius.circular(widget.isSent ? 3 : 14),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (sizeLabel != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Text(sizeLabel,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: secondary)),
+                ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: Text(sizeLabel,
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: secondary)),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 4),
-              child: SelectableRegion(
-                selectionControls: materialTextSelectionControls,
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 4),
                 child: Text(
                   displayText,
                   style: TextStyle(
@@ -1890,59 +1970,50 @@ class _MessageBubbleMaterialState
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    DateFormat('HH:mm:ss')
-                        .format(widget.message.timestamp),
-                    style: TextStyle(
-                        fontSize: 10, color: secondary),
-                  ),
-                  if (isBinary) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(
-                          () => _binaryAsHex = !_binaryAsHex),
-                      child: Text(
-                        _binaryAsHex ? 'Base64' : 'Hex',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: primary),
-                      ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _kWsMessageTimeFormat
+                          .format(widget.message.timestamp),
+                      style: TextStyle(
+                          fontSize: 10, color: secondary),
                     ),
-                  ],
-                  if (isJson) ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(
-                          () => _isPrettyJson = !_isPrettyJson),
-                      child: Text(
-                        _isPrettyJson ? 'Raw' : 'Pretty',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: primary),
+                    if (isBinary) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(
+                            () => _binaryAsHex = !_binaryAsHex),
+                        child: Text(
+                          _binaryAsHex ? 'Base64' : 'Hex',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: primary),
+                        ),
                       ),
-                    ),
+                    ],
+                    if (isJson) ...[
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => setState(
+                            () => _isPrettyJson = !_isPrettyJson),
+                        child: Text(
+                          _isPrettyJson ? 'Raw' : 'Pretty',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: primary),
+                        ),
+                      ),
+                    ],
                   ],
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      Clipboard.setData(
-                          ClipboardData(text: displayText));
-                    },
-                    child: Icon(Icons.content_copy_outlined,
-                        size: 12, color: secondary),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

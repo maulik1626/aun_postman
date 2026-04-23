@@ -2,6 +2,7 @@ import 'package:aun_reqstudio/core/utils/request_name_from_url.dart';
 import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
 import 'package:aun_reqstudio/domain/enums/http_method.dart';
 import 'package:aun_reqstudio/domain/models/collection.dart';
+import 'package:aun_reqstudio/domain/models/folder.dart';
 import 'package:aun_reqstudio/domain/models/auth_config.dart';
 import 'package:aun_reqstudio/domain/models/environment.dart';
 import 'package:aun_reqstudio/domain/models/http_request.dart';
@@ -232,21 +233,31 @@ class RequestBuilder extends _$RequestBuilder {
     );
 
     late Collection updated;
+    var folderFallbackToRoot = false;
 
     if (folderUid != null) {
-      // Save into folder
-      final folders = collection.folders.map((f) {
-        if (f.uid != folderUid) return f;
-        final idx = f.requests.indexWhere((r) => r.uid == requestUid);
-        final reqs = [...f.requests];
+      final upsert = _upsertRequestInFolderSubtree(
+        collection.folders,
+        folderUid,
+        request,
+        now,
+      );
+      if (upsert.found) {
+        updated = collection.copyWith(folders: upsert.folders, updatedAt: now);
+      } else {
+        folderFallbackToRoot = true;
+        // Folder uid missing from tree (e.g. stale reference): keep request visible at root.
+        final rootRequest = request.copyWith(folderUid: null);
+        final idx =
+            collection.requests.indexWhere((r) => r.uid == requestUid);
+        final reqs = [...collection.requests];
         if (idx >= 0) {
-          reqs[idx] = request;
+          reqs[idx] = rootRequest;
         } else {
-          reqs.add(request);
+          reqs.add(rootRequest);
         }
-        return f.copyWith(requests: reqs);
-      }).toList();
-      updated = collection.copyWith(folders: folders, updatedAt: now);
+        updated = collection.copyWith(requests: reqs, updatedAt: now);
+      }
     } else {
       // Save to root
       final idx =
@@ -265,6 +276,7 @@ class RequestBuilder extends _$RequestBuilder {
     state = state.copyWith(
       loadedRequestUid: requestUid,
       collectionUid: collectionUid,
+      folderUid: folderFallbackToRoot ? null : state.folderUid,
       isDirty: false,
       isRequestNameUserLocked: true,
     );
@@ -275,10 +287,71 @@ class RequestBuilder extends _$RequestBuilder {
       if (r.uid == uid) return r;
     }
     for (final f in collection.folders) {
-      for (final r in f.requests) {
-        if (r.uid == uid) return r;
-      }
+      final nested = _findRequestInFolderTree(f, uid);
+      if (nested != null) return nested;
     }
     return null;
   }
+
+  HttpRequest? _findRequestInFolderTree(Folder folder, String uid) {
+    for (final r in folder.requests) {
+      if (r.uid == uid) return r;
+    }
+    for (final sub in folder.subFolders) {
+      final found = _findRequestInFolderTree(sub, uid);
+      if (found != null) return found;
+    }
+    return null;
+  }
+}
+
+/// Recursively inserts or replaces [request] in the folder whose uid is [targetFolderUid].
+({List<Folder> folders, bool found}) _upsertRequestInFolderSubtree(
+  List<Folder> folders,
+  String targetFolderUid,
+  HttpRequest request,
+  DateTime now,
+) {
+  var found = false;
+  final out = <Folder>[];
+  for (final f in folders) {
+    final r = _upsertRequestInSingleFolderTree(f, targetFolderUid, request, now);
+    out.add(r.folder);
+    if (r.changed) found = true;
+  }
+  return (folders: out, found: found);
+}
+
+({Folder folder, bool changed}) _upsertRequestInSingleFolderTree(
+  Folder folder,
+  String targetFolderUid,
+  HttpRequest request,
+  DateTime now,
+) {
+  if (folder.uid == targetFolderUid) {
+    final idx = folder.requests.indexWhere((r) => r.uid == request.uid);
+    final reqs = [...folder.requests];
+    if (idx >= 0) {
+      reqs[idx] = request;
+    } else {
+      reqs.add(request);
+    }
+    return (
+      folder: folder.copyWith(requests: reqs, updatedAt: now),
+      changed: true,
+    );
+  }
+  final child = _upsertRequestInFolderSubtree(
+    folder.subFolders,
+    targetFolderUid,
+    request,
+    now,
+  );
+  if (!child.found) {
+    return (folder: folder, changed: false);
+  }
+  return (
+    folder: folder.copyWith(subFolders: child.folders, updatedAt: now),
+    changed: true,
+  );
 }
