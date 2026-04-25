@@ -22,3 +22,19 @@ String? appAuthRedirect({
 
   return null;
 }
+
+String? appRouteRedirect({
+  required AppAuthState auth,
+  required Uri uri,
+  required String matchedLocation,
+}) {
+  if (isPlatformFileLaunchLocation(uri)) {
+    return AppRoutes.bootstrap;
+  }
+
+  return appAuthRedirect(auth: auth, matchedLocation: matchedLocation);
+}
+
+bool isPlatformFileLaunchLocation(Uri uri) {
+  return uri.scheme.toLowerCase() == 'file';
+}

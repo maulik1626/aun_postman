@@ -4,6 +4,7 @@ import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
@@ -13,6 +14,7 @@ import 'package:aun_reqstudio/features/collections/providers/collections_provide
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
@@ -69,8 +71,36 @@ class CollectionsScreenMaterial extends ConsumerStatefulWidget {
 
 class _CollectionsScreenMaterialState
     extends ConsumerState<CollectionsScreenMaterial> {
+  static const _exitGracePeriod = Duration(seconds: 2);
+  static const _exitMessage = 'Press back again to exit';
+
   // Tablet expanded two-pane: uid of collection shown in right pane.
   String? _selectedUid;
+  DateTime? _lastExitBackPressAt;
+
+  Future<void> _handleRootBackNavigation() async {
+    final now = DateTime.now();
+    final lastPress = _lastExitBackPressAt;
+    final shouldExit =
+        lastPress != null && now.difference(lastPress) <= _exitGracePeriod;
+
+    if (shouldExit) {
+      await SystemNavigator.pop();
+      return;
+    }
+
+    _lastExitBackPressAt = now;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text(_exitMessage),
+          behavior: SnackBarBehavior.floating,
+          duration: _exitGracePeriod,
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +153,13 @@ class _CollectionsScreenMaterialState
   }) {
     final isEmpty = collections.isEmpty;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleRootBackNavigation();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Collections'),
         leading: IconButton(
@@ -335,7 +371,7 @@ class _CollectionsScreenMaterialState
                           ),
                         ),
                       ),
-                      if (AdConfig.ENABLE_ADS &&
+                      if (AppConstants.enableAds &&
                           !sessionBrowseAdsDisabled &&
                           AdConfig.collections.shouldInsertAfterOrdinal(
                             index + 1,
@@ -357,6 +393,7 @@ class _CollectionsScreenMaterialState
                 style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
+      ),
     );
   }
 

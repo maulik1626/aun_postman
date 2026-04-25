@@ -2,15 +2,19 @@ import 'dart:ui' show PlatformDispatcher;
 import 'dart:async';
 
 import 'package:aun_reqstudio/app/platform.dart';
+import 'package:aun_reqstudio/app/router/app_navigator.dart';
 import 'package:aun_reqstudio/app/router/app_router.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope_material.dart';
+import 'package:aun_reqstudio/core/platform/shared_json_import_channel.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/theme/app_theme.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +31,9 @@ class App extends ConsumerStatefulWidget {
 
 class _AppState extends ConsumerState<App> {
   VoidCallback? _notificationListener;
+  VoidCallback? _sharedImportListener;
+  ProviderSubscription<AppAuthState>? _authSubscription;
+  bool _isOpeningSharedImport = false;
 
   @override
   void initState() {
@@ -35,13 +42,26 @@ class _AppState extends ConsumerState<App> {
       _handleNotificationPayload(UserNotification.notificationTapPayload.value);
     };
     UserNotification.notificationTapPayload.addListener(_notificationListener!);
+    final sharedImportCoordinator = ref.read(
+      sharedJsonImportCoordinatorProvider,
+    );
+    _sharedImportListener = () {
+      unawaited(_openImportScreenForPendingShare());
+    };
+    sharedImportCoordinator.addListener(_sharedImportListener!);
+    unawaited(sharedImportCoordinator.initialize());
+    _authSubscription = ref.listenManual<AppAuthState>(
+      authControllerProvider,
+      (_, __) => unawaited(_openImportScreenForPendingShare()),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleNotificationPayload(UserNotification.consumeLaunchPayload());
+      unawaited(_openImportScreenForPendingShare());
     });
   }
 
   Future<void> _handleNotificationPayload(String? payload) async {
-    if (!mounted || !AdConfig.ENABLE_ADS) return;
+    if (!mounted || !AppConstants.enableAds) return;
     if (payload != UserNotification.browseAdsExtendPayload) return;
 
     UserNotification.notificationTapPayload.value = null;
@@ -68,6 +88,43 @@ class _AppState extends ConsumerState<App> {
     }
   }
 
+  Future<void> _openImportScreenForPendingShare() async {
+    if (!mounted || _isOpeningSharedImport) return;
+    if (!AppPlatform.isAndroid && !AppPlatform.isIOS) return;
+
+    final auth = ref.read(authControllerProvider);
+    if (auth.status != AuthBootstrapStatus.ready || !auth.isAuthenticated) {
+      return;
+    }
+
+    final coordinator = ref.read(sharedJsonImportCoordinatorProvider);
+    if (!coordinator.hasPending) return;
+
+    if (appRootNavigatorKey.currentState == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_openImportScreenForPendingShare());
+      });
+      return;
+    }
+
+    final router = ref.read(appRouterProvider);
+    final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+    if (currentPath == AppRoutes.importExport) return;
+    if (currentPath == AppRoutes.bootstrap || currentPath == AppRoutes.auth) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_openImportScreenForPendingShare());
+      });
+      return;
+    }
+
+    _isOpeningSharedImport = true;
+    try {
+      router.go(AppRoutes.importExport);
+    } finally {
+      _isOpeningSharedImport = false;
+    }
+  }
+
   @override
   void dispose() {
     if (_notificationListener != null) {
@@ -75,6 +132,12 @@ class _AppState extends ConsumerState<App> {
         _notificationListener!,
       );
     }
+    if (_sharedImportListener != null) {
+      ref
+          .read(sharedJsonImportCoordinatorProvider)
+          .removeListener(_sharedImportListener!);
+    }
+    _authSubscription?.close();
     super.dispose();
   }
 
@@ -133,9 +196,8 @@ class _CupertinoAppShell extends ConsumerWidget {
         DefaultCupertinoLocalizations.delegate,
         DefaultWidgetsLocalizations.delegate,
       ],
-      builder: (context, child) => ScreenshotFeedbackScope(
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) =>
+          ScreenshotFeedbackScope(child: child ?? const SizedBox.shrink()),
       routerConfig: router,
     );
   }

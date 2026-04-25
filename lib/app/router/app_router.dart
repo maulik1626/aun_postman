@@ -57,9 +57,16 @@ GoRouter appRouter(AppRouterRef ref) {
   return GoRouter(
     navigatorKey: appRootNavigatorKey,
     initialLocation: AppRoutes.bootstrap,
+    // iOS share-sheet launches can arrive with a raw `file:///...json` platform
+    // route. Shared JSON imports are handled by the native bridge instead of
+    // router deep links, so we always start from our app bootstrap route.
+    overridePlatformDefaultLocation: true,
     debugLogDiagnostics: false,
-    redirect: (context, state) =>
-        appAuthRedirect(auth: auth, matchedLocation: state.matchedLocation),
+    redirect: (context, state) => appRouteRedirect(
+      auth: auth,
+      uri: state.uri,
+      matchedLocation: state.matchedLocation,
+    ),
     routes: [
       GoRoute(
         path: AppRoutes.bootstrap,

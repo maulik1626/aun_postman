@@ -18,19 +18,14 @@ Future<void> showLegalDocumentSheetMaterial(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: false,
-    showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    useSafeArea: true,
+    enableDrag: false,
+    showDragHandle: false,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (sheetContext) {
-      final height = MediaQuery.sizeOf(sheetContext).height * 0.85;
       return SizedBox(
-        height: height,
-        child: _LegalDocumentSheetMaterial(
-          initialUri: uri,
-          title: title,
-        ),
+        height: MediaQuery.sizeOf(sheetContext).height,
+        child: _LegalDocumentSheetMaterial(initialUri: uri, title: title),
       );
     },
   );
@@ -50,7 +45,8 @@ class _LegalDocumentSheetMaterial extends StatefulWidget {
       _LegalDocumentSheetMaterialState();
 }
 
-class _LegalDocumentSheetMaterialState extends State<_LegalDocumentSheetMaterial> {
+class _LegalDocumentSheetMaterialState
+    extends State<_LegalDocumentSheetMaterial> {
   late final WebViewController _controller;
   var _loading = true;
 
@@ -68,9 +64,7 @@ class _LegalDocumentSheetMaterialState extends State<_LegalDocumentSheetMaterial
               return NavigationDecision.navigate;
             }
             if (next != null) {
-              unawaited(
-                launchUrl(next, mode: LaunchMode.externalApplication),
-              );
+              unawaited(launchUrl(next, mode: LaunchMode.externalApplication));
             }
             return NavigationDecision.prevent;
           },

@@ -1,10 +1,13 @@
 import 'dart:io' show Platform;
 
 import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/screenshot_feedback/app_feedback_flow.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/constants/legal_urls.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/services/crashlytics_service.dart';
 import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
 import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
@@ -297,7 +300,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
             ],
           ),
 
-          if (AdConfig.ENABLE_ADS) ...[
+          if (AppConstants.enableAds) ...[
             _SectionHeaderMaterial(title: 'Ads', color: sectionColor),
             _SettingsGroupMaterial(
               children: [
@@ -447,18 +450,24 @@ class SettingsScreenMaterial extends ConsumerWidget {
             ),
           ],
 
-          // ── Danger Zone ───────────────────────────────────────────
-          _SectionHeaderMaterial(title: 'Danger zone', color: sectionColor),
+          _SectionHeaderMaterial(title: 'Feedback', color: sectionColor),
           _SettingsGroupMaterial(
             children: [
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text(
-                  'Clear All Data',
-                  style: TextStyle(color: Colors.red),
+                leading: const Icon(
+                  Icons.feedback_outlined,
+                  color: Colors.blue,
+                ),
+                title: const Text('Send App Feedback / Report Bug'),
+                subtitle: const Text(
+                  'Add a message, an image, or both before sending.',
                 ),
                 trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
-                onTap: () => _confirmClearAll(context, ref),
+                onTap: () => AppFeedbackFlow.showComposer(
+                  context: context,
+                  ref: ref,
+                  useMaterial: true,
+                ),
               ),
             ],
           ),
@@ -469,6 +478,9 @@ class SettingsScreenMaterial extends ConsumerWidget {
             future: PackageInfo.fromPlatform(),
             builder: (context, snapshot) {
               final info = snapshot.data;
+              final versionLabel = info != null
+                  ? '${info.version} (${info.buildNumber})'
+                  : '—';
               return _SettingsGroupMaterial(
                 children: [
                   ListTile(
@@ -482,9 +494,7 @@ class SettingsScreenMaterial extends ConsumerWidget {
                         maxWidth: MediaQuery.sizeOf(context).width * 0.42,
                       ),
                       child: Text(
-                        info != null
-                            ? '${info.version} (${info.buildNumber})'
-                            : '—',
+                        versionLabel,
                         style: TextStyle(
                           fontSize: 14,
                           color: secondary,
@@ -520,6 +530,46 @@ class SettingsScreenMaterial extends ConsumerWidget {
               );
             },
           ),
+          if (CrashlyticsService.showsInternalTools) ...[
+            _SectionHeaderMaterial(title: 'Internal QA', color: sectionColor),
+            _SettingsGroupMaterial(
+              children: [
+                ListTile(
+                  leading: const Icon(
+                    Icons.bug_report_outlined,
+                    color: Colors.orange,
+                  ),
+                  title: const Text('Send test non-fatal'),
+                  subtitle: const Text(
+                    'Records a verification event without crashing the app.',
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: tertiary,
+                  ),
+                  onTap: () => _recordCrashlyticsNonFatal(context),
+                ),
+                _settingsDivider(context),
+                ListTile(
+                  leading: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red,
+                  ),
+                  title: const Text('Force test crash'),
+                  subtitle: const Text(
+                    'Terminates the app so Crashlytics can verify fatal reporting.',
+                  ),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    size: 16,
+                    color: tertiary,
+                  ),
+                  onTap: () => _confirmForceCrash(context),
+                ),
+              ],
+            ),
+          ],
 
           // ── Legal ─────────────────────────────────────────────────
           _SectionHeaderMaterial(title: 'Legal', color: sectionColor),
@@ -576,6 +626,21 @@ class SettingsScreenMaterial extends ConsumerWidget {
             ],
           ),
 
+          _SectionHeaderMaterial(title: 'Danger Zone', color: sectionColor),
+          _SettingsGroupMaterial(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Clear All Data',
+                  style: TextStyle(color: Colors.red),
+                ),
+                trailing: Icon(Icons.chevron_right, size: 16, color: tertiary),
+                onTap: () => _confirmClearAll(context, ref),
+              ),
+            ],
+          ),
+
           _SectionHeaderMaterial(title: 'Session', color: sectionColor),
           _SettingsGroupMaterial(
             children: [
@@ -609,6 +674,49 @@ class SettingsScreenMaterial extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _recordCrashlyticsNonFatal(BuildContext context) async {
+    await CrashlyticsService.recordTestNonFatal();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Crashlytics test non-fatal recorded.')),
+    );
+  }
+
+  Future<void> _confirmForceCrash(BuildContext context) async {
+    final shouldCrash =
+        await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Force Crashlytics test crash?'),
+            content: const Text(
+              'The app will close immediately so Firebase can receive a fatal crash report.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Crash app'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldCrash) {
+      return;
+    }
+
+    await CrashlyticsService.log(
+      'Internal QA requested a Crashlytics test crash.',
+    );
+    CrashlyticsService.forceCrash();
   }
 
   void _showTimeoutPicker(BuildContext context, WidgetRef ref, int current) {
@@ -870,7 +978,6 @@ class SettingsScreenMaterial extends ConsumerWidget {
       ),
     );
   }
-
 }
 
 class _SectionHeaderMaterial extends StatelessWidget {

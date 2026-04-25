@@ -1,5 +1,7 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
@@ -83,21 +85,27 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
 
     final groups = _groupByDate(filtered);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('History'),
-        automaticallyImplyLeading: false,
-        actions: [
-          if (history.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Clear All',
-              onPressed: () => _confirmClearAll(context),
-            ),
-        ],
-      ),
-      body: CustomScrollView(
-        slivers: [
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        context.go(AppRoutes.collections);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('History'),
+          automaticallyImplyLeading: false,
+          actions: [
+            if (history.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Clear All',
+                onPressed: () => _confirmClearAll(context),
+              ),
+          ],
+        ),
+        body: CustomScrollView(
+          slivers: [
           if (history.isNotEmpty)
             SliverToBoxAdapter(
               child: Padding(
@@ -162,7 +170,7 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                       ),
                     ),
                   ),
-                  if (AdConfig.ENABLE_ADS &&
+                  if (AppConstants.enableAds &&
                       !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
@@ -367,7 +375,7 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                         ),
                       ),
                     ),
-                    if (AdConfig.ENABLE_ADS &&
+                    if (AppConstants.enableAds &&
                         !adSession.browseAdsDisabledByReward &&
                         AdConfig.history.shouldInsertAfterOrdinal(
                           entryOrdinal,
@@ -378,7 +386,8 @@ class _HistoryScreenMaterialState extends ConsumerState<HistoryScreenMaterial> {
                 );
               }, childCount: _flatHistoryCount(groups)),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

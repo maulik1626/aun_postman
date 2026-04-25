@@ -345,6 +345,7 @@ private final class FeedbackEmailPlugin: NSObject, MFMailComposeViewControllerDe
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventsPlugin: ScreenshotEventsPlugin?
   private var feedbackEmailPlugin: FeedbackEmailPlugin?
+  private let sharedJsonImportPlugin = SharedJsonImportPlugin.shared
 
   override func application(
     _ application: UIApplication,
@@ -352,6 +353,17 @@ private final class FeedbackEmailPlugin: NSObject, MFMailComposeViewControllerDe
   ) -> Bool {
     UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    if sharedJsonImportPlugin.handleIncomingURL(url) {
+      return true
+    }
+    return super.application(app, open: url, options: options)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -362,6 +374,7 @@ private final class FeedbackEmailPlugin: NSObject, MFMailComposeViewControllerDe
     let messenger = engineBridge.applicationRegistrar.messenger()
     IcloudBackupPlugin.register(messenger: messenger)
     screenshotEventsPlugin = ScreenshotEventsPlugin(messenger: messenger)
+    sharedJsonImportPlugin.register(messenger: messenger)
     if let rootController = window?.rootViewController {
       if let feedbackEmailPlugin {
         feedbackEmailPlugin.updatePresenter(rootController)

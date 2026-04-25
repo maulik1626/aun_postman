@@ -1,12 +1,15 @@
 import 'dart:io' show Platform;
 
 import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/screenshot_feedback/app_feedback_flow.dart';
 import 'package:aun_reqstudio/app/widgets/scaled_cupertino_switch.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
 import 'package:aun_reqstudio/app/widgets/cupertino_licenses_page.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/constants/legal_urls.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/services/crashlytics_service.dart';
 import 'package:aun_reqstudio/domain/enums/theme_preference.dart';
 import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
@@ -535,7 +538,7 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ],
                       ),
-                      if (AdConfig.ENABLE_ADS) ...[
+                      if (AppConstants.enableAds) ...[
                         const _SectionHeader(title: 'Ads'),
                         _SettingsGroup(
                           children: [
@@ -739,39 +742,21 @@ class SettingsScreen extends ConsumerWidget {
                           ],
                         ),
                       ],
-                      const _SectionHeader(title: 'Danger Zone'),
+                      const _SectionHeader(title: 'Feedback'),
                       _SettingsGroup(
                         children: [
-                          CupertinoButton(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 13,
-                            ),
-                            onPressed: () => _confirmClearAll(context, ref),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  CupertinoIcons.trash,
-                                  color: CupertinoColors.destructiveRed,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                const Expanded(
-                                  child: Text(
-                                    'Clear All Data',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: CupertinoColors.destructiveRed,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  CupertinoIcons.chevron_right,
-                                  size: 14,
-                                  color: CupertinoColors.tertiaryLabel
-                                      .resolveFrom(context),
-                                ),
-                              ],
+                          _CupertinoSettingsActionRow(
+                            icon: CupertinoIcons.chat_bubble_2,
+                            iconColor: CupertinoColors.systemBlue,
+                            title: 'Send App Feedback / Report Bug',
+                            value: 'Compose',
+                            subtitle:
+                                'Add a message, an image, or both before sending.',
+                            enabled: true,
+                            onTap: () => AppFeedbackFlow.showComposer(
+                              context: context,
+                              ref: ref,
+                              useMaterial: false,
                             ),
                           ),
                         ],
@@ -781,6 +766,9 @@ class SettingsScreen extends ConsumerWidget {
                         future: PackageInfo.fromPlatform(),
                         builder: (context, snapshot) {
                           final info = snapshot.data;
+                          final versionLabel = info != null
+                              ? '${info.version} (${info.buildNumber})'
+                              : '—';
                           return _SettingsGroup(
                             children: [
                               Padding(
@@ -804,9 +792,7 @@ class SettingsScreen extends ConsumerWidget {
                                       ),
                                     ),
                                     Text(
-                                      info != null
-                                          ? '${info.version} (${info.buildNumber})'
-                                          : '—',
+                                      versionLabel,
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: CupertinoColors.secondaryLabel
@@ -859,6 +845,40 @@ class SettingsScreen extends ConsumerWidget {
                           );
                         },
                       ),
+                      if (CrashlyticsService.showsInternalTools) ...[
+                        const _SectionHeader(title: 'Internal QA'),
+                        _SettingsGroup(
+                          children: [
+                            _CupertinoSettingsActionRow(
+                              icon: CupertinoIcons.ant,
+                              iconColor: CupertinoColors.systemOrange,
+                              title: 'Send test non-fatal',
+                              value: 'Send',
+                              subtitle:
+                                  'Records a verification event without crashing the app.',
+                              enabled: true,
+                              onTap: () => _recordCrashlyticsNonFatal(context),
+                            ),
+                            Container(
+                              height: 0.5,
+                              margin: const EdgeInsets.only(left: 50),
+                              color: CupertinoColors.separator.resolveFrom(
+                                context,
+                              ),
+                            ),
+                            _CupertinoSettingsActionRow(
+                              icon: CupertinoIcons.exclamationmark_triangle,
+                              iconColor: CupertinoColors.systemRed,
+                              title: 'Force test crash',
+                              value: 'Crash',
+                              subtitle:
+                                  'Terminates the app so Firebase can verify fatal reporting.',
+                              enabled: true,
+                              onTap: () => _confirmForceCrash(context),
+                            ),
+                          ],
+                        ),
+                      ],
                       const _SectionHeader(title: 'Legal'),
                       _SettingsGroup(
                         children: [
@@ -1025,6 +1045,43 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      const _SectionHeader(title: 'Danger Zone'),
+                      _SettingsGroup(
+                        children: [
+                          CupertinoButton(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 13,
+                            ),
+                            onPressed: () => _confirmClearAll(context, ref),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  CupertinoIcons.trash,
+                                  color: CupertinoColors.destructiveRed,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'Clear All Data',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: CupertinoColors.destructiveRed,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  CupertinoIcons.chevron_right,
+                                  size: 14,
+                                  color: CupertinoColors.tertiaryLabel
+                                      .resolveFrom(context),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       const _SectionHeader(title: 'Session'),
                       _SettingsGroup(
                         children: [
@@ -1095,6 +1152,62 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _recordCrashlyticsNonFatal(BuildContext context) async {
+    await CrashlyticsService.recordTestNonFatal();
+    if (!context.mounted) {
+      return;
+    }
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Crashlytics event sent'),
+        content: const Text(
+          'A test non-fatal event was recorded for Firebase verification.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmForceCrash(BuildContext context) async {
+    final shouldCrash =
+        await showCupertinoDialog<bool>(
+          context: context,
+          builder: (dialogContext) => CupertinoAlertDialog(
+            title: const Text('Force Crashlytics test crash?'),
+            content: const Text(
+              'The app will close immediately so Firebase can receive a fatal crash report.',
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDestructiveAction: true,
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Crash app'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldCrash) {
+      return;
+    }
+
+    await CrashlyticsService.log(
+      'Internal QA requested a Crashlytics test crash.',
+    );
+    CrashlyticsService.forceCrash();
   }
 
   void _showTimeoutPicker(BuildContext context, WidgetRef ref, int current) {
@@ -1353,7 +1466,6 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-
 }
 
 class _SectionHeader extends StatelessWidget {

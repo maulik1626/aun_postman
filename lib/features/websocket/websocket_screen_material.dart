@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/app_haptics.dart';
@@ -20,6 +21,7 @@ import 'package:aun_reqstudio/features/websocket/providers/ws_saved_compose_prov
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 const int _kMaxWsTabs = 8;
@@ -260,7 +262,13 @@ class _WebSocketScreenMaterialState
 
     _syncTabStripKeys(reg.tabs.map((t) => t.id).toSet());
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        context.go(AppRoutes.collections);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('WebSocket'),
         automaticallyImplyLeading: false,
@@ -363,6 +371,7 @@ class _WebSocketScreenMaterialState
           ),
         ),
       ],
+      ),
       ),
     );
   }

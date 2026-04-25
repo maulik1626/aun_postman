@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
@@ -48,7 +49,7 @@ NativeListAdTile _nativeAdTileCupertino(BuildContext context) {
     chromeColor: chrome,
     borderColor: border,
     labelColor: label,
-    height: 340,
+    height: 380,
     templateStyle: NativeTemplateStyle(
       templateType: TemplateType.medium,
       mainBackgroundColor: chrome,
@@ -326,7 +327,7 @@ class CollectionsScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
-                              if (AdConfig.ENABLE_ADS &&
+                              if (AppConstants.enableAds &&
                                   !adSession.browseAdsDisabledByReward &&
                                   AdConfig.collections.shouldInsertAfterOrdinal(
                                     index + 1,

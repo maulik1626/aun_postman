@@ -14,19 +14,14 @@ Future<void> showResponseHtmlPreviewSheetMaterial(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: false,
-    showDragHandle: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    useSafeArea: true,
+    enableDrag: false,
+    showDragHandle: false,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
     builder: (sheetContext) {
-      final height = MediaQuery.sizeOf(sheetContext).height * 0.88;
       return SizedBox(
-        height: height,
-        child: _ResponseHtmlPreviewSheetMaterial(
-          html: html,
-          title: title,
-        ),
+        height: MediaQuery.sizeOf(sheetContext).height,
+        child: _ResponseHtmlPreviewSheetMaterial(html: html, title: title),
       );
     },
   );
@@ -74,9 +69,7 @@ class _ResponseHtmlPreviewSheetMaterialState
             }
             if (next != null &&
                 (next.scheme == 'http' || next.scheme == 'https')) {
-              unawaited(
-                launchUrl(next, mode: LaunchMode.externalApplication),
-              );
+              unawaited(launchUrl(next, mode: LaunchMode.externalApplication));
             }
             return NavigationDecision.prevent;
           },
@@ -99,10 +92,7 @@ class _ResponseHtmlPreviewSheetMaterialState
           },
         ),
       )
-      ..loadHtmlString(
-        widget.html,
-        baseUrl: 'https://reqstudio.preview/',
-      );
+      ..loadHtmlString(widget.html, baseUrl: 'https://reqstudio.preview/');
   }
 
   @override

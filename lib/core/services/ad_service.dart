@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -60,8 +61,8 @@ class AdService {
 
   static String get _interstitialId => kDebugMode
       ? (Platform.isAndroid
-          ? _testAndroidInterstitialId
-          : _testIosInterstitialId)
+            ? _testAndroidInterstitialId
+            : _testIosInterstitialId)
       : (Platform.isAndroid ? _androidInterstitialId : _iosInterstitialId);
 
   static String get _nativeId => kDebugMode
@@ -91,7 +92,7 @@ class AdService {
   bool get isInitialized => _initialized;
 
   Future<void> initialize() async {
-    if (!AdConfig.ENABLE_ADS) return;
+    if (!AppConstants.enableAds) return;
     if (_initialized) return;
     try {
       await MobileAds.instance.initialize();
@@ -112,8 +113,8 @@ class AdService {
     void Function(Ad)? onAdLoaded,
     void Function(Ad, LoadAdError)? onAdFailedToLoad,
   }) {
-    if (!AdConfig.ENABLE_ADS) {
-      throw StateError('Ads are disabled by AdConfig.ENABLE_ADS.');
+    if (!AppConstants.enableAds) {
+      throw StateError('Ads are disabled by AppConstants.enableAds.');
     }
     return NativeAd(
       adUnitId: _nativeId,
@@ -137,8 +138,8 @@ class AdService {
     void Function(Ad)? onAdLoaded,
     void Function(Ad, LoadAdError)? onAdFailedToLoad,
   }) {
-    if (!AdConfig.ENABLE_ADS) {
-      throw StateError('Ads are disabled by AdConfig.ENABLE_ADS.');
+    if (!AppConstants.enableAds) {
+      throw StateError('Ads are disabled by AppConstants.enableAds.');
     }
     return _createBannerAd(
       onAdLoaded: onAdLoaded,
@@ -169,7 +170,7 @@ class AdService {
   }
 
   Future<void> preloadInterstitial() async {
-    if (!AdConfig.ENABLE_ADS) return;
+    if (!AppConstants.enableAds) return;
     if (!_initialized || _loadingInterstitial || _interstitialAd != null) {
       return;
     }
@@ -212,7 +213,7 @@ class AdService {
   }
 
   Future<void> preloadRewardedAd() async {
-    if (!AdConfig.ENABLE_ADS) return;
+    if (!AppConstants.enableAds) return;
     if (!_initialized || _loadingRewarded || _rewardedAd != null) {
       return;
     }
@@ -236,7 +237,7 @@ class AdService {
   }
 
   Future<RewardedAdShowResult> showRewardedAdForBrowseAdPause() async {
-    if (!AdConfig.ENABLE_ADS) return RewardedAdShowResult.unavailable;
+    if (!AppConstants.enableAds) return RewardedAdShowResult.unavailable;
     if (!_initialized || _showingInterstitial || _showingRewarded) {
       return RewardedAdShowResult.unavailable;
     }
@@ -303,7 +304,7 @@ class AdService {
   }
 
   Future<bool> _maybeShowInterstitial(AdInterstitialPlacement placement) async {
-    if (!AdConfig.ENABLE_ADS) return false;
+    if (!AppConstants.enableAds) return false;
     if (!_initialized || _showingInterstitial || _showingRewarded) {
       return false;
     }

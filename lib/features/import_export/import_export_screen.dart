@@ -3,20 +3,19 @@ import 'dart:io';
 
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
+import 'package:aun_reqstudio/core/platform/shared_json_import_channel.dart';
 import 'package:aun_reqstudio/core/platform/icloud_backup_channel.dart';
 import 'package:aun_reqstudio/core/services/ad_service.dart';
 import 'package:aun_reqstudio/core/utils/app_backup.dart';
 import 'package:aun_reqstudio/core/utils/full_backup_json.dart';
 import 'package:aun_reqstudio/core/utils/curl_parser.dart';
 import 'package:aun_reqstudio/core/utils/collection_v2_exporter.dart';
-import 'package:aun_reqstudio/core/utils/collection_v2_importer.dart';
-import 'package:aun_reqstudio/domain/models/environment.dart';
-import 'package:aun_reqstudio/domain/models/environment_variable.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/features/collections/providers/collections_provider.dart';
 import 'package:aun_reqstudio/features/environments/providers/active_environment_provider.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
+import 'package:aun_reqstudio/features/import_export/json_import_flow.dart';
 import 'package:aun_reqstudio/features/websocket/providers/ws_saved_compose_provider.dart';
 import 'package:aun_reqstudio/infrastructure/history_repository.dart';
 import 'package:aun_reqstudio/infrastructure/ws_saved_compose_repository.dart';
@@ -27,7 +26,6 @@ import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:uuid/uuid.dart';
 
 class ImportExportScreen extends ConsumerStatefulWidget {
   const ImportExportScreen({super.key});
@@ -37,10 +35,10 @@ class ImportExportScreen extends ConsumerStatefulWidget {
 }
 
 class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
-  static const _uuid = Uuid();
   bool _isLoading = false;
   String? _statusMessage;
   String? _lastImportedEnvUid; // uid of auto-created env, for navigation
+  VoidCallback? _sharedImportListener;
 
   /// iOS: after first [_refreshIcloudMeta] completes.
   bool _icloudMetaLoaded = false;
@@ -55,6 +53,14 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
         (_) => unawaited(_refreshIcloudMeta()),
       );
     }
+    final coordinator = ref.read(sharedJsonImportCoordinatorProvider);
+    _sharedImportListener = () {
+      unawaited(_consumePendingSharedImport());
+    };
+    coordinator.addListener(_sharedImportListener!);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_consumePendingSharedImport());
+    });
   }
 
   Future<void> _refreshIcloudMeta() async {
@@ -84,6 +90,31 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
     await AdService.instance.maybeShowPostImportExportInterstitial();
   }
 
+  void _handleBackNavigation() {
+    final router = GoRouter.of(context);
+    if (router.canPop()) {
+      router.pop();
+      return;
+    }
+    router.go(AppRoutes.collections);
+  }
+
+  Future<void> _deleteSharedImportFile(String path) async {
+    try {
+      await File(path).delete();
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    if (_sharedImportListener != null) {
+      ref
+          .read(sharedJsonImportCoordinatorProvider)
+          .removeListener(_sharedImportListener!);
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final collections = ref.watch(collectionsProvider);
@@ -98,7 +129,7 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
             largeTitle: const Text('Import / Export'),
             leading: CupertinoButton(
               padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
+              onPressed: _handleBackNavigation,
               minimumSize: const Size(44, 44),
               child: const Icon(CupertinoIcons.xmark),
             ),
@@ -577,32 +608,14 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (result == null || result.files.single.path == null) return;
 
       final content = await File(result.files.single.path!).readAsString();
-      final collection = CollectionV21Importer.import(content);
-      await ref.read(collectionsProvider.notifier).importCollection(collection);
-
-      // Auto-create an environment from every {{variable}} found in the collection.
-      final varNames = CollectionV21Importer.extractVariableNames(content);
-      String? createdEnvUid;
-      if (varNames.isNotEmpty) {
-        final environment = _buildEnvironmentFromVarNames(
-          '${collection.name} Variables',
-          varNames,
-        );
-        createdEnvUid = environment.uid;
-        await ref
-            .read(environmentsProvider.notifier)
-            .importEnvironment(environment);
-      }
-
-      setState(() {
-        _lastImportedEnvUid = createdEnvUid;
-        _statusMessage = createdEnvUid != null
-            ? 'Imported "${collection.name}" · created environment with ${varNames.length} variables'
-            : 'Imported "${collection.name}" successfully';
-      });
+      final outcome = await ImportExportJsonImporter.importCollectionFromContent(
+        ref: ref,
+        content: content,
+      );
+      _applyJsonImportOutcome(outcome);
       await _showPostImportExportAd();
     } catch (e) {
-      _showError(e.toString());
+      _showError(ImportExportJsonImporter.errorMessageFor(e));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -620,37 +633,18 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       if (result == null || result.files.single.path == null) return;
 
       final content = await File(result.files.single.path!).readAsString();
-      final env = CollectionV21Importer.importEnvironment(content);
-      await ref.read(environmentsProvider.notifier).importEnvironment(env);
-
-      setState(() {
-        _lastImportedEnvUid = env.uid;
-        _statusMessage =
-            'Imported environment "${env.name}" with ${env.variables.length} variables';
-      });
+      final outcome =
+          await ImportExportJsonImporter.importEnvironmentFromContent(
+            ref: ref,
+            content: content,
+          );
+      _applyJsonImportOutcome(outcome);
       await _showPostImportExportAd();
     } catch (e) {
-      _showError(e.toString());
+      _showError(ImportExportJsonImporter.errorMessageFor(e));
     } finally {
       setState(() => _isLoading = false);
     }
-  }
-
-  /// Creates an [Environment] with empty placeholder values for each variable name.
-  Environment _buildEnvironmentFromVarNames(
-    String name,
-    List<String> varNames,
-  ) {
-    final now = DateTime.now();
-    return Environment(
-      uid: _uuid.v4(),
-      name: name,
-      variables: varNames
-          .map((k) => EnvironmentVariable(uid: _uuid.v4(), key: k, value: ''))
-          .toList(),
-      createdAt: now,
-      updatedAt: now,
-    );
   }
 
   Future<void> _importCurl() async {
@@ -880,6 +874,45 @@ class _ImportExportScreenState extends ConsumerState<ImportExportScreen> {
       title: 'Import / Export',
       body: message,
     );
+  }
+
+  void _applyJsonImportOutcome(JsonImportOutcome outcome) {
+    setState(() {
+      _lastImportedEnvUid = outcome.lastImportedEnvUid;
+      _statusMessage = outcome.statusMessage;
+    });
+  }
+
+  Future<void> _consumePendingSharedImport() async {
+    if (!mounted || _isLoading) return;
+
+    final coordinator = ref.read(sharedJsonImportCoordinatorProvider);
+    final payload = coordinator.consumeNext();
+    if (payload == null) return;
+
+    setState(() => _isLoading = true);
+    try {
+      final content = await File(payload.path).readAsString();
+      final outcome = await ImportExportJsonImporter.importSharedJsonFromContent(
+        ref: ref,
+        content: content,
+        fileName: payload.fileName,
+      );
+      _applyJsonImportOutcome(outcome);
+      await _showPostImportExportAd();
+    } catch (e) {
+      _showError(ImportExportJsonImporter.errorMessageFor(e));
+    } finally {
+      unawaited(_deleteSharedImportFile(payload.path));
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      if (coordinator.hasPending) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_consumePendingSharedImport());
+        });
+      }
+    }
   }
 }
 

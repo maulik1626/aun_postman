@@ -1,12 +1,8 @@
 /// Centralized ad behavior configuration for the app.
 ///
-/// Keep all placement pacing and enable/disable switches here so ad behavior
-/// can be tuned without editing feature screens or ad service logic.
+/// Keep all placement pacing here so ad behavior can be tuned without editing
+/// feature screens or ad service logic.
 abstract final class AdConfig {
-  /// Master app-wide switch for all ad behavior and ad settings UI.
-  // ignore: constant_identifier_names
-  static const bool ENABLE_ADS = true;
-
   /// Default Collections insertion interval used before any user override.
   static const int defaultCollectionsInlineAdInterval = 10;
 

@@ -6,6 +6,8 @@ class AppConstants {
   static const int defaultTimeoutSeconds = 30;
   static const int maxHistoryEntries = 500;
   static const int maxResponseSizeBytes = 10 * 1024 * 1024; // 10 MB
+  static const bool enableAds = true;
+  static const bool enableScreenshotFeedbackTrigger = false;
 }
 
 class StorageKeys {

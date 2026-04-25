@@ -1,5 +1,6 @@
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
@@ -39,7 +40,7 @@ NativeListAdTile _nativeAdTileCupertino(BuildContext context) {
     chromeColor: chrome,
     borderColor: border,
     labelColor: label,
-    height: 340,
+    height: 380,
     templateStyle: NativeTemplateStyle(
       templateType: TemplateType.medium,
       mainBackgroundColor: chrome,
@@ -146,7 +147,7 @@ class EnvironmentsScreen extends ConsumerWidget {
                     ),
                   ),
                   SizedBox(height: bottomInset),
-                  if (AdConfig.ENABLE_ADS &&
+                  if (AppConstants.enableAds &&
                       !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.environments)
                     const BottomBannerAdSection(),
@@ -263,7 +264,7 @@ class EnvironmentsScreen extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            if (AdConfig.ENABLE_ADS &&
+                            if (AppConstants.enableAds &&
                                 !adSession.browseAdsDisabledByReward &&
                                 AdConfig.environments.shouldInsertAfterOrdinal(
                                   index + 1,

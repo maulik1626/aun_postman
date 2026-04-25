@@ -70,6 +70,37 @@ void main() {
       );
     });
   });
+
+  group('appRouteRedirect', () {
+    test('routes platform file launches through bootstrap', () {
+      final auth = AppAuthState(
+        status: AuthBootstrapStatus.ready,
+        user: _MockUser(),
+      );
+
+      expect(
+        appRouteRedirect(
+          auth: auth,
+          uri: Uri.parse('file:///private/var/mobile/Documents/Inbox/foo.json'),
+          matchedLocation: '/private/var/mobile/Documents/Inbox/foo.json',
+        ),
+        AppRoutes.bootstrap,
+      );
+    });
+
+    test('keeps normal app routes on auth redirect path', () {
+      const auth = AppAuthState(status: AuthBootstrapStatus.ready);
+
+      expect(
+        appRouteRedirect(
+          auth: auth,
+          uri: Uri.parse(AppRoutes.collections),
+          matchedLocation: AppRoutes.collections,
+        ),
+        AppRoutes.auth,
+      );
+    });
+  });
 }
 
 class _MockUser extends Mock implements User {}

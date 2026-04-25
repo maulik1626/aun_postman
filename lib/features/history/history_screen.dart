@@ -1,5 +1,6 @@
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
@@ -41,7 +42,7 @@ NativeListAdTile _nativeAdTileCupertino(BuildContext context) {
     chromeColor: chrome,
     borderColor: border,
     labelColor: label,
-    height: 340,
+    height: 380,
     templateStyle: NativeTemplateStyle(
       templateType: TemplateType.medium,
       mainBackgroundColor: chrome,
@@ -171,7 +172,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                       ),
                     ),
                   ),
-                  if (AdConfig.ENABLE_ADS &&
+                  if (AppConstants.enableAds &&
                       !adSession.browseAdsDisabledByReward &&
                       AdConfig.emptyStateBottomBanners.history)
                     const BottomBannerAdSection(),
@@ -414,7 +415,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                                 ),
                               ),
                             ),
-                            if (AdConfig.ENABLE_ADS &&
+                            if (AppConstants.enableAds &&
                                 !adSession.browseAdsDisabledByReward &&
                                 AdConfig.history.shouldInsertAfterOrdinal(
                                   entryOrdinal,

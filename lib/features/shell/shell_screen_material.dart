@@ -1,4 +1,3 @@
-import 'package:aun_reqstudio/app/platform.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,10 +7,16 @@ import 'package:go_router/go_router.dart';
 ///   Compact  < 600dp  → [NavigationBar] at bottom
 ///   Medium   600–839dp → [NavigationRail] on left
 ///   Expanded ≥ 840dp  → Extended [NavigationRail] on left (with labels)
-class ShellScreenMaterial extends StatelessWidget {
+class ShellScreenMaterial extends StatefulWidget {
   const ShellScreenMaterial({super.key, required this.shell});
+
   final StatefulNavigationShell shell;
 
+  @override
+  State<ShellScreenMaterial> createState() => _ShellScreenMaterialState();
+}
+
+class _ShellScreenMaterialState extends State<ShellScreenMaterial> {
   static const _destinations = [
     (
       icon: Icons.folder_outlined,
@@ -31,14 +36,10 @@ class ShellScreenMaterial extends StatelessWidget {
     ),
   ];
 
-  void _onTap(int index) {
-    shell.goBranch(index, initialLocation: index == shell.currentIndex);
-  }
+  StatefulNavigationShell get _shell => widget.shell;
 
-  bool _shouldRedirectAndroidBackToCollections(BuildContext context) {
-    if (!AppPlatform.isAndroid) return false;
-    if (shell.currentIndex == 0) return false;
-    return !GoRouter.of(context).canPop();
+  void _onTap(int index) {
+    _shell.goBranch(index, initialLocation: index == _shell.currentIndex);
   }
 
   @override
@@ -47,31 +48,19 @@ class ShellScreenMaterial extends StatelessWidget {
     final isCompact = width < 600;
     final child = isCompact
         ? _CompactShell(
-            shell: shell,
+            shell: _shell,
             destinations: _destinations,
             onTap: _onTap,
           )
         : _RailShell(
-            shell: shell,
+            shell: _shell,
             destinations: _destinations,
             onTap: _onTap,
             extended: width >= 840,
           );
-    final interceptBack = _shouldRedirectAndroidBackToCollections(context);
-
-    return PopScope<Object?>(
-      canPop: !interceptBack,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        if (!_shouldRedirectAndroidBackToCollections(context)) return;
-        shell.goBranch(0, initialLocation: true);
-      },
-      child: child,
-    );
+    return child;
   }
 }
-
-// ── Compact: NavigationBar at bottom ─────────────────────────────────────────
 
 class _CompactShell extends StatelessWidget {
   const _CompactShell({
@@ -106,8 +95,6 @@ class _CompactShell extends StatelessWidget {
   }
 }
 
-// ── Medium / Expanded: NavigationRail on left ─────────────────────────────────
-
 class _RailShell extends StatelessWidget {
   const _RailShell({
     required this.shell,
@@ -120,9 +107,6 @@ class _RailShell extends StatelessWidget {
   final List<({IconData icon, IconData selectedIcon, String label})>
   destinations;
   final void Function(int) onTap;
-
-  /// When [extended] is true the rail shows icon + label side-by-side
-  /// (expanded window class). When false, icons only (medium class).
   final bool extended;
 
   @override

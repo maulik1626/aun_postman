@@ -7,6 +7,7 @@ import 'package:aun_reqstudio/features/collections/providers/collections_provide
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/history/providers/history_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/app_settings_provider.dart';
+import 'package:aun_reqstudio/core/services/crashlytics_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -106,6 +107,13 @@ class AuthController extends StateNotifier<AppAuthState> {
       _authSubscription = FirebaseAuth.instance.authStateChanges().listen(
         _onFirebaseUserChanged,
         onError: (Object error, StackTrace stackTrace) {
+          unawaited(
+            CrashlyticsService.recordError(
+              error,
+              stackTrace,
+              reason: 'Auth state listener failed',
+            ),
+          );
           state = state.copyWith(
             status: AuthBootstrapStatus.setupError,
             errorMessage: 'Auth listener failed: $error',
@@ -113,6 +121,13 @@ class AuthController extends StateNotifier<AppAuthState> {
         },
       );
     } catch (error) {
+      unawaited(
+        CrashlyticsService.recordError(
+          error,
+          StackTrace.current,
+          reason: 'Auth bootstrap failed',
+        ),
+      );
       state = state.copyWith(
         status: AuthBootstrapStatus.setupError,
         errorMessage:
@@ -199,6 +214,7 @@ class AuthController extends StateNotifier<AppAuthState> {
   }
 
   Future<void> _onFirebaseUserChanged(User? user) async {
+    await CrashlyticsService.setUser(user);
     if (user == null) {
       state = state.copyWith(
         status: AuthBootstrapStatus.ready,
@@ -234,15 +250,35 @@ class AuthController extends StateNotifier<AppAuthState> {
     try {
       await run();
     } on AuthFailure catch (error) {
+      await CrashlyticsService.recordError(
+        error,
+        StackTrace.current,
+        reason: 'Handled auth failure',
+      );
       state = state.copyWith(errorMessage: error.message);
     } on FirebaseAuthException catch (error) {
       _logFirebaseAuthException(error);
+      await CrashlyticsService.recordError(
+        error,
+        StackTrace.current,
+        reason: 'Firebase auth exception',
+      );
       state = state.copyWith(errorMessage: _mapFirebaseError(error));
     } on PlatformException catch (error) {
       _logPlatformException(error);
+      await CrashlyticsService.recordError(
+        error,
+        StackTrace.current,
+        reason: 'Platform auth exception',
+      );
       state = state.copyWith(errorMessage: _mapPlatformError(error));
     } catch (error) {
       _logUnexpectedAuthError(error);
+      await CrashlyticsService.recordError(
+        error,
+        StackTrace.current,
+        reason: 'Unexpected auth error',
+      );
       state = state.copyWith(errorMessage: _mapUnknownAuthError(error));
     } finally {
       state = state.copyWith(isBusy: false, clearActiveAction: true);

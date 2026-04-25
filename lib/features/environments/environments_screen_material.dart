@@ -1,5 +1,7 @@
+import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
+import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/widgets/banner_ad_tile.dart';
 import 'package:aun_reqstudio/features/environments/providers/environments_provider.dart';
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
@@ -62,7 +64,13 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
       context,
     ).colorScheme.onSurface.withValues(alpha: 0.55);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        context.go(AppRoutes.collections);
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Environments'),
         automaticallyImplyLeading: false,
@@ -129,7 +137,7 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (AdConfig.ENABLE_ADS &&
+                if (AppConstants.enableAds &&
                     !adSession.browseAdsDisabledByReward &&
                     AdConfig.emptyStateBottomBanners.environments)
                   const BottomBannerAdSection(),
@@ -226,7 +234,7 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                           ),
                         ),
                       ),
-                      if (AdConfig.ENABLE_ADS &&
+                      if (AppConstants.enableAds &&
                           !adSession.browseAdsDisabledByReward &&
                           AdConfig.environments.shouldInsertAfterOrdinal(
                             index + 1,
@@ -238,6 +246,7 @@ class EnvironmentsScreenMaterial extends ConsumerWidget {
                 );
               },
             ),
+      ),
     );
   }
 
