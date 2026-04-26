@@ -1,11 +1,11 @@
 ---
-description: iOS = Cupertino UI; Android = Material 3 UI — strict separation by file and route
+description: iOS = Cupertino UI; Android = Material UI; Web = custom SaaS component UI — strict separation by file, route, and form factor
 alwaysApply: true
 ---
 
 # Platform UI split (strict)
 
-This app ships **two UI stacks**. Do not mix Cupertino and Material inside the same screen file.
+This app ships dedicated platform UI stacks. Do not mix Cupertino, Android Material, and Web custom component UI inside the same screen file.
 
 ## iOS (`defaultTargetPlatform == iOS`)
 
@@ -17,14 +17,41 @@ This app ships **two UI stacks**. Do not mix Cupertino and Material inside the s
 - Use **Material 3** from `package:flutter/material.dart` in **`*_material.dart`** files only (screens/widgets dedicated to Android).
 - **Do not** import `package:flutter/cupertino.dart` in `*_material.dart` (enforced by `test/no_cupertino_in_material_test.dart`).
 
+## Web (`AppPlatform.isWeb`)
+
+- Web uses a **custom AUN SaaS UI component system**, not raw Material 3 and never Cupertino.
+- Every web feature screen must live in a dedicated web file (`*_web.dart`) or a web-only folder (`lib/**/web/`). Do not point web routes to `*_material.dart` or Cupertino screen files.
+- Web route targets must be web-owned screen widgets; wrappers/adapters are allowed only if the underlying rendered screen is still web-dedicated.
+- Compact web widths follow the same Android-style product flow and information architecture, but render through reusable custom web components.
+- Web information architecture and flow are allowed to diverge from phone when needed for desktop/tablet usability; do not force mobile navigation/screen composition onto web.
+- Tablet and desktop web widths must adapt into production-grade Postman-like panel layouts, not stretched phone screens.
+- Desktop web workspace layout is strict: the left explorer pane owns Import/Export, Collections, History, Envs, and WebSockets; Collections shows a VS Code-style tree directly in that left pane; there is no middle collection-detail panel.
+- The right web workspace owns Chrome/Postman-style request tabs. Each request tab must have isolated draft, response, tests, selected subtab, dirty/sending/response status, and UI state. Keep inactive tabs mounted, dispose closed tabs, focus existing tabs for already-open saved requests, and require confirmation before closing dirty/new/sending tabs.
+- Before building any web UI, first check whether the component already exists. Reuse or extend it. If it does not exist, create a reusable component first, then use it in the feature.
+- Web-specific components must use shared tokens for color, spacing, typography, radius, elevation, focus, hover, loading, disabled, empty, and error states.
+- The brand CTA gradient, fonts (`Satoshi`, `JetBrainsMono`), method/status colors, and core UX language must remain consistent with the native apps.
+- Web-specific desktop workspace components may be introduced as `*_web.dart` or under `lib/**/web/` only when the platform guard tests are updated in the same task to allow those files.
+- Web compile paths must not import `dart:io`, mobile-only plugins, or platform channels directly. Put browser/mobile differences behind platform adapters or conditional imports.
+- Flutter Material widgets may be used only as low-level infrastructure when wrapped by app-owned web components and styled by app tokens. Do not scatter raw `Button`, `Card`, `Dialog`, `TabBar`, table, or input styling across feature screens.
+
 ## Routing
 
-- `lib/app/router/app_router.dart` must pick `*ScreenMaterial` vs `*Screen` with `AppPlatform.isAndroid` / `isIOS` so each platform only builds its widgets.
-- `lib/app/app.dart`: `MaterialApp.router` on Android, `CupertinoApp.router` on iOS.
+- `lib/app/platform.dart` must be the single source of truth for platform and form-factor checks.
+- `lib/app/router/app_router.dart` must pick Android Material screens, Web custom component screens, or iOS Cupertino screens so each platform only builds its widgets.
+- In `app_router`, the web arm of every platform ternary must resolve to a web-dedicated screen/widget (typically `*Web`/`*_web.dart`), never a `*Material` or Cupertino screen.
+- If a web equivalent does not exist yet, create it first; do not temporarily route web to phone screen files.
+- `lib/app/app.dart`: `MaterialApp.router` may host Android and Web for Flutter infrastructure, but web feature UI must still be app-owned custom components; `CupertinoApp.router` remains iOS-only.
 
 ## Shared logic
 
 - Providers, repositories, models: **no** Flutter UI imports for platform choice; keep logic platform-agnostic.
+- Browser-only and mobile-only behavior must live behind adapters/services. Do not fork business logic for web.
+
+## Web development SOP
+
+- Mandatory web standards and implementation gates live in `WEB_DEVELOPMENT_SOP.md`.
+- Every web feature/fix must follow that SOP, including responsive verification, keyboard/mouse behavior, accessibility, security, performance, and E2E coverage.
+- Every web feature/fix must follow the component-first rule: search existing component, reuse/extend it, or create a reusable component before implementing feature UI.
 
 ## Delivery standard (mandatory for every task)
 
@@ -32,14 +59,17 @@ This app ships **two UI stacks**. Do not mix Cupertino and Material inside the s
 - Build UI as **native-platform dedicated E2E**:
   - Cupertino path must be fully Cupertino-native.
   - Material path must be fully Material-native.
+  - Web path must be fully custom-component-native and adaptive across compact/tablet/desktop.
   - Avoid mixed widgets and avoid "single-UI compromise" implementations.
-- For any feature/fix touching UI or flow behavior, verify **end-to-end behavior on both platform paths** (or their dedicated tests/mocks where runtime E2E is unavailable).
+- For any feature/fix touching UI or flow behavior, verify **end-to-end behavior on all affected platform paths** (or their dedicated tests/mocks where runtime E2E is unavailable).
 - Before finishing a task, run and pass:
   - all relevant feature/unit/widget tests for the changed area,
   - platform guard tests (`test/no_material_import_test.dart`, `test/no_cupertino_in_material_test.dart`),
+  - web build/tests for web-impacting changes (`flutter build web --release` once web is enabled),
   - lint checks for edited files.
 - If gaps are discovered during validation, add or update tests in the same task so the behavior is enforced going forward.
 
 ## Tracker
 
 - Status and audit checklist: `MATERIAL_ANDROID_TRACKER.md`.
+- Web SOP and rollout plan: `WEB_DEVELOPMENT_SOP.md`.

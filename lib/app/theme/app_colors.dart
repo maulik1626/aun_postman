@@ -4,13 +4,14 @@ class AppColors {
   AppColors._();
 
   // Brand — Claude palette
-  static const Color seedColor = Color(0xFFDB952C);   // Brand gold
-  static const Color brandCream = Color(0xFFFAF3E3);  // Claude warm cream
+  static const Color seedColor = Color(0xFFDB952C); // Brand gold
+  static const Color brandCream = Color(0xFFFAF3E3); // Claude warm cream
   static const Color brandCharcoal = Color(0xFF1C1917); // Claude warm dark
+  static const Color webDarkBackground = Color(0xFF181818);
 
   // CTA gradient
   static const Color ctaStart = Color(0xFFFFBD59); // top-left
-  static const Color ctaEnd   = Color(0xFFDB952C); // bottom-right
+  static const Color ctaEnd = Color(0xFFDB952C); // bottom-right
   static const LinearGradient ctaGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -33,7 +34,7 @@ class AppColors {
   static const Color status5xx = Color(0xFFE74C3C);
 
   // Code Editor Background
-  static const Color editorDark = Color(0xFF1C1917);  // warm charcoal
+  static const Color editorDark = Color(0xFF1C1917); // warm charcoal
   static const Color editorLight = Color(0xFFFAF3E3); // warm cream
 
   static Color methodColor(String method) {

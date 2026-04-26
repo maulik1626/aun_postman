@@ -108,11 +108,13 @@ class ResponseViewerSheetMaterial extends StatefulWidget {
     required this.response,
     this.harRequest,
     this.harStartedAt,
+    this.showSheetHandle = true,
   });
 
   final HttpResponse response;
   final HttpRequest? harRequest;
   final DateTime? harStartedAt;
+  final bool showSheetHandle;
 
   @override
   State<ResponseViewerSheetMaterial> createState() =>
@@ -714,18 +716,18 @@ class _ResponseViewerSheetMaterialState
 
     return Column(
       children: [
-        // Drag handle
-        Center(
-          child: Container(
-            margin: const EdgeInsets.only(top: 8, bottom: 4),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: dividerColor,
-              borderRadius: BorderRadius.circular(2),
+        if (widget.showSheetHandle)
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
 
         // Status bar
         Padding(

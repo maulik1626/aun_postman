@@ -1,9 +1,9 @@
-import 'dart:io';
-
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/utils/json_comment_stripper.dart';
 import 'package:aun_reqstudio/core/utils/url_query_sync.dart';
 import 'package:aun_reqstudio/core/errors/error_handler.dart';
+import 'package:aun_reqstudio/data/http/cookie_date_parser.dart';
+import 'package:aun_reqstudio/data/http/dio_adapter_config.dart';
 import 'package:aun_reqstudio/data/http/interceptors/auth_interceptor.dart';
 import 'package:aun_reqstudio/data/http/interceptors/digest_auth_interceptor.dart';
 import 'package:aun_reqstudio/data/http/interceptors/timing_interceptor.dart';
@@ -14,8 +14,6 @@ import 'package:aun_reqstudio/domain/models/key_value_pair.dart';
 import 'package:aun_reqstudio/domain/models/request_body.dart';
 import 'package:aun_reqstudio/domain/models/response_cookie.dart';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:mime/mime.dart';
 
 class DioClient {
@@ -39,37 +37,12 @@ class DioClient {
       ),
     );
 
-    if (!kIsWeb) {
-      final adapter = dio.httpClientAdapter;
-      if (adapter is IOHttpClientAdapter) {
-        final proxy = httpProxy.trim();
-        adapter.createHttpClient = () {
-          final client = HttpClient();
-          if (!verifySsl) {
-            client.badCertificateCallback = (cert, host, port) => true;
-          }
-          if (proxy.isNotEmpty) {
-            client.findProxy = (_) {
-              if (proxy.toUpperCase() == 'DIRECT') return 'DIRECT';
-              if (proxy.contains('://')) {
-                final u = Uri.parse(proxy);
-                final h = u.host;
-                final p = u.hasPort ? u.port : 8080;
-                return 'PROXY $h:$p';
-              }
-              return 'PROXY $proxy';
-            };
-          }
-          return client;
-        };
-      }
-    }
+    configureDioAdapter(dio, verifySsl: verifySsl, httpProxy: httpProxy);
 
     dio.interceptors.addAll([
       TimingInterceptor(),
       AuthInterceptor(request.auth),
-      if (request.auth case final DigestAuth d)
-        DigestAuthInterceptor(dio, d),
+      if (request.auth case final DigestAuth d) DigestAuthInterceptor(dio, d),
     ]);
 
     // Query string comes only from enabled params (URL bar and Params tab stay in sync).
@@ -96,10 +69,7 @@ class DioClient {
       final response = await dio.request<List<int>>(
         url,
         data: data,
-        options: Options(
-          method: request.method.value,
-          headers: headers,
-        ),
+        options: Options(method: request.method.value, headers: headers),
         cancelToken: cancelToken,
       );
 
@@ -113,9 +83,7 @@ class DioClient {
         responseHeaders[name] = values.join(', ');
       });
 
-      final cookies = _parseCookies(
-        response.headers.map['set-cookie'] ?? [],
-      );
+      final cookies = _parseCookies(response.headers.map['set-cookie'] ?? []);
 
       return HttpResponse(
         statusCode: response.statusCode ?? 0,
@@ -139,8 +107,9 @@ class DioClient {
     Map<String, String> headers,
   ) async {
     // Auto-inject Content-Type when the user hasn't set one
-    final hasContentType =
-        headers.keys.any((k) => k.toLowerCase() == 'content-type');
+    final hasContentType = headers.keys.any(
+      (k) => k.toLowerCase() == 'content-type',
+    );
     if (!hasContentType) {
       switch (body) {
         case RawJsonBody():
@@ -164,16 +133,20 @@ class DioClient {
       RawXmlBody(:final content) => content,
       RawTextBody(:final content) => content,
       RawHtmlBody(:final content) => content,
-      UrlEncodedBody(:final fields) => fields
-          .where((f) => f.isEnabled)
-          .map((f) => '${Uri.encodeQueryComponent(f.key)}=${Uri.encodeQueryComponent(f.value)}')
-          .join('&'),
+      UrlEncodedBody(:final fields) =>
+        fields
+            .where((f) => f.isEnabled)
+            .map(
+              (f) =>
+                  '${Uri.encodeQueryComponent(f.key)}=${Uri.encodeQueryComponent(f.value)}',
+            )
+            .join('&'),
       FormDataBody(:final fields) => _buildFormData(fields),
       BinaryBody(:final filePath, :final mimeType) => await _buildBinary(
-          filePath,
-          mimeType,
-          headers,
-        ),
+        filePath,
+        mimeType,
+        headers,
+      ),
     };
   }
 
@@ -181,7 +154,8 @@ class DioClient {
     final formData = FormData();
     for (final field in fields.where((f) => f.isEnabled)) {
       if (field.isFile && field.filePath != null) {
-        final mime = lookupMimeType(field.filePath!) ?? 'application/octet-stream';
+        final mime =
+            lookupMimeType(field.filePath!) ?? 'application/octet-stream';
         formData.files.add(
           MapEntry(
             field.key,
@@ -203,9 +177,8 @@ class DioClient {
     String? mimeType,
     Map<String, String> headers,
   ) async {
-    final mime = mimeType ??
-        lookupMimeType(filePath) ??
-        'application/octet-stream';
+    final mime =
+        mimeType ?? lookupMimeType(filePath) ?? 'application/octet-stream';
     headers['Content-Type'] = mime;
     return MultipartFile.fromFileSync(
       filePath,
@@ -233,9 +206,7 @@ class DioClient {
         } else if (trimmed.startsWith('path=')) {
           path = part.trim().substring(5);
         } else if (trimmed.startsWith('expires=')) {
-          try {
-            expires = HttpDate.parse(part.trim().substring(8));
-          } catch (_) {}
+          expires = parseCookieExpiresValue(part.trim().substring(8));
         } else if (trimmed == 'httponly') {
           httpOnly = true;
         } else if (trimmed == 'secure') {

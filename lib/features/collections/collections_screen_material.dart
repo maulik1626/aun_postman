@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/web/web_toast.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
@@ -90,6 +91,10 @@ class _CollectionsScreenMaterialState
     }
 
     _lastExitBackPressAt = now;
+    if (AppPlatform.usesWebCustomUi) {
+      WebToast.show(context, message: _exitMessage, type: WebToastType.info);
+      return;
+    }
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger
       ?..hideCurrentSnackBar()

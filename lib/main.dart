@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:aun_reqstudio/app/app.dart';
 import 'package:aun_reqstudio/app/icloud_auto_backup_observer.dart';
 import 'package:aun_reqstudio/app/platform.dart';
-import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/services/ad_service.dart';
@@ -20,9 +19,11 @@ Future<void> main() async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-      ]);
+      if (!kIsWeb) {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+        ]);
+      }
 
       FlutterError.onError = (details) {
         FlutterError.presentError(details);
@@ -32,11 +33,6 @@ Future<void> main() async {
         );
         unawaited(CrashlyticsService.recordFlutterFatalError(details));
       };
-
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      await CrashlyticsService.initialize();
 
       PlatformDispatcher.instance.onError = (error, stackTrace) {
         unawaited(
@@ -51,14 +47,19 @@ Future<void> main() async {
       };
 
       try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        await CrashlyticsService.initialize();
+
         // Open all Hive boxes before the first frame.
         await initHive();
         await CrashlyticsService.log('Hive initialized.');
-        if (AppConstants.enableAds) {
+        if (AppConstants.enableAds && !AppPlatform.isWeb) {
           await AdService.instance.initialize();
         }
 
-        if (defaultTargetPlatform == TargetPlatform.iOS) {
+        if (AppPlatform.isIOS) {
           await UserNotification.init();
         }
 

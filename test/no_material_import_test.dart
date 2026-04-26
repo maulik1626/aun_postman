@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 const _allowedSuffixes = [
   // All material-specific screen/widget files
   '_material.dart',
+  // Web-specific UI files are allowed to use Material infrastructure.
+  '_web.dart',
 ];
 
 const _allowedPaths = {
@@ -16,11 +18,13 @@ const _allowedPaths = {
   'lib/app/router/app_router.dart',
   'lib/app/widgets/app_gradient_button.dart',
   'lib/app/utils/platform_dialogs.dart',
+  'lib/app/screenshot_feedback/app_feedback_flow.dart',
 };
 
 bool _isAllowed(String path) {
   // Normalize Windows separators.
   final p = path.replaceAll(r'\', '/');
+  if (p.contains('/web/')) return true;
   if (_allowedSuffixes.any((s) => p.endsWith(s))) return true;
   return _allowedPaths.any((allowed) => p.endsWith(allowed));
 }

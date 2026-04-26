@@ -15,6 +15,7 @@ class HiveBoxes {
   static const String envVariables = 'env_variables';
   static const String wsSavedCompose = 'ws_saved_compose';
   static const String requestBuilderDrafts = 'request_builder_drafts';
+  static const String webUiPrefs = 'web_ui_prefs';
 }
 
 /// Initialises Hive and opens all boxes. Called once at app startup.
@@ -29,6 +30,7 @@ Future<void> initHive() async {
     Hive.openBox<String>(HiveBoxes.envVariables),
     Hive.openBox<String>(HiveBoxes.wsSavedCompose),
     Hive.openBox<String>(HiveBoxes.requestBuilderDrafts),
+    Hive.openBox<String>(HiveBoxes.webUiPrefs),
   ]);
 }
 

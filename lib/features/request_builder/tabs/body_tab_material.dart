@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:aun_reqstudio/app/platform.dart';
+import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/json_auto_repair.dart';
@@ -61,23 +63,23 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
   }
 
   String _rawContent(RequestBody body) => switch (body) {
-        RawJsonBody(:final content) => content,
-        RawXmlBody(:final content) => content,
-        RawTextBody(:final content) => content,
-        RawHtmlBody(:final content) => content,
-        _ => '',
-      };
+    RawJsonBody(:final content) => content,
+    RawXmlBody(:final content) => content,
+    RawTextBody(:final content) => content,
+    RawHtmlBody(:final content) => content,
+    _ => '',
+  };
 
   BodyType _currentType(RequestBody body) => switch (body) {
-        NoBody() => BodyType.none,
-        RawJsonBody() => BodyType.rawJson,
-        RawXmlBody() => BodyType.rawXml,
-        RawTextBody() => BodyType.rawText,
-        RawHtmlBody() => BodyType.rawHtml,
-        FormDataBody() => BodyType.formData,
-        UrlEncodedBody() => BodyType.urlEncoded,
-        BinaryBody() => BodyType.binary,
-      };
+    NoBody() => BodyType.none,
+    RawJsonBody() => BodyType.rawJson,
+    RawXmlBody() => BodyType.rawXml,
+    RawTextBody() => BodyType.rawText,
+    RawHtmlBody() => BodyType.rawHtml,
+    FormDataBody() => BodyType.formData,
+    UrlEncodedBody() => BodyType.urlEncoded,
+    BinaryBody() => BodyType.binary,
+  };
 
   Future<void> _formatJson(BuildContext context) async {
     if (!context.mounted) return;
@@ -243,8 +245,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
             strip,
             divider,
             Expanded(
-              child:
-                  _buildEditor(context, body, currentType, squeezed: false),
+              child: _buildEditor(context, body, currentType, squeezed: false),
             ),
           ],
         );
@@ -300,18 +301,14 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
     double rawFieldMinHeight = 220,
   }) {
     final primary = Theme.of(context).colorScheme.primary;
-    final secondary = Theme.of(context)
-        .colorScheme
-        .onSurface
-        .withValues(alpha: 0.55);
+    final secondary = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.55);
 
     switch (type) {
       case BodyType.none:
         return Center(
-          child: Text(
-            'No Body',
-            style: TextStyle(color: secondary),
-          ),
+          child: Text('No Body', style: TextStyle(color: secondary)),
         );
 
       case BodyType.rawJson:
@@ -324,10 +321,11 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
           BodyType.rawHtml => 'HTML',
           _ => 'TEXT',
         };
-        final isDark =
-            Theme.of(context).brightness == Brightness.dark;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         final editorBg = isDark
-            ? const Color(0xFF1E1E1E)
+            ? AppPlatform.isWeb
+                  ? AppColors.webDarkBackground
+                  : const Color(0xFF1E1E1E)
             : Theme.of(context).colorScheme.surface;
         final editorFg = isDark
             ? const Color(0xFFABB2BF)
@@ -338,7 +336,8 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
           BodyType.rawHtml => 'html',
           _ => 'plaintext',
         };
-        final jsonInvalid = type == BodyType.rawJson &&
+        final jsonInvalid =
+            type == BodyType.rawJson &&
             !isValidJsonBodyContent(_bodyController.text);
 
         final Widget editorChrome;
@@ -349,8 +348,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
               builder: (context, constraints) => SingleChildScrollView(
                 padding: const EdgeInsets.all(12),
                 child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(minWidth: constraints.maxWidth),
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: HighlightView(
                     _bodyController.text,
                     language: highlightLang,
@@ -430,11 +428,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                   ),
                   if (jsonInvalid) ...[
                     const SizedBox(width: 8),
-                    Icon(
-                      Icons.error,
-                      size: 14,
-                      color: Colors.red,
-                    ),
+                    const Icon(Icons.error, size: 14, color: Colors.red),
                     const SizedBox(width: 4),
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 96),
@@ -469,8 +463,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                             if (!_syntaxHighlight) ...[
                               if (_bodyUndoController.value.canUndo)
                                 GestureDetector(
-                                  onTap: () =>
-                                      _bodyUndoController.undo(),
+                                  onTap: () => _bodyUndoController.undo(),
                                   child: Padding(
                                     padding: const EdgeInsets.all(6),
                                     child: Icon(
@@ -482,8 +475,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                                 ),
                               if (_bodyUndoController.value.canRedo)
                                 GestureDetector(
-                                  onTap: () =>
-                                      _bodyUndoController.redo(),
+                                  onTap: () => _bodyUndoController.redo(),
                                   child: Padding(
                                     padding: const EdgeInsets.all(6),
                                     child: Icon(
@@ -497,8 +489,7 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                                   _bodyUndoController.value.canRedo)
                                 const SizedBox(width: 4),
                             ],
-                            if (type == BodyType.rawJson &&
-                                jsonInvalid) ...[
+                            if (type == BodyType.rawJson && jsonInvalid) ...[
                               _ToolbarChip(
                                 icon: Icons.build,
                                 label: 'Repair',
@@ -511,17 +502,13 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                               icon: _syntaxHighlight
                                   ? Icons.edit
                                   : Icons.color_lens_outlined,
-                              label: _syntaxHighlight
-                                  ? 'Edit'
-                                  : 'Highlight',
+                              label: _syntaxHighlight ? 'Edit' : 'Highlight',
                               primary: primary,
                               isActive: _syntaxHighlight,
                               onTap: () {
-                                FocusManager.instance.primaryFocus
-                                    ?.unfocus();
+                                FocusManager.instance.primaryFocus?.unfocus();
                                 setState(
-                                  () => _syntaxHighlight =
-                                      !_syntaxHighlight,
+                                  () => _syntaxHighlight = !_syntaxHighlight,
                                 );
                               },
                             ),
@@ -587,15 +574,14 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
         final urlEditor = KeyValueEditorMaterial(
           shrinkWrap: squeezed,
           rows: fields
-              .map(
-                (f) =>
-                    (key: f.key, value: f.value, isEnabled: f.isEnabled),
-              )
+              .map((f) => (key: f.key, value: f.value, isEnabled: f.isEnabled))
               .toList(),
           keyPlaceholder: 'Field name',
           valuePlaceholder: 'Value',
           onChanged: (rows) {
-            ref.read(requestBuilderProvider.notifier).setBody(
+            ref
+                .read(requestBuilderProvider.notifier)
+                .setBody(
                   UrlEncodedBody(
                     fields: rows
                         .map(
@@ -646,14 +632,11 @@ class _BodyTabMaterialState extends ConsumerState<BodyTabMaterial> {
                     type: FileType.any,
                     allowMultiple: false,
                   );
-                  if (result != null &&
-                      result.files.single.path != null) {
+                  if (result != null && result.files.single.path != null) {
                     ref
                         .read(requestBuilderProvider.notifier)
                         .setBody(
-                          BinaryBody(
-                            filePath: result.files.single.path!,
-                          ),
+                          BinaryBody(filePath: result.files.single.path!),
                         );
                   }
                 },

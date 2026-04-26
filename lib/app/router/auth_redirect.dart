@@ -28,6 +28,10 @@ String? appRouteRedirect({
   required Uri uri,
   required String matchedLocation,
 }) {
+  if (!isSafeAppRouteUri(uri) || !isSafeMatchedLocation(matchedLocation)) {
+    return AppRoutes.bootstrap;
+  }
+
   if (isPlatformFileLaunchLocation(uri)) {
     return AppRoutes.bootstrap;
   }
@@ -37,4 +41,41 @@ String? appRouteRedirect({
 
 bool isPlatformFileLaunchLocation(Uri uri) {
   return uri.scheme.toLowerCase() == 'file';
+}
+
+bool isSafeAppRouteUri(Uri uri) {
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme.isNotEmpty &&
+      scheme != 'http' &&
+      scheme != 'https' &&
+      scheme != 'file') {
+    return false;
+  }
+
+  final raw = uri.toString().toLowerCase();
+  if (raw.contains('..') ||
+      raw.contains('%2e%2e') ||
+      raw.contains('%2f%2e') ||
+      raw.contains('%5c')) {
+    return false;
+  }
+
+  return true;
+}
+
+bool isSafeMatchedLocation(String matchedLocation) {
+  if (matchedLocation.isEmpty) {
+    return false;
+  }
+  if (!matchedLocation.startsWith('/')) {
+    return false;
+  }
+  final normalized = matchedLocation.toLowerCase();
+  if (normalized.contains('..') ||
+      normalized.contains('%2e%2e') ||
+      normalized.contains('%2f%2e') ||
+      normalized.contains('%5c')) {
+    return false;
+  }
+  return true;
 }

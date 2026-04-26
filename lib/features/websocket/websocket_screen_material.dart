@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
+import 'package:aun_reqstudio/app/web/web_toast.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/core/utils/app_haptics.dart';
@@ -30,6 +32,14 @@ final DateFormat _kWsMessageTimeFormat = DateFormat('h:mm:ss a');
 
 void _showWebsocketCopiedToastMaterial(BuildContext context) {
   if (!context.mounted) return;
+  if (AppPlatform.usesWebCustomUi) {
+    WebToast.show(
+      context,
+      message: 'Copied to clipboard',
+      type: WebToastType.success,
+    );
+    return;
+  }
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   final mq = MediaQuery.of(context);

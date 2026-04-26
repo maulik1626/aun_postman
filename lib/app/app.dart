@@ -7,6 +7,8 @@ import 'package:aun_reqstudio/app/router/app_router.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_scope_material.dart';
+import 'package:aun_reqstudio/app/web/drop_json_import/json_drop_import_listener.dart';
+import 'package:aun_reqstudio/app/web/web_toast.dart';
 import 'package:aun_reqstudio/core/platform/shared_json_import_channel.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
 import 'package:aun_reqstudio/app/theme/app_theme.dart';
@@ -15,6 +17,7 @@ import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/notifications/user_notification.dart';
 import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
+import 'package:aun_reqstudio/features/import_export/json_import_flow.dart';
 import 'package:aun_reqstudio/features/settings/providers/ad_session_provider.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -143,7 +146,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   Widget build(BuildContext context) {
-    return AppPlatform.isAndroid
+    return AppPlatform.usesMaterialAppHost
         ? const _MaterialAppShell()
         : const _CupertinoAppShell();
   }
@@ -227,7 +230,9 @@ class _MaterialAppShell extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.materialThemeLight(),
-      darkTheme: AppTheme.materialThemeDark(),
+      darkTheme: AppPlatform.isWeb
+          ? AppTheme.materialThemeWebDark()
+          : AppTheme.materialThemeDark(),
       // Edge-to-edge Android: 3-button nav overlaps content because [Scaffold]
       // does not inset [body] by [MediaQuery.padding] (see framework docs).
       // Physical bottom [SafeArea] shrinks the subtree (incl. navigator overlay),
@@ -254,16 +259,49 @@ class _MaterialAppShell extends ConsumerWidget {
         );
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: overlayStyle,
-          child: ScreenshotFeedbackScopeMaterial(
-            child: ColoredBox(
-              color: systemNavColor,
-              child: SafeArea(
-                top: false,
-                left: false,
-                right: false,
-                bottom: true,
-                maintainBottomViewPadding: true,
-                child: child ?? const SizedBox.shrink(),
+          child: JsonDropImportListener(
+            onJsonDropped: (content, fileName) async {
+              try {
+                final outcome =
+                    await ImportExportJsonImporter.importSharedJsonFromContent(
+                      ref: ref,
+                      content: content,
+                      fileName: fileName,
+                    );
+                if (!context.mounted) return;
+                WebToast.show(
+                  context,
+                  message: outcome.statusMessage,
+                  type: WebToastType.success,
+                );
+              } catch (error) {
+                if (!context.mounted) return;
+                WebToast.show(
+                  context,
+                  message: ImportExportJsonImporter.errorMessageFor(error),
+                  type: WebToastType.error,
+                );
+              }
+            },
+            onDropError: (message) {
+              if (!context.mounted) return;
+              WebToast.show(
+                context,
+                message: message,
+                type: WebToastType.error,
+              );
+            },
+            child: ScreenshotFeedbackScopeMaterial(
+              child: ColoredBox(
+                color: systemNavColor,
+                child: SafeArea(
+                  top: false,
+                  left: false,
+                  right: false,
+                  bottom: true,
+                  maintainBottomViewPadding: true,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

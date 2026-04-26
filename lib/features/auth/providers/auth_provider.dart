@@ -140,6 +140,10 @@ class AuthController extends StateNotifier<AppAuthState> {
     await _runBusyAction(
       action: AuthAction.google,
       run: () async {
+        if (kIsWeb) {
+          await FirebaseAuth.instance.signInWithPopup(GoogleAuthProvider());
+          return;
+        }
         final googleSignIn = GoogleSignIn.instance;
         await googleSignIn.initialize();
         final account = await googleSignIn.authenticate();
@@ -192,10 +196,12 @@ class AuthController extends StateNotifier<AppAuthState> {
         await _secureStorage.delete(key: StorageKeys.backendSessionToken);
         await _secureStorage.delete(key: StorageKeys.backendSessionIssuedAt);
         await FirebaseAuth.instance.signOut();
-        try {
-          await GoogleSignIn.instance.disconnect();
-        } catch (_) {
-          await GoogleSignIn.instance.signOut();
+        if (!kIsWeb) {
+          try {
+            await GoogleSignIn.instance.disconnect();
+          } catch (_) {
+            await GoogleSignIn.instance.signOut();
+          }
         }
         await _ref
             .read(appSettingsProvider.notifier)

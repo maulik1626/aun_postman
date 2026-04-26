@@ -1,8 +1,10 @@
 import 'dart:io' show Platform;
 
+import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/app_feedback_flow.dart';
 import 'package:aun_reqstudio/app/theme/app_theme_provider.dart';
+import 'package:aun_reqstudio/app/web/web_toast.dart';
 import 'package:aun_reqstudio/core/constants/ad_config.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/constants/legal_urls.dart';
@@ -679,6 +681,14 @@ class SettingsScreenMaterial extends ConsumerWidget {
   Future<void> _recordCrashlyticsNonFatal(BuildContext context) async {
     await CrashlyticsService.recordTestNonFatal();
     if (!context.mounted) {
+      return;
+    }
+    if (AppPlatform.usesWebCustomUi) {
+      WebToast.show(
+        context,
+        message: 'Crashlytics test non-fatal recorded.',
+        type: WebToastType.success,
+      );
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(

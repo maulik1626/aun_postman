@@ -320,160 +320,160 @@ class EnvironmentDetailScreenMaterial extends ConsumerWidget {
     // mutable sheet state in this scope so [StatefulBuilder] rebuilds don't reset it.
     var isSecret = initialSecret;
 
-    final result = await showModalBottomSheet<(String, String, bool)>(
-      context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) {
-          final primary = Theme.of(ctx).colorScheme.primary;
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
-            child: SafeArea(
-              top: false,
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () => FocusScope.of(ctx).unfocus(),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          margin: const EdgeInsets.only(top: 8, bottom: 4),
-                          width: 36,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Theme.of(ctx).dividerColor,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                        child: Text(
-                          initialKey.isEmpty ? 'New Variable' : 'Edit Variable',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          children: [
-                            TextField(
-                              controller: keyController,
-                              decoration: const InputDecoration(
-                                hintText: 'Key',
-                                labelText: 'Key',
-                              ),
-                              style: const TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 14,
-                              ),
-                              autofocus: initialKey.isEmpty,
+    try {
+      final result = await showModalBottomSheet<(String, String, bool)>(
+        context: context,
+        useSafeArea: true,
+        isScrollControlled: true,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setS) {
+            final primary = Theme.of(ctx).colorScheme.primary;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: SafeArea(
+                top: false,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => FocusScope.of(ctx).unfocus(),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 8, bottom: 4),
+                            width: 36,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Theme.of(ctx).dividerColor,
+                              borderRadius: BorderRadius.circular(2),
                             ),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: valueController,
-                              decoration: const InputDecoration(
-                                hintText: 'Value',
-                                labelText: 'Value',
-                              ),
-                              style: const TextStyle(
-                                fontFamily: 'JetBrainsMono',
-                                fontSize: 14,
-                              ),
-                              obscureText: isSecret,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Secret toggle row
-                      InkWell(
-                        onTap: () => setS(() => isSecret = !isSecret),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
                           ),
-                          child: Row(
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                          child: Text(
+                            initialKey.isEmpty
+                                ? 'New Variable'
+                                : 'Edit Variable',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
                             children: [
-                              Icon(
-                                isSecret
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                                size: 20,
-                                color: primary,
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Secret value',
-                                  style: TextStyle(fontSize: 16),
+                              TextField(
+                                controller: keyController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Key',
+                                  labelText: 'Key',
                                 ),
-                              ),
-                              Transform.scale(
-                                scale: 0.75,
-                                alignment: Alignment.centerRight,
-                                child: Switch(
-                                  value: isSecret,
-                                  activeThumbColor: primary,
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  onChanged: (v) => setS(() => isSecret = v),
+                                style: const TextStyle(
+                                  fontFamily: 'JetBrainsMono',
+                                  fontSize: 14,
                                 ),
+                                autofocus: initialKey.isEmpty,
+                              ),
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: valueController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Value',
+                                  labelText: 'Value',
+                                ),
+                                style: const TextStyle(
+                                  fontFamily: 'JetBrainsMono',
+                                  fontSize: 14,
+                                ),
+                                obscureText: isSecret,
                               ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            AppGradientButton.material(
-                              fullWidth: true,
-                              onPressed: () => Navigator.pop(ctx, (
-                                keyController.text.trim(),
-                                valueController.text,
-                                isSecret,
-                              )),
-                              child: const Text('Save'),
+                        const SizedBox(height: 12),
+                        // Secret toggle row
+                        InkWell(
+                          onTap: () => setS(() => isSecret = !isSecret),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: () => Navigator.pop(ctx),
-                              child: const Text('Cancel'),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isSecret
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 20,
+                                  color: primary,
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Text(
+                                    'Secret value',
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                                Transform.scale(
+                                  scale: 0.75,
+                                  alignment: Alignment.centerRight,
+                                  child: Switch(
+                                    value: isSecret,
+                                    activeThumbColor: primary,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    onChanged: (v) => setS(() => isSecret = v),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
+                        const SizedBox(height: 16),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              AppGradientButton.material(
+                                fullWidth: true,
+                                onPressed: () => Navigator.pop(ctx, (
+                                  keyController.text.trim(),
+                                  valueController.text,
+                                  isSecret,
+                                )),
+                                child: const Text('Save'),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
-
-    // Bottom sheet future can complete before the route finishes animating out;
-    // disposing immediately can race a final rebuild (see iOS using modal popup timing).
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+            );
+          },
+        ),
+      );
+      return result;
+    } finally {
       keyController.dispose();
       valueController.dispose();
-    });
-    return result;
+    }
   }
 }

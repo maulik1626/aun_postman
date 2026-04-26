@@ -5,8 +5,10 @@ import 'package:aun_reqstudio/app/router/app_routes.dart';
 import 'package:aun_reqstudio/domain/models/history_entry.dart';
 import 'package:aun_reqstudio/features/auth/auth_bootstrap_screen.dart';
 import 'package:aun_reqstudio/features/auth/auth_bootstrap_screen_material.dart';
+import 'package:aun_reqstudio/features/auth/auth_bootstrap_screen_web.dart';
 import 'package:aun_reqstudio/features/auth/auth_screen.dart';
 import 'package:aun_reqstudio/features/auth/auth_screen_material.dart';
+import 'package:aun_reqstudio/features/auth/auth_screen_web.dart';
 import 'package:aun_reqstudio/features/auth/providers/auth_provider.dart';
 import 'package:aun_reqstudio/features/collections/collection_auth_screen.dart';
 import 'package:aun_reqstudio/features/collections/collection_auth_screen_material.dart';
@@ -22,6 +24,7 @@ import 'package:aun_reqstudio/features/history/history_screen.dart';
 import 'package:aun_reqstudio/features/history/history_screen_material.dart';
 import 'package:aun_reqstudio/features/import_export/import_export_screen.dart';
 import 'package:aun_reqstudio/features/import_export/import_export_screen_material.dart';
+import 'package:aun_reqstudio/features/import_export/import_export_screen_web.dart';
 import 'package:aun_reqstudio/features/request_builder/request_builder_screen.dart';
 import 'package:aun_reqstudio/features/request_builder/request_builder_screen_material.dart';
 import 'package:aun_reqstudio/features/settings/default_headers_settings_screen.dart';
@@ -32,6 +35,7 @@ import 'package:aun_reqstudio/features/settings/settings_screen.dart';
 import 'package:aun_reqstudio/features/settings/settings_screen_material.dart';
 import 'package:aun_reqstudio/features/shell/shell_screen.dart';
 import 'package:aun_reqstudio/features/shell/shell_screen_material.dart';
+import 'package:aun_reqstudio/features/shell/shell_screen_web.dart';
 import 'package:aun_reqstudio/features/websocket/websocket_screen.dart';
 import 'package:aun_reqstudio/features/websocket/websocket_screen_material.dart';
 import 'package:flutter/cupertino.dart';
@@ -45,7 +49,7 @@ part 'app_router.g.dart';
 /// iOS uses [CupertinoPage] (swipe-back, hero transitions).
 /// Android uses [MaterialPage] (slide-left push transitions).
 Page<void> _page(Widget child, {bool fullscreenDialog = false}) {
-  if (AppPlatform.isAndroid) {
+  if (AppPlatform.usesMaterialAppHost) {
     return MaterialPage(child: child, fullscreenDialog: fullscreenDialog);
   }
   return CupertinoPage(child: child, fullscreenDialog: fullscreenDialog);
@@ -71,7 +75,9 @@ GoRouter appRouter(AppRouterRef ref) {
       GoRoute(
         path: AppRoutes.bootstrap,
         pageBuilder: (context, state) => _page(
-          AppPlatform.isAndroid
+          AppPlatform.usesWebCustomUi
+              ? const AuthBootstrapScreenWeb()
+              : AppPlatform.usesAndroidMaterialUi
               ? const AuthBootstrapScreenMaterial()
               : const AuthBootstrapScreen(),
         ),
@@ -79,13 +85,17 @@ GoRouter appRouter(AppRouterRef ref) {
       GoRoute(
         path: AppRoutes.auth,
         pageBuilder: (context, state) => _page(
-          AppPlatform.isAndroid
+          AppPlatform.usesWebCustomUi
+              ? const AuthScreenWeb()
+              : AppPlatform.usesAndroidMaterialUi
               ? const AuthScreenMaterial()
               : const AuthScreen(),
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) => AppPlatform.isAndroid
+        builder: (context, state, shell) => AppPlatform.usesWebCustomUi
+            ? ShellScreenWeb(shell: shell)
+            : AppPlatform.usesAndroidMaterialUi
             ? ShellScreenMaterial(shell: shell)
             : ShellScreen(shell: shell),
         branches: [
@@ -94,7 +104,9 @@ GoRouter appRouter(AppRouterRef ref) {
               GoRoute(
                 path: AppRoutes.collections,
                 pageBuilder: (context, state) => _page(
-                  AppPlatform.isAndroid
+                  AppPlatform.usesWebCustomUi
+                      ? const CollectionsScreenMaterial()
+                      : AppPlatform.usesAndroidMaterialUi
                       ? const CollectionsScreenMaterial()
                       : const CollectionsScreen(),
                 ),
@@ -102,7 +114,11 @@ GoRouter appRouter(AppRouterRef ref) {
                   GoRoute(
                     path: ':uid',
                     pageBuilder: (context, state) => _page(
-                      AppPlatform.isAndroid
+                      AppPlatform.usesWebCustomUi
+                          ? CollectionDetailScreenMaterial(
+                              uid: state.pathParameters['uid']!,
+                            )
+                          : AppPlatform.usesAndroidMaterialUi
                           ? CollectionDetailScreenMaterial(
                               uid: state.pathParameters['uid']!,
                             )
@@ -114,7 +130,14 @@ GoRouter appRouter(AppRouterRef ref) {
                       GoRoute(
                         path: 'request/new',
                         pageBuilder: (context, state) => _page(
-                          AppPlatform.isAndroid
+                          AppPlatform.usesWebCustomUi
+                              ? RequestBuilderScreenMaterial(
+                                  collectionUid: state.pathParameters['uid']!,
+                                  folderUid: state.extra is String
+                                      ? state.extra as String
+                                      : null,
+                                )
+                              : AppPlatform.usesAndroidMaterialUi
                               ? RequestBuilderScreenMaterial(
                                   collectionUid: state.pathParameters['uid']!,
                                   folderUid: state.extra is String
@@ -132,7 +155,16 @@ GoRouter appRouter(AppRouterRef ref) {
                       GoRoute(
                         path: 'request/:reqUid',
                         pageBuilder: (context, state) => _page(
-                          AppPlatform.isAndroid
+                          AppPlatform.usesWebCustomUi
+                              ? RequestBuilderScreenMaterial(
+                                  collectionUid: state.pathParameters['uid']!,
+                                  requestUid: state.pathParameters['reqUid'],
+                                  openedFromHistory: switch (state.extra) {
+                                    final HistoryEntry e => e,
+                                    _ => null,
+                                  },
+                                )
+                              : AppPlatform.usesAndroidMaterialUi
                               ? RequestBuilderScreenMaterial(
                                   collectionUid: state.pathParameters['uid']!,
                                   requestUid: state.pathParameters['reqUid'],
@@ -154,7 +186,11 @@ GoRouter appRouter(AppRouterRef ref) {
                       GoRoute(
                         path: 'auth',
                         pageBuilder: (context, state) => _page(
-                          AppPlatform.isAndroid
+                          AppPlatform.usesWebCustomUi
+                              ? CollectionAuthScreenMaterial(
+                                  collectionUid: state.pathParameters['uid']!,
+                                )
+                              : AppPlatform.usesAndroidMaterialUi
                               ? CollectionAuthScreenMaterial(
                                   collectionUid: state.pathParameters['uid']!,
                                 )
@@ -174,7 +210,9 @@ GoRouter appRouter(AppRouterRef ref) {
               GoRoute(
                 path: AppRoutes.history,
                 pageBuilder: (context, state) => _page(
-                  AppPlatform.isAndroid
+                  AppPlatform.usesWebCustomUi
+                      ? const HistoryScreenMaterial()
+                      : AppPlatform.usesAndroidMaterialUi
                       ? const HistoryScreenMaterial()
                       : const HistoryScreen(),
                 ),
@@ -186,7 +224,9 @@ GoRouter appRouter(AppRouterRef ref) {
               GoRoute(
                 path: AppRoutes.environments,
                 pageBuilder: (context, state) => _page(
-                  AppPlatform.isAndroid
+                  AppPlatform.usesWebCustomUi
+                      ? const EnvironmentsScreenMaterial()
+                      : AppPlatform.usesAndroidMaterialUi
                       ? const EnvironmentsScreenMaterial()
                       : const EnvironmentsScreen(),
                 ),
@@ -194,7 +234,11 @@ GoRouter appRouter(AppRouterRef ref) {
                   GoRoute(
                     path: ':uid',
                     pageBuilder: (context, state) => _page(
-                      AppPlatform.isAndroid
+                      AppPlatform.usesWebCustomUi
+                          ? EnvironmentDetailScreenMaterial(
+                              uid: state.pathParameters['uid']!,
+                            )
+                          : AppPlatform.usesAndroidMaterialUi
                           ? EnvironmentDetailScreenMaterial(
                               uid: state.pathParameters['uid']!,
                             )
@@ -212,7 +256,9 @@ GoRouter appRouter(AppRouterRef ref) {
               GoRoute(
                 path: AppRoutes.websocket,
                 pageBuilder: (context, state) => _page(
-                  AppPlatform.isAndroid
+                  AppPlatform.usesWebCustomUi
+                      ? const WebSocketScreenMaterial()
+                      : AppPlatform.usesAndroidMaterialUi
                       ? const WebSocketScreenMaterial()
                       : const WebSocketScreen(),
                 ),
@@ -224,7 +270,9 @@ GoRouter appRouter(AppRouterRef ref) {
       GoRoute(
         path: AppRoutes.settings,
         pageBuilder: (context, state) => _page(
-          AppPlatform.isAndroid
+          AppPlatform.usesWebCustomUi
+              ? const SettingsScreenMaterial()
+              : AppPlatform.usesAndroidMaterialUi
               ? const SettingsScreenMaterial()
               : const SettingsScreen(),
         ),
@@ -232,7 +280,9 @@ GoRouter appRouter(AppRouterRef ref) {
           GoRoute(
             path: 'default-headers',
             pageBuilder: (context, state) => _page(
-              AppPlatform.isAndroid
+              AppPlatform.usesWebCustomUi
+                  ? const DefaultHeadersSettingsScreenMaterial()
+                  : AppPlatform.usesAndroidMaterialUi
                   ? const DefaultHeadersSettingsScreenMaterial()
                   : const DefaultHeadersSettingsScreen(),
             ),
@@ -240,7 +290,9 @@ GoRouter appRouter(AppRouterRef ref) {
           GoRoute(
             path: 'proxy',
             pageBuilder: (context, state) => _page(
-              AppPlatform.isAndroid
+              AppPlatform.usesWebCustomUi
+                  ? const ProxySettingsScreenMaterial()
+                  : AppPlatform.usesAndroidMaterialUi
                   ? const ProxySettingsScreenMaterial()
                   : const ProxySettingsScreen(),
             ),
@@ -250,7 +302,9 @@ GoRouter appRouter(AppRouterRef ref) {
       GoRoute(
         path: AppRoutes.importExport,
         pageBuilder: (context, state) => _page(
-          AppPlatform.isAndroid
+          AppPlatform.usesWebCustomUi
+              ? const ImportExportScreenWeb()
+              : AppPlatform.usesAndroidMaterialUi
               ? const ImportExportScreenMaterial()
               : const ImportExportScreen(),
           fullscreenDialog: true,

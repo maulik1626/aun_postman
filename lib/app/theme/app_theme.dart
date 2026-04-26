@@ -9,10 +9,10 @@ class AppTheme {
   /// can lerp without mixing inherited vs explicit styles.
   static CupertinoTextThemeData cupertinoTextTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final labelColor =
-        isDark ? CupertinoColors.white : CupertinoColors.black;
-    final secondaryLabel =
-        isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43);
+    final labelColor = isDark ? CupertinoColors.white : CupertinoColors.black;
+    final secondaryLabel = isDark
+        ? const Color(0x99EBEBF5)
+        : const Color(0x993C3C43);
 
     return CupertinoTextThemeData(
       primaryColor: AppColors.seedColor,
@@ -92,26 +92,52 @@ class AppTheme {
 
   static ThemeData materialThemeLight() => _materialTheme(Brightness.light);
   static ThemeData materialThemeDark() => _materialTheme(Brightness.dark);
+  static ThemeData materialThemeWebDark() =>
+      _materialTheme(Brightness.dark, webDark: true);
 
-  static ThemeData _materialTheme(Brightness brightness) {
+  static ThemeData _materialTheme(
+    Brightness brightness, {
+    bool webDark = false,
+  }) {
     final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
+    final seedScheme = ColorScheme.fromSeed(
       seedColor: AppColors.seedColor,
       brightness: brightness,
     );
+    final webDarkBackground = webDark && isDark
+        ? AppColors.webDarkBackground
+        : null;
+    final darkBaseColor = webDarkBackground ?? AppColors.brandCharcoal;
+    final darkSurfaceColor = webDarkBackground ?? const Color(0xFF252018);
+    final darkFieldColor = webDarkBackground ?? const Color(0xFF2A2520);
+    final darkDividerColor = webDarkBackground == null
+        ? const Color(0xFF3A3530)
+        : const Color(0xFF323232);
+    final scheme = webDarkBackground == null
+        ? seedScheme
+        : seedScheme.copyWith(
+            surface: webDarkBackground,
+            surfaceDim: webDarkBackground,
+            surfaceBright: webDarkBackground,
+            surfaceContainerLowest: webDarkBackground,
+            surfaceContainerLow: webDarkBackground,
+            surfaceContainer: webDarkBackground,
+            surfaceContainerHigh: webDarkBackground,
+            surfaceContainerHighest: webDarkBackground,
+            surfaceTint: webDarkBackground,
+            outlineVariant: darkDividerColor,
+          );
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       brightness: brightness,
       fontFamily: 'Satoshi',
-      scaffoldBackgroundColor:
-          isDark ? AppColors.brandCharcoal : AppColors.brandCream,
+      scaffoldBackgroundColor: isDark ? darkBaseColor : AppColors.brandCream,
 
       // ── App bar ────────────────────────────────────────────────────────────
       appBarTheme: AppBarTheme(
-        backgroundColor:
-            isDark ? AppColors.brandCharcoal : AppColors.brandCream,
+        backgroundColor: isDark ? darkBaseColor : AppColors.brandCream,
         foregroundColor: AppColors.seedColor,
         elevation: 0,
         centerTitle: true,
@@ -128,17 +154,14 @@ class AppTheme {
 
       // ── Bottom nav / rail ──────────────────────────────────────────────────
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor:
-            isDark ? AppColors.brandCharcoal : AppColors.brandCream,
+        backgroundColor: isDark ? darkBaseColor : AppColors.brandCream,
         indicatorColor: AppColors.seedColor.withValues(alpha: 0.18),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: AppColors.seedColor, size: 22);
           }
           return IconThemeData(
-            color: isDark
-                ? const Color(0x99EBEBF5)
-                : const Color(0x993C3C43),
+            color: isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43),
             size: 22,
           );
         }),
@@ -156,13 +179,13 @@ class AppTheme {
       ),
 
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor:
-            isDark ? AppColors.brandCharcoal : AppColors.brandCream,
-        selectedIconTheme:
-            const IconThemeData(color: AppColors.seedColor, size: 22),
+        backgroundColor: isDark ? darkBaseColor : AppColors.brandCream,
+        selectedIconTheme: const IconThemeData(
+          color: AppColors.seedColor,
+          size: 22,
+        ),
         unselectedIconTheme: IconThemeData(
-          color:
-              isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43),
+          color: isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43),
           size: 22,
         ),
         selectedLabelTextStyle: const TextStyle(
@@ -182,9 +205,7 @@ class AppTheme {
       // ── Inputs ─────────────────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark
-            ? const Color(0xFF2A2520)
-            : const Color(0xFFF0E8D8),
+        fillColor: isDark ? darkFieldColor : const Color(0xFFF0E8D8),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -192,18 +213,17 @@ class AppTheme {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(
-            color: isDark
-                ? const Color(0xFF3A3530)
-                : const Color(0xFFDDD3C0),
+            color: isDark ? darkDividerColor : const Color(0xFFDDD3C0),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: AppColors.seedColor, width: 2),
+          borderSide: const BorderSide(color: AppColors.seedColor, width: 2),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         hintStyle: TextStyle(
           fontFamily: 'Satoshi',
           color: isDark ? const Color(0x66EBEBF5) : const Color(0x663C3C43),
@@ -229,13 +249,11 @@ class AppTheme {
       // ── Cards ──────────────────────────────────────────────────────────────
       cardTheme: CardThemeData(
         elevation: 0,
-        color: isDark ? const Color(0xFF252018) : const Color(0xFFF5EDD8),
+        color: isDark ? darkSurfaceColor : const Color(0xFFF5EDD8),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(
-            color: isDark
-                ? const Color(0xFF3A3530)
-                : const Color(0xFFDDD3C0),
+            color: isDark ? darkDividerColor : const Color(0xFFDDD3C0),
           ),
         ),
         margin: EdgeInsets.zero,
@@ -243,11 +261,8 @@ class AppTheme {
 
       // ── Dialogs ────────────────────────────────────────────────────────────
       dialogTheme: DialogThemeData(
-        backgroundColor:
-            isDark ? const Color(0xFF252018) : AppColors.brandCream,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: isDark ? darkSurfaceColor : AppColors.brandCream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titleTextStyle: TextStyle(
           fontFamily: 'Satoshi',
           fontSize: 17,
@@ -257,16 +272,13 @@ class AppTheme {
         contentTextStyle: TextStyle(
           fontFamily: 'Satoshi',
           fontSize: 14,
-          color: isDark
-              ? const Color(0x99EBEBF5)
-              : const Color(0x993C3C43),
+          color: isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43),
         ),
       ),
 
       // ── Bottom sheet ───────────────────────────────────────────────────────
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor:
-            isDark ? const Color(0xFF252018) : AppColors.brandCream,
+        backgroundColor: isDark ? darkSurfaceColor : AppColors.brandCream,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -277,9 +289,7 @@ class AppTheme {
 
       // ── Divider ────────────────────────────────────────────────────────────
       dividerTheme: DividerThemeData(
-        color: isDark
-            ? const Color(0xFF3A3530)
-            : const Color(0xFFDDD3C0),
+        color: isDark ? darkDividerColor : const Color(0xFFDDD3C0),
         thickness: 0.5,
         space: 0,
       ),
@@ -295,9 +305,7 @@ class AppTheme {
         subtitleTextStyle: TextStyle(
           fontFamily: 'Satoshi',
           fontSize: 13,
-          color: isDark
-              ? const Color(0x99EBEBF5)
-              : const Color(0x993C3C43),
+          color: isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43),
         ),
       ),
 
@@ -308,25 +316,38 @@ class AppTheme {
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
-        shape: RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(seconds: 2),
+        textStyle: TextStyle(
+          fontFamily: 'Satoshi',
+          fontSize: 12,
+          color: isDark ? Colors.white : AppColors.brandCharcoal,
+        ),
+        decoration: BoxDecoration(
+          color: isDark ? darkSurfaceColor : const Color(0xFFF5EDD8),
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isDark ? darkDividerColor : const Color(0xFFDDD3C0),
+          ),
         ),
       ),
     );
   }
 
   static TextTheme _materialTextTheme(bool isDark) {
-    final baseColor =
-        isDark ? Colors.white : AppColors.brandCharcoal;
-    final mutedColor =
-        isDark ? const Color(0x99EBEBF5) : const Color(0x993C3C43);
+    final baseColor = isDark ? Colors.white : AppColors.brandCharcoal;
+    final mutedColor = isDark
+        ? const Color(0x99EBEBF5)
+        : const Color(0x993C3C43);
 
     TextStyle s(double size, FontWeight weight, Color color) => TextStyle(
-          fontFamily: 'Satoshi',
-          fontSize: size,
-          fontWeight: weight,
-          color: color,
-        );
+      fontFamily: 'Satoshi',
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+    );
 
     return TextTheme(
       displayLarge: s(57, FontWeight.w700, baseColor),

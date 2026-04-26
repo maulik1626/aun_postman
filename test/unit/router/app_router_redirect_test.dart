@@ -100,6 +100,54 @@ void main() {
         AppRoutes.auth,
       );
     });
+
+    test('routes unsupported URI schemes to bootstrap', () {
+      final auth = AppAuthState(
+        status: AuthBootstrapStatus.ready,
+        user: _MockUser(),
+      );
+
+      expect(
+        appRouteRedirect(
+          auth: auth,
+          uri: Uri.parse('javascript:alert(1)'),
+          matchedLocation: AppRoutes.collections,
+        ),
+        AppRoutes.bootstrap,
+      );
+    });
+
+    test('routes path traversal URIs to bootstrap', () {
+      final auth = AppAuthState(
+        status: AuthBootstrapStatus.ready,
+        user: _MockUser(),
+      );
+
+      expect(
+        appRouteRedirect(
+          auth: auth,
+          uri: Uri.parse('/collections/%2e%2e/settings'),
+          matchedLocation: '/collections/%2e%2e/settings',
+        ),
+        AppRoutes.bootstrap,
+      );
+    });
+
+    test('routes non-slash matched locations to bootstrap', () {
+      final auth = AppAuthState(
+        status: AuthBootstrapStatus.ready,
+        user: _MockUser(),
+      );
+
+      expect(
+        appRouteRedirect(
+          auth: auth,
+          uri: Uri.parse('/collections'),
+          matchedLocation: 'collections',
+        ),
+        AppRoutes.bootstrap,
+      );
+    });
   });
 }
 

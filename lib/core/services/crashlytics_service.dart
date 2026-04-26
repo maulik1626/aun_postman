@@ -27,6 +27,9 @@ class CrashlyticsService {
     if (_initialized) {
       return;
     }
+    if (kIsWeb) {
+      return;
+    }
 
     _analytics = FirebaseAnalytics.instance;
     await _analytics!.setAnalyticsCollectionEnabled(true);

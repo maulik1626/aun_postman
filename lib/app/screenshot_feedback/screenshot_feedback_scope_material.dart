@@ -7,6 +7,7 @@ import 'package:aun_reqstudio/app/platform.dart';
 import 'package:aun_reqstudio/app/router/app_navigator.dart';
 import 'package:aun_reqstudio/app/screenshot_feedback/screenshot_feedback_email.dart';
 import 'package:aun_reqstudio/app/theme/app_colors.dart';
+import 'package:aun_reqstudio/app/web/web_toast.dart';
 import 'package:aun_reqstudio/app/widgets/app_gradient_button.dart';
 import 'package:aun_reqstudio/core/constants/app_constants.dart';
 import 'package:aun_reqstudio/core/platform/feedback_device_info.dart';
@@ -417,6 +418,14 @@ class _ScreenshotFeedbackScopeMaterialState
   }) async {
     if (!mounted) return;
     try {
+      if (AppPlatform.usesWebCustomUi) {
+        WebToast.show(
+          context,
+          message: '$title - $body',
+          type: WebToastType.info,
+        );
+        return;
+      }
       final messenger = ScaffoldMessenger.maybeOf(context);
       if (messenger != null) {
         messenger
