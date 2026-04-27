@@ -1,7 +1,5 @@
-import 'dart:convert';
-import 'dart:html' as html;
-
-import 'package:flutter/services.dart';
+import 'browser_json_export_stub.dart'
+    if (dart.library.html) 'browser_json_export_web.dart' as impl;
 
 String safeJsonFileName(String value) {
   final safe = value
@@ -12,18 +10,9 @@ String safeJsonFileName(String value) {
 }
 
 void downloadJsonFile({required String fileName, required String content}) {
-  final bytes = utf8.encode(content);
-  final blob = html.Blob([bytes], 'application/json');
-  final url = html.Url.createObjectUrlFromBlob(blob);
-  final anchor = html.AnchorElement(href: url)
-    ..style.display = 'none'
-    ..download = fileName;
-  html.document.body?.children.add(anchor);
-  anchor.click();
-  anchor.remove();
-  html.Url.revokeObjectUrl(url);
+  impl.downloadJsonFileImpl(fileName: fileName, content: content);
 }
 
 Future<void> copyJsonToClipboard(String content) {
-  return Clipboard.setData(ClipboardData(text: content));
+  return impl.copyJsonToClipboardImpl(content);
 }
